@@ -1,0 +1,18 @@
+@using System.Net.Http
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.JSInterop
+@using MudBlazor
+@using Regal.Web
+@using Regal.Web.Components
+@using Regal.Web.Components.Layout
+@using Regal.Web.Features.Auth
+
+@* Secure by default: every page in the project needs a login unless it opts out with [AllowAnonymous]. *@
+@attribute [Authorize]

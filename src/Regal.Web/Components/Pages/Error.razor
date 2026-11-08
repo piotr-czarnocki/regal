@@ -1,0 +1,26 @@
+﻿@page "/Error"
+@attribute [AllowAnonymous]
+@using System.Diagnostics
+
+<PageTitle>Błąd – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Wystąpił błąd</MudText>
+    <MudText>Nie udało się obsłużyć żądania.</MudText>
+
+    @if (ShowRequestId)
+    {
+        <MudText Class="mt-2">Identyfikator żądania: <code>@RequestId</code></MudText>
+    }
+</MudContainer>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

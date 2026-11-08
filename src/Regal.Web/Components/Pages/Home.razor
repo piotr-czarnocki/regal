@@ -1,0 +1,10 @@
+﻿@page "/"
+
+<PageTitle>Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Regał</MudText>
+    <AuthorizeView>
+        <MudText>Zalogowano jako @context.User.Identity?.Name.</MudText>
+    </AuthorizeView>
+</MudContainer>

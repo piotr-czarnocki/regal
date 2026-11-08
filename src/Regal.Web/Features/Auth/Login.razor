@@ -1,0 +1,29 @@
+@page "/login"
+@attribute [AllowAnonymous]
+
+<PageTitle>Logowanie – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-8">
+    <MudPaper Class="pa-6" Elevation="2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Logowanie</MudText>
+
+        @if (Error is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">Nie udało się zalogować przez Google. Spróbuj ponownie.</MudAlert>
+        }
+
+        <MudText Class="mb-4">Dostęp mają tylko osoby dodane do listy użytkowników.</MudText>
+
+        @* A native form: this navigation must leave the Blazor circuit. *@
+        <form method="get" action="/auth/login">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">
+                Zaloguj przez Google
+            </MudButton>
+        </form>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? Error { get; set; }
+}

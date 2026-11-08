@@ -1,0 +1,17 @@
+@page "/access-denied"
+@attribute [AllowAnonymous]
+
+<PageTitle>Brak dostępu – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-8">
+    <MudPaper Class="pa-6" Elevation="2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Brak dostępu</MudText>
+        <MudText Class="mb-4">To konto nie ma dostępu do Regału. Skontaktuj się z administratorem albo użyj innego konta.</MudText>
+
+        <form method="get" action="/auth/login">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">
+                Zaloguj innym kontem
+            </MudButton>
+        </form>
+    </MudPaper>
+</MudContainer>

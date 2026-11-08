@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore Regal.slnx
+      - name: Build
+        run: dotnet build Regal.slnx --no-restore --configuration Release
+      - name: Test
+        # Integration tests start PostgreSQL through the Docker engine on the runner.
+        run: dotnet test Regal.slnx --no-build --configuration Release --verbosity normal
