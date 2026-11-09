@@ -46,3 +46,9 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Przyczyna:** działanie wykraczające poza potrzebę. Maskowanie wyniku nie zmienia faktu, że sekret został pobrany przez proces uruchomiony przez narzędzie.
 - **Rozwiązanie:** reguły `deny` w `.claude/settings.json` dla `git credential`, `dotnet user-secrets list` i odczytu `.env` oraz zasada w `CLAUDE.md`: poświadczeń nie odczytujemy nigdy, także w celu sprawdzenia.
 - **Wniosek:** reguły `deny` dopasowują tekst polecenia, więc nie zatrzymają np. `sh -c` ani skryptu. Są dodatkowym zabezpieczeniem, a nie granicą bezpieczeństwa. Katalog `.claude/` jest w `.gitignore`, więc reguły działają tylko na tym komputerze, a zasada w `CLAUDE.md` jest w repozytorium.
+
+### Test zakleszczenia przechodził także bez blokady
+
+- **Objaw:** po usunięciu `FOR UPDATE` padły cztery testy współbieżności, ale test dokumentów z produktami w odwrotnej kolejności nadal był zielony.
+- **Przyczyna:** test tworzył same WZ. Licznik numerów jest zwiększany przed zmianą stanów i blokuje swój wiersz do końca transakcji, więc dokumenty jednego typu nigdy nie zmieniały stanów jednocześnie.
+- **Rozwiązanie:** test miesza WZ i RW, które mają osobne liczniki. Bez blokady kończy się teraz błędem `40P01: deadlock detected`. Szczegóły są w `analiza-dynamiczna.md`.

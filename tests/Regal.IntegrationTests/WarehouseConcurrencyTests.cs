@@ -88,12 +88,14 @@ public class WarehouseConcurrencyTests(PostgresFixture postgres) : WarehouseTest
         var second = await NewGoodsAsync();
         await PostOkAsync(Pz(In(first, 100, 5m), In(second, 100, 5m)));
 
-        var results = await PostAllAsync(Enumerable.Range(0, 30)
-            .Select(i => i % 2 == 0 ? Wz(Out(first, 1), Out(second, 1)) : Wz(Out(second, 1), Out(first, 1))));
+        // Two types on purpose: documents of one type already queue at their number counter,
+        // and that alone would keep them from ever updating stock at the same time.
+        var results = await PostAllAsync(Enumerable.Range(0, 40)
+            .Select(i => i % 2 == 0 ? Wz(Out(first, 1), Out(second, 1)) : Rw(Out(second, 1), Out(first, 1))));
 
         Assert.All(results, r => Assert.True(r.IsSuccess, r.Error));
-        Assert.Equal(70m, await StockOfAsync(first));
-        Assert.Equal(70m, await StockOfAsync(second));
+        Assert.Equal(60m, await StockOfAsync(first));
+        Assert.Equal(60m, await StockOfAsync(second));
     }
 
     [Fact]
