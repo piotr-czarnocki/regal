@@ -121,6 +121,13 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 
 ## Etap „Testy i oddanie” (10.11.2026)
 
+### Generator zapisał dane do bazy deweloperskiej zamiast do testowej
+
+- **Objaw:** generator uruchomiony dla osobnej bazy wydajnościowej (zmienna `ConnectionStrings__Regal`) zostawił ją pustą i zakończył się błędem `relation "Invoices" does not exist`.
+- **Przyczyna:** narzędzie dodawało User Secrets projektu webowego po domyślnych źródłach konfiguracji, więc miały one najwyższy priorytet. Generator połączył się z lokalną bazą deweloperską z User Secrets i zdążył w niej utworzyć produkty `PERF-…`, kontrahentów „(PERF n)”, użytkownika `dane-testowe@regal.invalid` oraz dokumenty przyjęcia z pierwszego dnia symulacji. Przerwał przy pierwszej fakturze, bo ta baza nie miała jeszcze migracji `AddInvoices`.
+- **Rozwiązanie:** konfiguracja generatora jest budowana ręcznie w kolejności: wiersz poleceń, zmienne środowiskowe, User Secrets. Przed zapisem generator wypisuje bazę docelową (host, port, nazwa, użytkownik, bez hasła). Danych w bazie deweloperskiej nie da się usunąć rolą aplikacji, bo dokumenty są niezmienne; sprzątanie wymaga roli właściciela albo wyczyszczenia bazy deweloperskiej.
+- **Wniosek:** narzędzie, które pisze do bazy, powinno pokazać, dokąd pisze, zanim cokolwiek zrobi. Kolejność źródeł konfiguracji trzeba ustalać jawnie, a nie zakładać.
+
 ### Cena „2,50” zapisywała się jako 250
 
 - **Objaw:** test w przeglądarce (Playwright) po dwóch przyjęciach po 2,50 i 3,10 zł dostał cenę średnią 270,0000 zamiast 2,7000. Liczby całkowite działały, a testy jednostkowe i integracyjne były zielone.
