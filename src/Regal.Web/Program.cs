@@ -86,3 +86,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 await app.RunAsync();
+
+/// <summary>Public so the end-to-end and load tests can host the application.</summary>
+public partial class Program;

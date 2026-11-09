@@ -21,6 +21,8 @@ jobs:
         run: dotnet restore Regal.slnx
       - name: Build
         run: dotnet build Regal.slnx --no-restore --configuration Release
+      - name: Install the browser for end-to-end tests
+        run: pwsh tests/Regal.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
       - name: Test
         # Integration tests start PostgreSQL through the Docker engine on the runner.
         run: dotnet test Regal.slnx --no-build --configuration Release --verbosity normal

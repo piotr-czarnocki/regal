@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Regal.Web.Integrations.Fakturownia;
 
-namespace Regal.IntegrationTests;
+namespace Regal.TestHost;
 
 /// <summary>Stands in for Fakturownia. Like the real one, it refuses a second invoice with the same oid.</summary>
 public sealed class FakeFakturownia : IFakturowniaClient
