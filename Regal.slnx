@@ -6,4 +6,7 @@
     <Project Path="tests/Regal.IntegrationTests/Regal.IntegrationTests.csproj" />
     <Project Path="tests/Regal.UnitTests/Regal.UnitTests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Regal.DataGenerator/Regal.DataGenerator.csproj" />
+  </Folder>
 </Solution>

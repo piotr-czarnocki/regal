@@ -112,3 +112,17 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 
 - **Objaw:** domyślnie `barcode-detector` ładuje `zxing_reader.wasm` z jsDelivr.
 - **Rozwiązanie:** pliki skopiowane do `wwwroot/lib`, a `locateFile` wskazuje na nie. Suma SHA-256 pliku WASM zgadza się z `ZXING_WASM_SHA256` wbudowaną w bibliotekę. Pochodzenie plików opisuje `VENDOR.md`.
+
+### CI nie uruchamiało się na gałęziach
+
+- **Objaw:** po wypchnięciu `feature/invoices` na GitHubie nie było przebiegu CI.
+- **Przyczyna:** workflow uruchamia się tylko dla pull requestów i wypchnięć na `main`, a bez zalogowanego `gh` sesja nie zakłada PR.
+- **Rozwiązanie:** przed scaleniem pełny zestaw testów lokalnie w konfiguracji Release, a zaraz po scaleniu sprawdzenie wyniku CI na `main` przez publiczne API GitHuba.
+
+## Etap „Analizy” (9.11.2026)
+
+### Generator danych bez skrótów
+
+- **Problem:** najprościej byłoby wstawić wiersze bezpośrednio do tabel, ale wtedy stany, średnie, partie i numeracja mogłyby być niespójne z regułami aplikacji, a testy wydajności mierzyłyby nierealne dane.
+- **Rozwiązanie:** generator korzysta z tych samych serwisów co ekrany, z zegarem przesuwanym dzień po dniu. Kosztem jest czas: rok z 4 fakturami dziennie trwa kilkadziesiąt sekund, a duży zestaw do testów wydajności kilkanaście minut.
+- **Uwaga:** faktury z generatora nie mogą trafić do Fakturowni, więc od razu dostają numer `DEMO` i nie mają zadania wysyłki. Generator ma własny klient Fakturowni, który zawsze odmawia połączenia.

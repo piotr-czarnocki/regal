@@ -175,13 +175,27 @@ Ustalenia etapu „Faktury”:
 - **Analiza ABC:** podział produktów według udziału w sprzedaży (A około 80%, B około 15%, C około 5%).
 - **Zalegające:** produkty na stanie bez sprzedaży od N dni.
 - **Filtry:** okres, kategoria, klient.
-- Wykresy rysowane komponentami wykresów MudBlazor (do weryfikacji, czy wystarczą).
+- Wykresy rysowane komponentem `MudChart` z MudBlazor 9 (wykres liniowy sprzedaży i marży). Wystarczają, więc nie dodano osobnej biblioteki.
+
+Ustalenia etapu „Analizy”:
+
+- Sprzedaż to pozycje faktur, które nie zostały anulowane, z datą wystawienia faktury. Koszt to koszt zapisany przy wydaniu (WZ), więc marża = sprzedaż netto − ten koszt. Usługi mają koszt 0.
+- Kategoria w filtrze to bieżąca kategoria produktu. Klient to nabywca z faktury.
+- Okres obejmuje oba dni graniczne. Do dwóch miesięcy wykres pokazuje dni, dla dłuższych okresów miesiące; dni bez sprzedaży mają wartość 0.
+- ABC: produkty uporządkowane malejąco po sprzedaży netto. Produkt jest w klasie A, jeśli produkty przed nim dają mniej niż 80% sprzedaży; w B poniżej 95%; pozostałe w C. Produkt przekraczający granicę zostaje więc w klasie, w której się zaczął, a pierwszy produkt jest zawsze w A.
+- Zalegające: towary ze stanem większym od zera, których ostatnia sprzedaż była wcześniej niż N dni temu albo których nigdy nie sprzedano (domyślnie 90 dni, na pulpicie 60).
+- Pulpit pokazuje bieżący miesiąc według czasu Europe/Warsaw oraz partie z ważnością do 14 dni, także przeterminowane.
 
 ### 5.9. Generator danych
 
 - Tworzy około roku wymyślonej działalności: produkty, kontrahentów, dokumenty i faktury, bez wysyłki do Fakturowni.
+- Narzędzie konsolowe `tools/Regal.DataGenerator` korzysta z prawdziwych serwisów z zegarem przesuwanym dzień po dniu, więc dane przestrzegają reguł aplikacji: stany nie są ujemne, średnie i numeracja są poprawne, partie mają daty ważności.
+- Symulacja: zamówienia uzupełniające do dostawców (PZ) i własna produkcja pieczywa (PW), co tydzień spisanie przeterminowanych partii (RW), faktury z popularnością produktów zbliżoną do rozkładu Zipfa (dla czytelnej analizy ABC), około 15% towarów, które nigdy się nie sprzedają, mniej sprzedaży w weekendy i około 1% anulowanych faktur.
+- Wygenerowane faktury dostają status „wysłana” z numerem `DEMO n/rok` i nie mają zadania wysyłki, więc nigdy nie trafiają do Fakturowni.
+- Rekordy należą do nieaktywnego użytkownika `dane-testowe@regal.invalid`, który nie może się zalogować.
+- Ten sam `--seed` daje te same dane. Drugie uruchomienie z tym samym prefiksem SKU jest odrzucane.
 - Działa tylko w środowisku deweloperskim i testowym.
-- Ma parametry wielkości, np. 10 000 produktów i 100 000 ruchów do testów wydajności.
+- Ma parametry wielkości, np. 10 000 produktów i 100 000 ruchów do testów wydajności (`--products`, `--customers`, `--suppliers`, `--days`, `--invoices-per-day`, `--seed`, `--prefix`).
 
 ### 5.10. Dziennik działań
 
