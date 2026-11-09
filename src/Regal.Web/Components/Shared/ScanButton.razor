@@ -1,0 +1,29 @@
+﻿@inject IDialogService Dialogs
+
+<MudIconButton Icon="@Icons.Material.Filled.PhotoCamera" aria-label="Skanuj aparatem" title="Skanuj aparatem" Class="@Class" OnClick="ScanAsync" />
+
+@code {
+    private static readonly DialogOptions Options = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseButton = true,
+        CloseOnEscapeKey = true,
+    };
+
+    /// <summary>Receives a code that passed BarcodeScannerDialog.IsAcceptable.</summary>
+    [Parameter, EditorRequired]
+    public EventCallback<string> Scanned { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    private async Task ScanAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<BarcodeScannerDialog>("Skanuj kod", Options);
+        if (await dialog.Result is { Canceled: false, Data: string code } && BarcodeScannerDialog.IsAcceptable(code))
+        {
+            await Scanned.InvokeAsync(code);
+        }
+    }
+}

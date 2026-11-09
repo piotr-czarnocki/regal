@@ -12,6 +12,7 @@
         <ToolBarContent>
             <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: nazwa, SKU, EAN" Immediate="true" DebounceInterval="300"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+            <ScanButton Scanned="OnSearchChanged" />
             <MudSpacer />
             <MudSwitch T="bool" Value="_includeInactive" ValueChanged="OnIncludeInactiveChanged" Label="Nieaktywne" Color="Color.Primary" Class="ml-2" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => EditAsync(null)" Class="ml-2">Dodaj</MudButton>

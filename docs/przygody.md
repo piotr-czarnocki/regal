@@ -74,3 +74,41 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 
 - **Objaw:** błąd `CS0246` w testach komponentów napisanych według starszych przykładów.
 - **Rozwiązanie:** metody pomocnicze przyjmują `IRenderedComponent<T>`.
+
+### Enter na kodzie „1” nic nie robił
+
+- **Objaw:** w polu produktu „1” i Enter nie dodawał pozycji ani nie pokazywał komunikatu, a „10” i Enter działało.
+- **Przyczyna:** trzy błędy naraz. Tekst krótszy niż 2 znaki nie był w ogóle wyszukiwany. Kilka wyników kończyło się ciszą. Enter korzystał z wyników wyszukiwania opóźnionego o 250 ms, więc szybki Enter, na przykład ze skanera, je anulował.
+- **Rozwiązanie:** Enter sam szuka w kolejności: dokładny EAN, dokładny SKU, fragment. Skany są obsługiwane po kolei, a każdy ma swój wynik.
+- **Przy okazji:** dwa razy wskazałem błędną przyczynę zgubionych skanów. W testach bUnit zdarzenia są wysyłane bez czekania na obsługę, więc drugi „skan” trafiał w przerenderowanie i ginął w samym teście. Pomogło dopiero odczytanie stanu komponentu zamiast zgadywania.
+
+## Etap „Faktury i telefon” (9.11.2026)
+
+### Testy wysyłki faktur przechodziły bez zabezpieczeń
+
+- **Objaw:** po usunięciu blokady `FOR UPDATE SKIP LOCKED` albo wyszukania po `oid` testy faktur nadal przechodziły.
+- **Przyczyna:** udawana Fakturownia, tak jak prawdziwa przy `oid_unique`, odrzucała duplikaty. Testy sprawdzały tylko efekt końcowy, który zapewniała już ta druga warstwa.
+- **Rozwiązanie:** testy liczą żądania utworzenia, także odrzucone. Szczegóły są w `analiza-dynamiczna.md`.
+
+### PowerShell 5.1 zepsuł polskie znaki
+
+- **Objaw:** po zmianie nazwy pliku przez `Get-Content -Raw` i `Set-Content` komunikaty zawierały „dziaĹ‚a” zamiast „działa”, a test przestał znajdować tekst.
+- **Przyczyna:** Windows PowerShell 5.1 czyta pliki UTF-8 bez BOM jako stronę kodową systemu.
+- **Rozwiązanie:** pliki z polskimi znakami zapisuję narzędziem do plików, a nie przez PowerShell. Wyszukanie wzorców `Ĺ|Ä…|Ă` potwierdziło, że inne pliki nie ucierpiały.
+
+### Atrapa wywołania JavaScript nie działała w teście
+
+- **Objaw:** test odmowy dostępu do aparatu nie widział komunikatu o błędzie.
+- **Przyczyna:** `SetupVoid("start")` w bUnit pasuje tylko do wywołania bez argumentów, a komponent przekazuje element `<video>` i referencję .NET. Wywołanie trafiało do trybu domyślnego i kończyło się sukcesem.
+- **Rozwiązanie:** `SetupVoid("start", _ => true)`, czyli dopasowanie po samej nazwie.
+
+### Cudzysłowy w atrybucie komponentu Razor
+
+- **Objaw:** dziesiątki błędów kompilacji, z których wynikało, że blok `@code` znalazł się poza klasą.
+- **Przyczyna:** wyrażenie `$"..."` z cudzysłowami wewnątrz atrybutu `ToStringFunc="..."` kończyło atrybut za wcześnie.
+- **Rozwiązanie:** wyrażenie przeniesione do metody.
+
+### Biblioteka skanera pobierała WASM z CDN
+
+- **Objaw:** domyślnie `barcode-detector` ładuje `zxing_reader.wasm` z jsDelivr.
+- **Rozwiązanie:** pliki skopiowane do `wwwroot/lib`, a `locateFile` wskazuje na nie. Suma SHA-256 pliku WASM zgadza się z `ZXING_WASM_SHA256` wbudowaną w bibliotekę. Pochodzenie plików opisuje `VENDOR.md`.

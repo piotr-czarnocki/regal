@@ -75,13 +75,26 @@ public sealed class StockDocumentService(
     public async Task<SaveResult> PostInTransactionAsync(RegalDbContext db, StockDocumentDraft draft, CancellationToken cancellationToken = default)
     {
         var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        return await InCallerTransactionAsync(db, () => PostCoreAsync(db, draft, userId, cancellationToken), draft.RequestId, cancellationToken);
+    }
+
+    /// <summary>The correction counterpart of PostInTransactionAsync, with the same rules for the caller.</summary>
+    public async Task<SaveResult> ReverseInTransactionAsync(RegalDbContext db, int documentId, Guid requestId, CancellationToken cancellationToken = default)
+    {
+        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        return await InCallerTransactionAsync(db, () => ReverseCoreAsync(db, documentId, requestId, userId, cancellationToken), requestId, cancellationToken);
+    }
+
+    private static async Task<SaveResult> InCallerTransactionAsync(
+        RegalDbContext db, Func<Task<SaveResult>> work, Guid requestId, CancellationToken cancellationToken)
+    {
         var transaction = db.Database.CurrentTransaction
             ?? throw new InvalidOperationException("This method needs a transaction opened by the caller.");
 
         await transaction.CreateSavepointAsync(Savepoint, cancellationToken);
         try
         {
-            var result = await PostCoreAsync(db, draft, userId, cancellationToken);
+            var result = await work();
             if (result.IsSuccess)
             {
                 await transaction.ReleaseSavepointAsync(Savepoint, cancellationToken);
@@ -93,10 +106,12 @@ public sealed class StockDocumentService(
 
             return result;
         }
-        catch (DbUpdateException exception) when (DbErrors.UniqueViolation(exception) == RequestIdIndex)
+        catch (DbUpdateException exception) when (DbErrors.UniqueViolation(exception) is RequestIdIndex or ReversesDocumentIndex)
         {
             await transaction.RollbackToSavepointAsync(Savepoint, cancellationToken);
-            return SaveResult.Ok((await FindByRequestIdAsync(db, draft.RequestId, cancellationToken))!.Value);
+            return DbErrors.UniqueViolation(exception) == RequestIdIndex
+                ? SaveResult.Ok((await FindByRequestIdAsync(db, requestId, cancellationToken))!.Value)
+                : SaveResult.Fail(AlreadyReversed);
         }
         finally
         {
@@ -410,6 +425,12 @@ public sealed class StockDocumentService(
         if (await db.StockDocuments.AnyAsync(d => d.ReversesDocumentId == documentId, cancellationToken))
         {
             return SaveResult.Fail(AlreadyReversed);
+        }
+
+        // Goods put back while the invoice stands would be invoiced but still in stock.
+        if (await db.Invoices.AnyAsync(i => i.StockDocumentId == documentId && i.Status != InvoiceStatus.Cancelled, cancellationToken))
+        {
+            return SaveResult.Fail("Ten dokument należy do faktury. Aby go cofnąć, anuluj fakturę.");
         }
 
         Dictionary<int, decimal> averages;

@@ -34,7 +34,18 @@ public sealed record ProductMovementRow(
     decimal QuantityChange,
     decimal UnitCost);
 
-public sealed record ProductPick(int Id, string Sku, string? Ean, string Name, string Unit, bool HasExpiry, decimal AverageCost, bool CanBeAdded = true);
+public sealed record ProductPick(
+    int Id,
+    string Sku,
+    string? Ean,
+    string Name,
+    string Unit,
+    bool HasExpiry,
+    decimal AverageCost,
+    bool CanBeAdded = true,
+    ProductKind Kind = ProductKind.Goods,
+    decimal NetPrice = 0,
+    string VatRate = "23");
 
 public sealed class StockService(
     IDbContextFactory<RegalDbContext> dbContextFactory,
@@ -132,12 +143,32 @@ public sealed class StockService(
     }
 
     /// <summary>Active goods for a document's product field, by name, SKU or EAN.</summary>
-    public async Task<IReadOnlyList<ProductPick>> SearchGoodsAsync(string? term, int take, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ProductPick>> SearchGoodsAsync(string? term, int take, CancellationToken cancellationToken = default) =>
+        SearchProductsAsync(term, take, includeServices: false, cancellationToken);
+
+    /// <summary>Active goods and services for an invoice's product field.</summary>
+    public Task<IReadOnlyList<ProductPick>> SearchSellableAsync(string? term, int take, CancellationToken cancellationToken = default) =>
+        SearchProductsAsync(term, take, includeServices: true, cancellationToken);
+
+    /// <summary>
+    /// The product with exactly this EAN, otherwise with exactly this SKU. Scanners may report codes
+    /// starting with 0 as 12-digit UPC-A. An inactive product or a service is returned with
+    /// CanBeAdded false: the code does name it, so the caller must not settle for a similar one.
+    /// </summary>
+    public Task<ProductPick?> FindByCodeAsync(string? code, CancellationToken cancellationToken = default) =>
+        FindProductByCodeAsync(code, includeServices: false, cancellationToken);
+
+    /// <summary>As FindByCodeAsync, but a service can be added too: invoices sell both.</summary>
+    public Task<ProductPick?> FindSellableByCodeAsync(string? code, CancellationToken cancellationToken = default) =>
+        FindProductByCodeAsync(code, includeServices: true, cancellationToken);
+
+    private async Task<IReadOnlyList<ProductPick>> SearchProductsAsync(
+        string? term, int take, bool includeServices, CancellationToken cancellationToken)
     {
         await currentUser.RequireUserIdAsync(Roles.Administrator);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var query = db.Products.AsNoTracking().Where(p => p.IsActive && p.Kind == ProductKind.Goods);
+        var query = db.Products.AsNoTracking().Where(p => p.IsActive && (includeServices || p.Kind == ProductKind.Goods));
         if (SearchPattern.Contains(term) is { } pattern)
         {
             query = query.Where(p =>
@@ -147,16 +178,11 @@ public sealed class StockService(
         }
 
         return await query.OrderBy(p => p.Name).ThenBy(p => p.Id).Take(Paging.Take(take))
-            .Select(p => new ProductPick(p.Id, p.Sku, p.Ean, p.Name, p.Unit, p.HasExpiry, p.AverageCost))
+            .Select(p => new ProductPick(p.Id, p.Sku, p.Ean, p.Name, p.Unit, p.HasExpiry, p.AverageCost, true, p.Kind, p.NetPrice, p.VatRate))
             .ToListAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// The product with exactly this EAN, otherwise with exactly this SKU. Scanners may report codes
-    /// starting with 0 as 12-digit UPC-A. An inactive product or a service is returned with
-    /// CanBeAdded false: the code does name it, so the caller must not settle for a similar one.
-    /// </summary>
-    public async Task<ProductPick?> FindByCodeAsync(string? code, CancellationToken cancellationToken = default)
+    private async Task<ProductPick?> FindProductByCodeAsync(string? code, bool includeServices, CancellationToken cancellationToken)
     {
         await currentUser.RequireUserIdAsync(Roles.Administrator);
 
@@ -173,7 +199,8 @@ public sealed class StockService(
         var matches = await db.Products.AsNoTracking()
             .Where(p => p.Ean == ean || p.Sku == sku)
             .Select(p => new ProductPick(
-                p.Id, p.Sku, p.Ean, p.Name, p.Unit, p.HasExpiry, p.AverageCost, p.IsActive && p.Kind == ProductKind.Goods))
+                p.Id, p.Sku, p.Ean, p.Name, p.Unit, p.HasExpiry, p.AverageCost,
+                p.IsActive && (includeServices || p.Kind == ProductKind.Goods), p.Kind, p.NetPrice, p.VatRate))
             .ToListAsync(cancellationToken);
 
         return matches.FirstOrDefault(p => p.Ean == ean) ?? matches.FirstOrDefault();

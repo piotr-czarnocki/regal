@@ -1,0 +1,234 @@
+@page "/invoices/{Id:int}"
+@implements IDisposable
+@inject InvoiceQueries Queries
+@inject InvoiceService Invoices
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_invoice?.Number ?? "Faktura") – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono faktury.</MudAlert>
+    }
+    else if (_invoice is { } invoice)
+    {
+        <div class="d-flex flex-wrap align-center gap-2 mb-2">
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@(invoice.Number ?? "Faktura bez numeru")</MudText>
+            <InvoiceStatusChip Status="invoice.Status" />
+            @if (invoice.PdfUrl is not null)
+            {
+                <MudButton Variant="Variant.Outlined" Href="@invoice.PdfUrl" Target="_blank" rel="noopener noreferrer">PDF</MudButton>
+            }
+            @if (invoice.Status == InvoiceStatus.Failed)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="RetryAsync" Disabled="_working">Ponów wysyłkę</MudButton>
+            }
+            @if (invoice.Status is InvoiceStatus.ToSend or InvoiceStatus.Failed)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelAsync" Disabled="_working">Anuluj fakturę</MudButton>
+            }
+        </div>
+
+        @if (invoice.Status == InvoiceStatus.ToSend)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                Faktura czeka na wysłanie do Fakturowni. Strona odświeża się sama.
+                @if (invoice.Attempts > 0)
+                {
+                    <span> Próby: @invoice.Attempts.</span>
+                }
+            </MudAlert>
+        }
+
+        @if (invoice.LastError is not null && invoice.Status != InvoiceStatus.Sent)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">Ostatni błąd wysyłki: @invoice.LastError</MudAlert>
+        }
+
+        @if (invoice.RemoteGrossTotal is { } remote && remote != invoice.GrossTotal)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                Fakturownia wyliczyła brutto @StockLabels.Money(remote), a Regał @StockLabels.Money(invoice.GrossTotal).
+            </MudAlert>
+        }
+
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Nabywca</MudText>
+                <MudText>@invoice.ContractorName @(invoice.ContractorNip is null ? null : $"(NIP {invoice.ContractorNip})")</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.body2">Data wystawienia</MudText>
+                <MudText>@StockLabels.Date(invoice.IssueDate)</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.body2">Płatność</MudText>
+                <MudText>@InvoiceLabels.PaymentMethod(invoice.PaymentMethod), @invoice.PaymentDays dni</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Wydanie</MudText>
+                @if (invoice.StockDocument is { } wz)
+                {
+                    <MudLink Href="@StockDocumentRoutes.Details(wz.Id)">@wz.Number</MudLink>
+                }
+                else
+                {
+                    <MudText>brak (same usługi)</MudText>
+                }
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Wystawił</MudText>
+                <MudText>@invoice.UserEmail</MudText>
+            </MudItem>
+        </MudGrid>
+
+        <MudTable T="InvoiceLineRow" Items="invoice.Lines" Hover="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Pozycja</MudTh>
+                <MudTh>Ilość</MudTh>
+                <MudTh>Cena netto</MudTh>
+                <MudTh>Rabat</MudTh>
+                <MudTh>VAT</MudTh>
+                <MudTh>Netto</MudTh>
+                <MudTh>Brutto</MudTh>
+                <MudTh>Marża</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Pozycja">@context.ProductName</MudTd>
+                <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                <MudTd DataLabel="Cena netto">@StockLabels.Money(context.NetPrice)</MudTd>
+                <MudTd DataLabel="Rabat">@($"{context.DiscountPercent:0.##}%")</MudTd>
+                <MudTd DataLabel="VAT">@InvoiceLabels.VatRate(context.VatRate)</MudTd>
+                <MudTd DataLabel="Netto">@StockLabels.Money(context.NetValue)</MudTd>
+                <MudTd DataLabel="Brutto">@StockLabels.Money(context.GrossValue)</MudTd>
+                <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTd colspan="5"><strong>Razem</strong></MudTd>
+                <MudTd DataLabel="Netto"><strong>@StockLabels.Money(invoice.NetTotal)</strong></MudTd>
+                <MudTd DataLabel="Brutto"><strong>@StockLabels.Money(invoice.GrossTotal)</strong></MudTd>
+                <MudTd DataLabel="Marża"><strong>@StockLabels.Money(invoice.Margin)</strong></MudTd>
+            </FooterContent>
+        </MudTable>
+    }
+</MudContainer>
+
+@code {
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(5);
+
+    // One per opening of the page: a lost reply and a second click cannot reverse the WZ twice.
+    private readonly Guid _cancelRequestId = Guid.NewGuid();
+    private readonly CancellationTokenSource _disposed = new();
+    private InvoiceDetails? _invoice;
+    private bool _notFound;
+    private bool _working;
+    private bool _refreshing;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _ = RefreshWhileWaitingAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _invoice = await Queries.GetDetailsAsync(Id);
+        _notFound = _invoice is null;
+    }
+
+    /// <summary>The sender works in the background, so a waiting invoice is reloaded until it settles.</summary>
+    private async Task RefreshWhileWaitingAsync()
+    {
+        if (_refreshing)
+        {
+            return;
+        }
+
+        _refreshing = true;
+        try
+        {
+            using var timer = new PeriodicTimer(RefreshInterval);
+            while (await timer.WaitForNextTickAsync(_disposed.Token))
+            {
+                if (_invoice?.Status == InvoiceStatus.ToSend && !_working)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await LoadAsync();
+                        StateHasChanged();
+                    });
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The page was closed.
+        }
+    }
+
+    private async Task RetryAsync()
+    {
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var result = await Invoices.RetryAsync(Id);
+            Snackbar.Add(result.IsSuccess ? "Faktura wróciła do wysyłki." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Error);
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Anulować fakturę?",
+                "Regał sprawdzi w Fakturowni, że faktura tam nie powstała, i cofnie wydanie towaru korektą WZ. Tej operacji nie można cofnąć.",
+                yesText: "Anuluj fakturę",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Invoices.CancelAsync(Id, _cancelRequestId);
+            Snackbar.Add(result.IsSuccess ? "Faktura została anulowana." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Error);
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+}

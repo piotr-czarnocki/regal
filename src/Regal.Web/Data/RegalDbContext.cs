@@ -30,8 +30,66 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
 
     public DbSet<DocumentCounter> DocumentCounters => Set<DocumentCounter>();
 
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+
+    public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Invoice>(invoice =>
+        {
+            invoice.ToTable("Invoices");
+            invoice.Property(i => i.Kind).HasConversion<string>().HasMaxLength(20);
+            invoice.Property(i => i.Status).HasConversion<string>().HasMaxLength(20);
+            invoice.Property(i => i.ExternalOrderId).HasMaxLength(64);
+            invoice.Property(i => i.Number).HasMaxLength(100);
+            invoice.Property(i => i.PdfUrl).HasMaxLength(500);
+            invoice.Property(i => i.PaymentMethod).HasMaxLength(20);
+            invoice.Property(i => i.NetTotal).HasPrecision(18, 2);
+            invoice.Property(i => i.VatTotal).HasPrecision(18, 2);
+            invoice.Property(i => i.GrossTotal).HasPrecision(18, 2);
+            invoice.Property(i => i.RemoteGrossTotal).HasPrecision(18, 2);
+            invoice.HasIndex(i => i.ExternalOrderId).IsUnique();
+            invoice.HasIndex(i => i.IssueDate);
+            invoice.HasIndex(i => new { i.Status, i.IssueDate });
+            invoice.HasOne(i => i.Contractor).WithMany().HasForeignKey(i => i.ContractorId).OnDelete(DeleteBehavior.Restrict);
+            invoice.HasOne(i => i.StockDocument).WithMany().HasForeignKey(i => i.StockDocumentId).OnDelete(DeleteBehavior.Restrict);
+            invoice.HasOne(i => i.User).WithMany().HasForeignKey(i => i.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InvoiceLine>(line =>
+        {
+            line.ToTable("InvoiceLines", table =>
+            {
+                table.HasCheckConstraint("CK_InvoiceLines_Quantity_Positive", "\"Quantity\" > 0");
+                table.HasCheckConstraint("CK_InvoiceLines_Discount_Range", "\"DiscountPercent\" BETWEEN 0 AND 100");
+            });
+            line.Property(l => l.ProductName).HasMaxLength(200);
+            line.Property(l => l.Unit).HasMaxLength(20);
+            line.Property(l => l.VatRate).HasMaxLength(3);
+            line.Property(l => l.Quantity).HasPrecision(18, 3);
+            line.Property(l => l.NetPrice).HasPrecision(18, 2);
+            line.Property(l => l.DiscountPercent).HasPrecision(5, 2);
+            line.Property(l => l.NetValue).HasPrecision(18, 2);
+            line.Property(l => l.VatValue).HasPrecision(18, 2);
+            line.Property(l => l.GrossValue).HasPrecision(18, 2);
+            line.Property(l => l.UnitCost).HasPrecision(18, 4);
+            line.HasOne(l => l.Invoice).WithMany(i => i.Lines).HasForeignKey(l => l.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+            line.HasOne(l => l.Product).WithMany().HasForeignKey(l => l.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<OutboxMessage>(message =>
+        {
+            message.ToTable("OutboxMessages");
+            message.Property(m => m.Type).HasMaxLength(50);
+            message.Property(m => m.LastError).HasMaxLength(1000);
+            message.HasIndex(m => m.NextAttemptAt).HasFilter("\"NextAttemptAt\" IS NOT NULL");
+            message.HasIndex(m => m.InvoiceId).IsUnique();
+            message.HasOne(m => m.Invoice).WithMany().HasForeignKey(m => m.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Batch>(batch =>
         {
             batch.ToTable("Batches");

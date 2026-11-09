@@ -1,0 +1,14 @@
+<MudChip T="string" Size="Size.Small" Color="ColorOf(Status)">@InvoiceLabels.Status(Status)</MudChip>
+
+@code {
+    [Parameter, EditorRequired]
+    public InvoiceStatus Status { get; set; }
+
+    private static Color ColorOf(InvoiceStatus status) => status switch
+    {
+        InvoiceStatus.Sent => Color.Success,
+        InvoiceStatus.Failed => Color.Error,
+        InvoiceStatus.Cancelled => Color.Default,
+        _ => Color.Info,
+    };
+}

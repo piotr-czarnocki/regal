@@ -11,7 +11,7 @@ namespace Regal.IntegrationTests;
 
 public abstract class WarehouseTestBase(PostgresFixture postgres) : IAsyncLifetime
 {
-    private sealed class FixedUser(int id) : ICurrentUser
+    protected sealed class FixedUser(int id) : ICurrentUser
     {
         public Task<int> RequireUserIdAsync(string requiredRole) => Task.FromResult(id);
     }
@@ -36,7 +36,7 @@ public abstract class WarehouseTestBase(PostgresFixture postgres) : IAsyncLifeti
 
     protected ContractorService Contractors => new(postgres.DbContextFactory, new FixedUser(UserId), Clock);
 
-    public async Task InitializeAsync()
+    public virtual async Task InitializeAsync()
     {
         await using var db = postgres.CreateAppDbContext();
         var user = new User { Email = $"{Guid.NewGuid():N}@example.com", Role = Roles.Administrator };
