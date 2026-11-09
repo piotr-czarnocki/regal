@@ -5,6 +5,7 @@ using Regal.Web.Data;
 using Regal.Web.Features.Auth;
 using Regal.Web.Features.Contractors;
 using Regal.Web.Features.Products;
+using Regal.Web.Features.Warehouse;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,8 @@ builder.Services.AddRegalAuth(builder.Configuration);
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ContractorService>();
+builder.Services.AddScoped<StockDocumentService>();
+builder.Services.AddScoped<StockService>();
 
 var app = builder.Build();
 
