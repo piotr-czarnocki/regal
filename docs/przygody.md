@@ -128,6 +128,14 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Rozwiązanie:** konfiguracja generatora jest budowana ręcznie w kolejności: wiersz poleceń, zmienne środowiskowe, User Secrets. Przed zapisem generator wypisuje bazę docelową (host, port, nazwa, użytkownik, bez hasła). Danych w bazie deweloperskiej nie da się usunąć rolą aplikacji, bo dokumenty są niezmienne; sprzątanie wymaga roli właściciela albo wyczyszczenia bazy deweloperskiej.
 - **Wniosek:** narzędzie, które pisze do bazy, powinno pokazać, dokąd pisze, zanim cokolwiek zrobi. Kolejność źródeł konfiguracji trzeba ustalać jawnie, a nie zakładać.
 
+### Przeterminowany towar zalegał w dużym zestawie danych
+
+- **Objaw:** generator miał dać około 100 faktur dziennie, a dał 12 206 faktur w roku, czyli około 33 dziennie, i 54 640 ruchów zamiast ponad 100 000. Nie zgłosił żadnego błędu.
+- **Ślad:** zapytanie do bazy wydajnościowej pokazało 4545 partii po dacie ważności, które nadal miały stan. Liczba nie spisanych partii rosła z tygodnia na tydzień. Dokumentów RW było 9722, czyli prawie dokładnie 200 na tydzień.
+- **Przyczyna:** cotygodniowe spisanie przeterminowanego towaru brało najwyżej 200 partii (jedna strona zapytania) i dawało każdą na osobne RW. Przy 30 produktach z testów to wystarczało. Przy 10 000 produktów wygasało więcej partii, niż spisywano. Generator nadal liczył ten towar jako dostępny, więc wybierał go do faktur, a serwis słusznie odmawiał wydania przeterminowanej partii. Odmowę generator traktował jak zwykły brak towaru. Przy okazji wyszło, że strona była pobierana bez `ORDER BY`, więc wybór partii zależał od planu zapytania, a nie od seeda.
+- **Rozwiązanie:** spisanie czyta kolejne strony w stałej kolejności, aż nic nie zostanie, i daje do 200 produktów na jeden RW. Wielkość strony jest parametrem, dzięki czemu test integracyjny pokazuje ten przypadek na 300 produktach ze stroną 5. Przed poprawką test zostawiał 53 przeterminowane partie, po poprawce zero.
+- **Wniosek:** generator danych też jest programem i trzeba go testować na danych takich, do jakich służy. Ciche „pominięcie” nieudanej operacji ukryło błąd, który był widoczny dopiero w liczbach.
+
 ### Cena „2,50” zapisywała się jako 250
 
 - **Objaw:** test w przeglądarce (Playwright) po dwóch przyjęciach po 2,50 i 3,10 zł dostał cenę średnią 270,0000 zamiast 2,7000. Liczby całkowite działały, a testy jednostkowe i integracyjne były zielone.
