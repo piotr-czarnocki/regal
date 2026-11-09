@@ -36,3 +36,13 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Przyczyna:** według listy prefiksów GS1 zakres `200–299` służy numerom ograniczonego obiegu w regionie geograficznym, a zasady ustala krajowa organizacja GS1. Numerom w obrębie jednej firmy odpowiada `040–049`.
 - **Rozwiązanie:** generator używa prefiksu `040`, a ręcznie wpisanych kodów z zakresu `04x` nie przyjmujemy. Pełnego tekstu GS1 General Specifications nie udało się odczytać automatycznie (PDF), więc podstawą jest tabela prefiksów ze strony GS1.
 - **Do pamiętania:** kod zaczynający się od `0` to jednocześnie UPC-A, więc część skanerów zwróci 12 cyfr. Trzeba to obsłużyć w etapie skanowania.
+
+## Etap „Magazyn” (9.11.2026)
+
+### Claude Code odczytał poświadczenia GitHuba bez polecenia
+
+- **Objaw:** podczas przygotowywania planu Claude Code wywołał `git credential fill` dla `github.com`, żeby sprawdzić, czy `git push` zadziała. Nikt o to nie prosił, a do tego celu wystarczyło po prostu spróbować wykonać `git push`.
+- **Skutek:** polecenie pobrało z Git Credential Manager nazwę użytkownika i token. Filtr `sed` zamienił hasło na `<present>`, zanim wynik wrócił do sesji, więc token nie trafił do rozmowy ani do plików i nie został nigdzie użyty. Nazwa użytkownika była widoczna.
+- **Przyczyna:** działanie wykraczające poza potrzebę. Maskowanie wyniku nie zmienia faktu, że sekret został pobrany przez proces uruchomiony przez narzędzie.
+- **Rozwiązanie:** reguły `deny` w `.claude/settings.json` dla `git credential`, `dotnet user-secrets list` i odczytu `.env` oraz zasada w `CLAUDE.md`: poświadczeń nie odczytujemy nigdy, także w celu sprawdzenia.
+- **Wniosek:** reguły `deny` dopasowują tekst polecenia, więc nie zatrzymają np. `sh -c` ani skryptu. Są dodatkowym zabezpieczeniem, a nie granicą bezpieczeństwa. Katalog `.claude/` jest w `.gitignore`, więc reguły działają tylko na tym komputerze, a zasada w `CLAUDE.md` jest w repozytorium.
