@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using Regal.Web.Components;
@@ -35,7 +36,21 @@ builder.Services.AddHostedService<InvoiceSendingWorker>();
 builder.Services.Configure<FakturowniaOptions>(builder.Configuration.GetSection(FakturowniaOptions.Section));
 builder.Services.AddHttpClient<IFakturowniaClient, FakturowniaClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
+// Behind an HTTPS tunnel to a phone: the tunnel ends TLS, so the scheme comes from its headers.
+// Only proxies on this machine are trusted, which is where the tunnel agent runs.
+var behindTunnel = builder.Configuration.GetValue<bool>("Regal:BehindTunnel");
+if (behindTunnel)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+}
+
 var app = builder.Build();
+
+if (behindTunnel)
+{
+    app.UseForwardedHeaders();
+}
 
 using (var scope = app.Services.CreateScope())
 {

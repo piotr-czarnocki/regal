@@ -8,9 +8,10 @@
     <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Stany magazynowe</MudText>
 
     <MudGrid Spacing="2" Class="mb-2">
-        <MudItem xs="12" sm="6" md="5">
+        <MudItem xs="12" sm="6" md="5" Class="d-flex align-center gap-1">
             <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: nazwa, SKU, EAN" Immediate="true" DebounceInterval="300"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" Class="flex-grow-1" />
+            <ScanButton Scanned="OnSearchChanged" />
         </MudItem>
         <MudItem xs="12" sm="6" md="4">
             <MudSelect T="int?" Value="_categoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">

@@ -1,8 +1,11 @@
 @implements IDisposable
 
-<MudTextField @ref="_field" T="string" Value="_text" ValueChanged="OnTextChanged" Immediate="true" OnKeyDown="OnKeyDownAsync"
-              Label="Dodaj produkt: nazwa, SKU lub EAN" HelperText="Zeskanuj kod albo wpisz go i naciśnij Enter." Variant="Variant.Outlined"
-              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner" autocomplete="off" />
+<div class="d-flex align-start gap-1">
+    <MudTextField @ref="_field" T="string" Value="_text" ValueChanged="OnTextChanged" Immediate="true" OnKeyDown="OnKeyDownAsync"
+                  Label="Dodaj produkt: nazwa, SKU lub EAN" HelperText="Zeskanuj kod albo wpisz go i naciśnij Enter." Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner" autocomplete="off" Class="flex-grow-1" />
+    <ScanButton Scanned="OnScanned" Class="mt-2" />
+</div>
 
 @foreach (var error in _errors)
 {
@@ -90,13 +93,19 @@
 
     private async Task OnKeyDownAsync(KeyboardEventArgs args)
     {
-        if (args.Key != "Enter")
+        if (args.Key == "Enter")
         {
-            return;
+            await SubmitAsync(_text);
         }
+    }
 
+    /// <summary>A code from the camera goes the same way as one typed and confirmed with Enter.</summary>
+    private Task OnScanned(string code) => SubmitAsync(code);
+
+    private async Task SubmitAsync(string? value)
+    {
         CancelSearch();
-        var text = _text?.Trim();
+        var text = value?.Trim();
         if (string.IsNullOrEmpty(text))
         {
             return;
