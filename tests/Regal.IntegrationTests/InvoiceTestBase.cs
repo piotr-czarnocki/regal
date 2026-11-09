@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Regal.Web.Data.Entities;
 using Regal.Web.Features.Invoices;
 using Regal.Web.Features.Products;
+using Regal.TestHost;
 
 namespace Regal.IntegrationTests;
 

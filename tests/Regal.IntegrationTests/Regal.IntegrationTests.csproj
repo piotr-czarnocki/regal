@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Regal.Web\Regal.Web.csproj" />
+    <ProjectReference Include="..\Regal.TestHost\Regal.TestHost.csproj" />
   </ItemGroup>
 
 </Project>

@@ -14,7 +14,7 @@
                              Label="Nabywca" DebounceInterval="300" ResetValueOnEmptyText="true" CoerceText="true" Clearable="true" />
         </MudItem>
         <MudItem xs="6" md="3">
-            <MudNumericField T="int" Value="_paymentDays" ValueChanged="value => Changed(() => _paymentDays = value)" Label="Termin płatności (dni)"
+            <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" Value="_paymentDays" ValueChanged="value => Changed(() => _paymentDays = value)" Label="Termin płatności (dni)"
                              Min="0" Max="InvoiceRules.MaxPaymentDays" HideSpinButtons="true" />
         </MudItem>
         <MudItem xs="6" md="3">
@@ -46,15 +46,15 @@
             </div>
             <MudGrid Spacing="2">
                 <MudItem xs="6" sm="3">
-                    <MudNumericField T="decimal?" Value="line.Quantity" ValueChanged="value => Changed(() => line.Quantity = value)"
+                    <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="line.Quantity" ValueChanged="value => Changed(() => line.Quantity = value)"
                                      Label="@($"Ilość ({line.Product.Unit})")" Min="0" HideSpinButtons="true" />
                 </MudItem>
                 <MudItem xs="6" sm="3">
-                    <MudNumericField T="decimal?" Value="line.NetPrice" ValueChanged="value => Changed(() => line.NetPrice = value)"
+                    <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="line.NetPrice" ValueChanged="value => Changed(() => line.NetPrice = value)"
                                      Label="Cena netto (zł)" Min="0" HideSpinButtons="true" />
                 </MudItem>
                 <MudItem xs="6" sm="2">
-                    <MudNumericField T="decimal" Value="line.DiscountPercent" ValueChanged="value => Changed(() => line.DiscountPercent = value)"
+                    <MudNumericField T="decimal" Culture="CultureInfo.CurrentCulture" Value="line.DiscountPercent" ValueChanged="value => Changed(() => line.DiscountPercent = value)"
                                      Label="Rabat (%)" Min="0" Max="100" HideSpinButtons="true" />
                 </MudItem>
                 <MudItem xs="6" sm="4" Class="d-flex flex-column justify-center">

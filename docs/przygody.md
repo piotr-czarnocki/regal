@@ -119,6 +119,27 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Przyczyna:** workflow uruchamia się tylko dla pull requestów i wypchnięć na `main`, a bez zalogowanego `gh` sesja nie zakłada PR.
 - **Rozwiązanie:** przed scaleniem pełny zestaw testów lokalnie w konfiguracji Release, a zaraz po scaleniu sprawdzenie wyniku CI na `main` przez publiczne API GitHuba.
 
+## Etap „Testy i oddanie” (10.11.2026)
+
+### Cena „2,50” zapisywała się jako 250
+
+- **Objaw:** test w przeglądarce (Playwright) po dwóch przyjęciach po 2,50 i 3,10 zł dostał cenę średnią 270,0000 zamiast 2,7000. Liczby całkowite działały, a testy jednostkowe i integracyjne były zielone.
+- **Przyczyna:** `MudNumericField` w MudBlazor 9 czyta liczby w kulturze niezmiennej (`InvariantCulture`), chyba że poda się `Culture`, `Format` albo `Pattern`. Przecinek był więc separatorem tysięcy. Pole ceny w kartotece produktów ma `Format="F2"`, dlatego tam błąd się nie pokazał. Testy bUnit wpisywały liczby całkowite, a testy serwisów nie przechodzą przez pole formularza.
+- **Rozwiązanie:** każde pole liczbowe dostało `Culture="CultureInfo.CurrentCulture"`, czyli polską kulturę ustawianą przez `UseRequestLocalization`. Test bUnit z polską kulturą wpisuje „2,50”. Bez poprawki daje 250, z poprawką 2,50.
+- **Wniosek:** to błąd, który znalazły dopiero testy funkcjonalne z danymi takimi, jakie wpisze człowiek. Opis jest też w `analiza-dynamiczna.md` (debugowanie).
+
+### Testy w przeglądarce nie widziały plików Blazora
+
+- **Objaw:** strona w teście nie stawała się interaktywna. Przeglądarka dostawała błąd 500 dla `blazor.web.js` i plików MudBlazor.
+- **Przyczyna:** statyczne pliki z pakietów i frameworka są mapowane z wyników kompilacji automatycznie tylko w środowisku Development, a host testowy działa jako „Testing”.
+- **Rozwiązanie:** `UseStaticWebAssets()` w hoście testowym. Przy okazji `UseKestrel()` bez portu słuchało na stałym porcie 5000, więc host używa portu 0, który system przydziela dynamicznie.
+
+### Metoda pomocnicza zasłonięta przez Playwright
+
+- **Objaw:** `Unexpected token "(" while parsing css selector "Ilość (szt)"`.
+- **Przyczyna:** moja metoda rozszerzająca `TypeAsync(label, text)` miała tę samą sygnaturę co przestarzała metoda `IPage.TypeAsync(selector, text)`, a metoda instancji zawsze wygrywa z rozszerzającą.
+- **Rozwiązanie:** zmiana nazwy na `FillFieldAsync`.
+
 ## Etap „Analizy” (9.11.2026)
 
 ### Generator danych bez skrótów

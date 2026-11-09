@@ -23,7 +23,7 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="12" md="3">
-            <MudNumericField T="int?" Value="_expiringWithinDays" ValueChanged="OnExpiringChanged" Label="Ważność do (dni)" Min="0" HideSpinButtons="true" Immediate="true" DebounceInterval="300" />
+            <MudNumericField T="int?" Culture="CultureInfo.CurrentCulture" Value="_expiringWithinDays" ValueChanged="OnExpiringChanged" Label="Ważność do (dni)" Min="0" HideSpinButtons="true" Immediate="true" DebounceInterval="300" />
         </MudItem>
     </MudGrid>
 
