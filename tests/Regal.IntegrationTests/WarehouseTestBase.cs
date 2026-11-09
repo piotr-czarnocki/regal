@@ -48,7 +48,7 @@ public abstract class WarehouseTestBase(PostgresFixture postgres) : IAsyncLifeti
         SupplierId = await NewContractorAsync();
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public virtual Task DisposeAsync() => Task.CompletedTask;
 
     protected static string Unique(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
 
