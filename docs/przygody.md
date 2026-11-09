@@ -52,3 +52,25 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** po usunięciu `FOR UPDATE` padły cztery testy współbieżności, ale test dokumentów z produktami w odwrotnej kolejności nadal był zielony.
 - **Przyczyna:** test tworzył same WZ. Licznik numerów jest zwiększany przed zmianą stanów i blokuje swój wiersz do końca transakcji, więc dokumenty jednego typu nigdy nie zmieniały stanów jednocześnie.
 - **Rozwiązanie:** test miesza WZ i RW, które mają osobne liczniki. Bez blokady kończy się teraz błędem `40P01: deadlock detected`. Szczegóły są w `analiza-dynamiczna.md`.
+
+### Działająca aplikacja blokowała build
+
+- **Objaw:** `dotnet test` w konfiguracji Debug kończył się błędem `MSB3027`: nie można skopiować `Regal.Web.exe`, bo plik jest zajęty.
+- **Przyczyna:** uruchomiona aplikacja trzymała otwarty plik w `bin/Debug`.
+- **Rozwiązanie:** zatrzymanie aplikacji przed budowaniem. Doraźnie wystarcza `-c Release`, który ma osobny katalog wyjściowy.
+
+### Czyszczenie śledzenia zmian w cudzej transakcji
+
+- **Objaw:** przy przeglądzie kodu okazało się, że odrzucenie partii z inną datą ważności wywołuje `ChangeTracker.Clear()`.
+- **Przyczyna:** w transakcji własnej to nieszkodliwe, ale `PostInTransactionAsync` działa na kontekście wywołującego. Faktura z etapu 3 straciłaby śledzone encje i po cichu ich nie zapisała.
+- **Rozwiązanie:** usunięcie tego wywołania. Po błędzie odłączane są tylko encje dokumentu, a test sprawdza, że transakcja wywołującego nadal działa.
+
+### Nazwa folderu zasłoniła encję
+
+- **Objaw:** w folderze `Features/Warehouse` nazwa `Warehouse` oznacza przestrzeń nazw, więc `Warehouse.MainWarehouseId` nie wskazuje encji.
+- **Rozwiązanie:** mała klasa `MainWarehouse` z identyfikatorem magazynu, zamiast zmiany nazwy folderu ustalonej w SPEC.
+
+### bUnit 2.x nie ma już `IRenderedFragment`
+
+- **Objaw:** błąd `CS0246` w testach komponentów napisanych według starszych przykładów.
+- **Rozwiązanie:** metody pomocnicze przyjmują `IRenderedComponent<T>`.

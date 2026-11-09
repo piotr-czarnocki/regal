@@ -1,6 +1,6 @@
 # Regał – specyfikacja
 
-**Wersja:** 0.2 (7.11.2026), zakres ustalony w wywiadzie.
+**Wersja:** 0.3 (9.11.2026), zakres ustalony w wywiadzie, reguły magazynu doprecyzowane w etapie „Magazyn”.
 **Autor:** Piotr Czarnocki, projekt indywidualny.
 **Termin oddania:** połowa grudnia 2026; dokładną datę należy tu wpisać.
 **Budżet czasu:** do 10 h tygodniowo, około 50 h łącznie.
@@ -92,24 +92,45 @@ Księgowość, kadry i płace, wiele walut, warianty produktów, zdjęcia produk
 | WZ | Wydanie na zewnątrz, z fakturą lub bez | Zmniejsza |
 | RW | Rozchód wewnętrzny: zużycie lub strata | Zmniejsza |
 
-- Numeracja w formacie `{typ}/{numer}/{rok}`, osobna dla każdego typu i roku, bez luk.
-- Dokument ma co najmniej jedną pozycję; przy błędzie dowolnej pozycji cały dokument jest wycofywany.
-- Zatwierdzonego dokumentu nie można edytować ani usunąć. Błąd poprawia dokument odwrotny, powiązany z oryginałem.
+- Numeracja w formacie `{typ}/{numer}/{rok}`, osobna dla każdego typu i roku, bez luk. Rok liczony jest według czasu Europe/Warsaw.
+- Data dokumentu to chwila zatwierdzenia; antydatowanie nie jest możliwe.
+- Kontrahent: przy PZ wymagany, przy WZ opcjonalny, przy PW i RW niedozwolony. RW wymaga powodu w uwagach (do 500 znaków).
+- Na dokumentach występują tylko aktywne towary (nie usługi) i aktywni kontrahenci.
+- Dokument ma od 1 do 200 pozycji; przy błędzie dowolnej pozycji cały dokument jest wycofywany i nie zużywa numeru.
+- Ilość jest większa od zera, ma najwyżej 3 miejsca po przecinku, a dla jednostki „szt” jest liczbą całkowitą.
+- Produkt występuje na dokumencie raz, a na przyjęciu raz w każdej partii.
 - Stan nie może spaść poniżej zera, także przy równoczesnych operacjach.
-- PW bez podanego kosztu przyjmuje bieżącą cenę średnią produktu (założenie, do potwierdzenia).
+- Ponowne wysłanie tego samego szkicu (ten sam `RequestId`) nie tworzy drugiego dokumentu.
+- Wszystko trafia do magazynu głównego; wyboru magazynu nie ma w interfejsie.
+
+Korekta:
+
+- Zatwierdzonego dokumentu nie można edytować ani usunąć. Błąd poprawia dokument odwrotny tego samego typu, powiązany z oryginałem.
+- Korekta obejmuje cały dokument i odwraca jego ruchy na tych samych partiach, po tych samych kosztach.
+- Dokument można skorygować raz. Korekty nie można skorygować.
+- Korekta PZ lub PW jest możliwa tylko wtedy, gdy bieżący stan każdej partii dokumentu pokrywa ilość z tego dokumentu.
+- Korekta działa także dla nieaktywnego produktu lub kontrahenta, bo poprawienie błędu nie może zależeć od późniejszych zmian w kartotekach. Taki produkt ze stanem jest widoczny na ekranie stanów z oznaczeniem „nieaktywny”.
 
 ### 5.4. Partie i daty ważności
 
-- Każde przyjęcie (PZ, PW) tworzy partię: numer nadany automatycznie albo wpisany ręcznie, np. numer dostawcy.
-- Data ważności jest wymagana tylko dla produktów oznaczonych jako mające termin ważności.
+- Każde przyjęcie (PZ, PW) tworzy partię: numer wpisany ręcznie, np. numer dostawcy, albo automatyczny, równy numerowi dokumentu. Numer jest normalizowany jak SKU (bez spacji na brzegach, wielkie litery), do 50 znaków.
+- Jeśli partia o tym numerze już istnieje dla produktu, towar jest do niej dopisywany, ale data ważności musi się zgadzać.
+- Data ważności jest wymagana dla produktów oznaczonych jako mające termin ważności, a dla pozostałych opcjonalna. Nie może być wcześniejsza niż data dokumentu.
 - Stan jest prowadzony dla każdej partii.
-- Przy wydaniu (WZ, RW) użytkownik wybiera partię ręcznie albo zostawia wybór automatyczny: najpierw partia z najkrótszą datą ważności, potem najstarsza.
+- Partia jest przeterminowana, gdy data ważności jest wcześniejsza niż dzisiejsza data; w dniu ważności można ją jeszcze wydać.
+- Przy wydaniu (WZ, RW) użytkownik wybiera partię ręcznie albo zostawia wybór automatyczny (FEFO): najpierw najkrótsza data ważności, partie bez daty na końcu, przy remisie najstarsza partia. Jedna pozycja może zejść z kilku partii.
+- WZ nigdy nie wydaje partii przeterminowanej, także przy wyborze ręcznym. RW może, bo służy m.in. do spisania takiego towaru.
+- Ustawienia „ma datę ważności” nie można zmienić, gdy produkt ma partie, a produktu ze stanem większym od zera nie można dezaktywować.
 
 ### 5.5. Wycena i marża
 
-- Cena średnia produktu jest przeliczana przy każdym przyjęciu:
+- Cena średnia produktu zmienia się tylko przy przychodzie (PZ, PW, korekta WZ i RW), z zaokrągleniem do 4 miejsc (połowa w górę):
   `nowa średnia = (stara ilość × stara średnia + przyjęta ilość × cena przyjęcia) / (stara ilość + przyjęta ilość)`.
-- Pozycja wydania zapisuje koszt według średniej z chwili wydania.
+- PZ wymaga ceny zakupu większej od zera. PW bez podanego kosztu przyjmuje bieżącą cenę średnią, a gdy wynosi ona 0, koszt jest wymagany.
+- Pozycja wydania zapisuje koszt według średniej z chwili wydania. Korekta WZ i RW przywraca towar po tym zapisanym koszcie.
+- Korekta PZ i PW liczy średnią jednym wzorem dla produktu z całego dokumentu:
+  `nowa średnia = (ilość × średnia − ilość korekty × koszt) / (ilość − ilość korekty)`. Gdy nic nie zostaje, średnia się nie zmienia.
+- **Znane uproszczenie:** ujemny wynik tego wzoru, możliwy po wcześniejszych zaokrągleniach lub korektach, jest przycinany do 0. Średnia może wtedy nie odzwierciedlać rzeczywistego kosztu zapasu.
 - Marża pozycji to wartość sprzedaży netto minus zapisany koszt.
 
 ### 5.6. Faktury przez Fakturownię
@@ -207,9 +228,9 @@ Zasady:
 | `Categories` | `Id`, `Name` |
 | `Products` | `Id`, `Sku`, `Ean`, `Name`, `CategoryId`, `Unit`, `Kind`, `NetPrice`, `VatRate`, `HasExpiry`, `AverageCost`, `IsActive` |
 | `Contractors` | `Id`, `Name`, `Nip`, `Address`, `Email`, `Phone`, `IsActive` |
-| `Batches` | `Id`, `ProductId`, `Number`, `ExpiryDate` |
+| `Batches` | `Id`, `ProductId`, `Number` (unikalne razem), `ExpiryDate` |
 | `Stock` | `WarehouseId`, `BatchId` (klucz złożony), `Quantity` z `CHECK (Quantity >= 0)` |
-| `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `ContractorId`, `UserId`, `ReversesDocumentId`, `CreatedAt` |
+| `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `ContractorId`, `UserId`, `ReversesDocumentId` (unikalny indeks częściowy: jedna korekta na dokument), `CreatedAt` (UTC), `DocumentDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny klucz idempotencji) |
 | `StockMovements` | `Id`, `DocumentId`, `BatchId`, `QuantityChange`, `UnitCost` |
 | `Invoices` | `Id`, `Kind`, `Status`, `ExternalOrderId` (oid), `FakturowniaId`, `Number`, `ContractorId`, `StockDocumentId`, `UserId`, sumy, `IssuedAt` |
 | `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, kopia nazwy, ilość, cena netto, rabat, stawka VAT, koszt |
@@ -219,9 +240,12 @@ Zasady:
 
 Kluczowe reguły:
 
-- **Wydanie:** warunkowy `UPDATE "Stock" ... WHERE "Quantity" >= @ilosc`; zero zmienionych wierszy oznacza brak towaru.
-- **Numeracja:** licznik zwiększany w tej samej transakcji co dokument, więc wycofanie nie zostawia luki.
-- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockMovements` i `AuditLog`; migracje wykonuje osobna rola.
+- **Typy:** ilości to `numeric(18,3)`, koszty `numeric(18,4)`, daty ważności `date`.
+- **Współbieżność:** dokument najpierw blokuje wiersze `Products` swoich pozycji (`SELECT ... FOR UPDATE`, rosnąco po `Id`). Operacje na tym samym produkcie idą po kolei, co chroni stany i średnią, a stała kolejność zapobiega zakleszczeniom. Tę samą blokadę biorą zmiany z punktu 5.4, które zależą od partii lub stanu.
+- **Wydanie:** warunkowy `UPDATE "Stock" ... WHERE "Quantity" >= @ilosc`; zero zmienionych wierszy oznacza brak towaru. Razem z `CHECK` to ostatnia bariera.
+- **Numeracja:** licznik zwiększany w tej samej transakcji co dokument (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`), więc wycofanie nie zostawia luki. Blokada wiersza licznika sprawia, że dokumenty tego samego typu zapisują się po kolei od chwili pobrania numeru.
+- **Transakcja wywołującego:** przyjęcie i wydanie można wykonać w cudzej otwartej transakcji; błąd cofa tylko dokument (savepoint). Faktura w etapie 3 tworzy WZ w ten sposób, raz na transakcję i zanim zablokuje inne produkty.
+- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches` i `AuditLog`; migracje wykonuje osobna rola.
 - **Indeksy pod analizy:** dobierane na podstawie pomiarów w etapie analizy wydajności, z porównaniem przed i po.
 
 ## 9. Bezpieczeństwo
@@ -300,4 +324,6 @@ Testy jednostkowe i integracyjne powstają razem z każdą funkcją. Poziom 2 za
 - Założyć konto testowe Fakturowni na początku tygodnia 3 (okres próbny 30 dni).
 - Utworzyć klienta OAuth w Google Cloud w tygodniu 1.
 - Potwierdzić prefiks wewnętrznego EAN-13 w zasadach GS1.
-- Potwierdzić sposób wyceny PW bez podanego kosztu.
+- Sprawdzić w przeglądarce i na telefonie ekrany magazynu według `docs/scenariusze-testowe.md`, w tym czytnik USB.
+
+Rozstrzygnięte w etapie „Magazyn”: wycena PW bez podanego kosztu (punkt 5.5).

@@ -6,7 +6,7 @@
 
 Regał to webowa aplikacja magazynowo-sprzedażowa dla małej firmy handlowej z własną produkcją. Projekt powstaje na zaliczenie na studiach i do portfolio. Zakres opisuje [SPEC.md](SPEC.md).
 
-**Stan projektu:** etap „Fundament”, czyli aplikacja, baza danych, logowanie Google z listą dozwolonych adresów, dziennik działań, testy i CI.
+**Stan projektu:** gotowe są fundament (logowanie Google z listą dozwolonych adresów, dziennik działań, testy i CI), kartoteki oraz magazyn: dokumenty PZ, PW, WZ i RW, partie z datami ważności, stany, cena średnia i korekty.
 
 ### Wymagania
 
@@ -49,6 +49,12 @@ Regał to webowa aplikacja magazynowo-sprzedażowa dla małej firmy handlowej z 
 
 Aplikacja działa pod adresem <https://localhost:7180>.
 
+Po pobraniu nowych zmian z repozytorium zaktualizuj bazę, zanim uruchomisz aplikację:
+
+```powershell
+dotnet ef database update --project src/Regal.Web
+```
+
 ### Testy
 
 ```powershell
@@ -65,7 +71,7 @@ Testy integracyjne same uruchamiają PostgreSQL przez Testcontainers, więc Dock
 
 Regał is a web application for warehouse and sales management in a small trading company with its own production. It is a university project and a portfolio piece. The scope is described in [SPEC.md](SPEC.md) (in Polish). The application's interface is Polish only.
 
-**Status:** the "Foundation" stage: application, database, Google sign-in with an allow-list, audit log, tests and CI.
+**Status:** the foundation (Google sign-in with an allow-list, audit log, tests and CI), catalogs and the warehouse are done: PZ, PW, WZ and RW documents, batches with expiry dates, stock levels, average cost and corrections.
 
 ### Requirements
 
@@ -107,6 +113,12 @@ Regał is a web application for warehouse and sales management in a small tradin
    ```
 
 The application is available at <https://localhost:7180>.
+
+After pulling new changes, update the database before starting the application:
+
+```powershell
+dotnet ef database update --project src/Regal.Web
+```
 
 ### Tests
 
