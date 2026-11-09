@@ -1,0 +1,77 @@
+@page "/analytics/abc"
+@inject AnalyticsService Analytics
+
+<PageTitle>Analiza ABC – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Analiza ABC</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Produkty uporządkowane według sprzedaży netto. Klasa A to produkty dające razem około 80% sprzedaży, B kolejne 15%, C pozostałe.
+    </MudText>
+
+    <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" />
+
+    <MudGrid Spacing="2" Class="mb-3">
+        @foreach (var group in _groups)
+        {
+            <MudItem xs="12" sm="4">
+                <StatCard Title="@($"Klasa {group.Class}")" Value="@($"{group.Count} produktów")" Note="@($"{group.Share:0.0}% sprzedaży")" />
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudTable T="AbcRow" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="50">
+        <HeaderContent>
+            <MudTh>Klasa</MudTh>
+            <MudTh>Produkt</MudTh>
+            <MudTh>Sprzedaż netto</MudTh>
+            <MudTh>Udział</MudTh>
+            <MudTh>Udział narastająco</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Klasa"><MudChip T="string" Size="Size.Small" Color="ColorOf(context.Class)">@context.Class</MudChip></MudTd>
+            <MudTd DataLabel="Produkt">@context.Name</MudTd>
+            <MudTd DataLabel="Sprzedaż netto">@StockLabels.Money(context.NetSales)</MudTd>
+            <MudTd DataLabel="Udział">@($"{context.Share:0.00}%")</MudTd>
+            <MudTd DataLabel="Udział narastająco">@($"{context.CumulativeShare:0.00}%")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private sealed record ClassGroup(AbcClass Class, int Count, decimal Share);
+
+    private AnalyticsFilter _filter = null!;
+    private IReadOnlyList<AbcRow> _rows = [];
+    private IReadOnlyList<ClassGroup> _groups = [];
+
+    private static Color ColorOf(AbcClass abc) => abc switch
+    {
+        AbcClass.A => Color.Success,
+        AbcClass.B => Color.Warning,
+        _ => Color.Default,
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = Analytics.Today;
+        _filter = new AnalyticsFilter(today.AddMonths(-12).AddDays(1), today);
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChanged(AnalyticsFilter filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _rows = await Analytics.GetAbcAsync(_filter);
+        _groups = Enum.GetValues<AbcClass>()
+            .Select(c => new ClassGroup(c, _rows.Count(r => r.Class == c), _rows.Where(r => r.Class == c).Sum(r => r.Share)))
+            .ToList();
+    }
+}

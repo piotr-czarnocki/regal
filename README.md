@@ -6,7 +6,7 @@
 
 Regał to webowa aplikacja magazynowo-sprzedażowa dla małej firmy handlowej z własną produkcją. Projekt powstaje na zaliczenie na studiach i do portfolio. Zakres opisuje [SPEC.md](SPEC.md).
 
-**Stan projektu:** gotowe są fundament (logowanie Google z listą dozwolonych adresów, dziennik działań, testy i CI), kartoteki, magazyn (dokumenty PZ, PW, WZ i RW, partie z datami ważności, stany, cena średnia i korekty), faktury wysyłane do Fakturowni z automatycznym WZ oraz skanowanie kodów czytnikiem USB i aparatem telefonu.
+**Stan projektu:** gotowe są fundament (logowanie Google z listą dozwolonych adresów, dziennik działań, testy i CI), kartoteki, magazyn (dokumenty PZ, PW, WZ i RW, partie z datami ważności, stany, cena średnia i korekty), faktury wysyłane do Fakturowni z automatycznym WZ, skanowanie kodów czytnikiem USB i aparatem telefonu, pulpit z analizami (sprzedaż i marża, ABC, towary zalegające) oraz generator przykładowych danych.
 
 ### Wymagania
 
@@ -87,6 +87,16 @@ Aparat w przeglądarce działa tylko przez HTTPS, dlatego telefon łączy się p
 
 Tunel uruchamiaj tylko na czas testów: aplikacja jest wtedy dostępna z internetu (za logowaniem Google). Profil `tunnel` ufa nagłówkom przekazywanym wyłącznie z tego komputera.
 
+### Przykładowe dane
+
+Generator tworzy około roku wymyślonej działalności: produkty, kontrahentów, dokumenty magazynowe i faktury. Faktury nie są wysyłane do Fakturowni. Działa tylko w środowisku `Development` lub `Testing`, z tą samą bazą co aplikacja. Uruchamiaj go przy zatrzymanej aplikacji:
+
+```powershell
+dotnet run --project tools/Regal.DataGenerator -- --environment Development
+```
+
+Do testów wydajności można zwiększyć skalę, np. `--products 10000 --invoices-per-day 120`. Pozostałe parametry: `--customers`, `--suppliers`, `--days`, `--seed`, `--prefix`.
+
 ### Testy
 
 ```powershell
@@ -103,7 +113,7 @@ Testy integracyjne same uruchamiają PostgreSQL przez Testcontainers, więc Dock
 
 Regał is a web application for warehouse and sales management in a small trading company with its own production. It is a university project and a portfolio piece. The scope is described in [SPEC.md](SPEC.md) (in Polish). The application's interface is Polish only.
 
-**Status:** done are the foundation (Google sign-in with an allow-list, audit log, tests and CI), catalogs, the warehouse (PZ, PW, WZ and RW documents, batches with expiry dates, stock levels, average cost and corrections), invoices sent to Fakturownia with an automatic WZ, and barcode scanning with a USB reader or a phone camera.
+**Status:** done are the foundation (Google sign-in with an allow-list, audit log, tests and CI), catalogs, the warehouse (PZ, PW, WZ and RW documents, batches with expiry dates, stock levels, average cost and corrections), invoices sent to Fakturownia with an automatic WZ, barcode scanning with a USB reader or a phone camera, a dashboard with analytics (sales and margin, ABC, slow-moving goods) and a sample data generator.
 
 ### Requirements
 
@@ -183,6 +193,16 @@ The browser camera works only over HTTPS, so the phone connects through an ngrok
 4. On the phone, open `https://<ngrok-domain>`. The camera button is next to the product field and the searches.
 
 Run the tunnel only while testing: the application is then reachable from the internet (behind Google sign-in). The `tunnel` profile trusts forwarded headers only from this machine.
+
+### Sample data
+
+The generator creates about a year of made-up trade: products, contractors, stock documents and invoices. The invoices are not sent to Fakturownia. It runs only in the `Development` or `Testing` environment, against the application's database. Run it with the application stopped:
+
+```powershell
+dotnet run --project tools/Regal.DataGenerator -- --environment Development
+```
+
+For performance tests, raise the scale, e.g. `--products 10000 --invoices-per-day 120`. Other options: `--customers`, `--suppliers`, `--days`, `--seed`, `--prefix`.
 
 ### Tests
 

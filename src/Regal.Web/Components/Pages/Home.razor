@@ -1,10 +1,114 @@
 ﻿@page "/"
+@inject AnalyticsService Analytics
 
-<PageTitle>Regał</PageTitle>
+<PageTitle>Pulpit – Regał</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
-    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Regał</MudText>
-    <AuthorizeView>
-        <MudText>Zalogowano jako @context.User.Identity?.Name.</MudText>
-    </AuthorizeView>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Pulpit</MudText>
+
+    @if (_summary is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Bieżący miesiąc: @StockLabels.Date(_month.From) – @StockLabels.Date(_month.To)</MudText>
+
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="6" md="3"><StatCard Title="Sprzedaż netto" Value="@StockLabels.Money(_summary.NetSales)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Marża" Value="@StockLabels.Money(_summary.Margin)" Note="@(_summary.MarginPercent is { } percent ? $"{percent:0.0}% sprzedaży" : null)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Faktury" Value="@_summary.InvoiceCount.ToString()" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Partie do 14 dni ważności" Value="@_expiring.Count.ToString()" /></MudItem>
+        </MudGrid>
+
+        <MudPaper Outlined="true" Class="pa-3 mb-3">
+            <MudText Typo="Typo.h6">Sprzedaż w tym miesiącu</MudText>
+            <SalesChart Points="_points" />
+        </MudPaper>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6" Class="mb-1">Najlepsze produkty</MudText>
+                <MudTable T="ProductSales" Items="_top" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Produkt</MudTh>
+                        <MudTh>Netto</MudTh>
+                        <MudTh>Marża</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Produkt">@context.Name</MudTd>
+                        <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+                        <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak sprzedaży w tym miesiącu.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6" Class="mb-1">Partie z bliską datą ważności</MudText>
+                <MudTable T="ExpiringBatchRow" Items="_expiring" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Produkt</MudTh>
+                        <MudTh>Partia</MudTh>
+                        <MudTh>Ważna do</MudTh>
+                        <MudTh>Ilość</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Produkt"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.ProductName</MudLink></MudTd>
+                        <MudTd DataLabel="Partia">@context.BatchNumber</MudTd>
+                        <MudTd DataLabel="Ważna do">
+                            @StockLabels.Date(context.ExpiryDate)
+                            @if (context.IsExpired)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error">przeterminowana</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak partii z ważnością w ciągu 14 dni.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mb-1">Towary zalegające (bez sprzedaży od @SlowMovingDays dni)</MudText>
+                <MudTable T="SlowMovingRow" Items="_slow" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Produkt</MudTh>
+                        <MudTh>Stan</MudTh>
+                        <MudTh>Wartość</MudTh>
+                        <MudTh>Ostatnia sprzedaż</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Produkt"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.Name</MudLink></MudTd>
+                        <MudTd DataLabel="Stan">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                        <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
+                        <MudTd DataLabel="Ostatnia sprzedaż">@(context.LastSale is { } date ? StockLabels.Date(date) : "nigdy")</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak towarów zalegających.</MudText></NoRecordsContent>
+                </MudTable>
+                <MudLink Href="/analytics/slow-moving" Class="mt-1 d-block">Wszystkie towary zalegające</MudLink>
+            </MudItem>
+        </MudGrid>
+    }
 </MudContainer>
+
+@code {
+    private const int SlowMovingDays = 60;
+    private const int ExpiringDays = 14;
+
+    private AnalyticsFilter _month = null!;
+    private SalesSummary? _summary;
+    private IReadOnlyList<SalesPoint> _points = [];
+    private IReadOnlyList<ProductSales> _top = [];
+    private IReadOnlyList<ExpiringBatchRow> _expiring = [];
+    private IReadOnlyList<SlowMovingRow> _slow = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = Analytics.Today;
+        _month = new AnalyticsFilter(new DateOnly(today.Year, today.Month, 1), today);
+        _summary = await Analytics.GetSummaryAsync(_month);
+        _points = await Analytics.GetSalesOverTimeAsync(_month);
+        _top = await Analytics.GetSalesByProductAsync(_month, take: 5);
+        _expiring = await Analytics.GetExpiringBatchesAsync(ExpiringDays, take: 10);
+        _slow = await Analytics.GetSlowMovingAsync(SlowMovingDays, take: 10);
+    }
+}

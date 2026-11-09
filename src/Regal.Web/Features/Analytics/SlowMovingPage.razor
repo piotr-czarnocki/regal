@@ -1,0 +1,74 @@
+@page "/analytics/slow-moving"
+@inject AnalyticsService Analytics
+@inject CategoryService Categories
+
+<PageTitle>Towary zalegające – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Towary zalegające</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">Towary na stanie, których nikt nie kupił od podanej liczby dni, od największej wartości zapasu.</MudText>
+
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="6" md="3">
+            <MudNumericField T="int" Value="_days" ValueChanged="OnDaysChanged" Label="Bez sprzedaży od (dni)" Min="0" HideSpinButtons="true" DebounceInterval="300" Immediate="true" />
+        </MudItem>
+        <MudItem xs="6" md="4">
+            <MudSelect T="int?" Value="_categoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">
+                <MudSelectItem T="int?" Value="null">Wszystkie</MudSelectItem>
+                @foreach (var category in _categories)
+                {
+                    <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="5">
+            <StatCard Title="Wartość zapasu zalegającego" Value="@StockLabels.Money(_rows.Sum(r => r.Value))" Note="@($"{_rows.Count} produktów")" />
+        </MudItem>
+    </MudGrid>
+
+    <MudTable T="SlowMovingRow" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="50">
+        <HeaderContent>
+            <MudTh>Produkt</MudTh>
+            <MudTh>Kategoria</MudTh>
+            <MudTh>Stan</MudTh>
+            <MudTh>Wartość</MudTh>
+            <MudTh>Ostatnia sprzedaż</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Produkt"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
+            <MudTd DataLabel="Stan">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+            <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
+            <MudTd DataLabel="Ostatnia sprzedaż">@(context.LastSale is { } date ? StockLabels.Date(date) : "nigdy")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak towarów zalegających.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private int _days = 90;
+    private int? _categoryId;
+    private IReadOnlyList<CategoryItem> _categories = [];
+    private IReadOnlyList<SlowMovingRow> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await Categories.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task OnDaysChanged(int days)
+    {
+        _days = days;
+        await LoadAsync();
+    }
+
+    private async Task OnCategoryChanged(int? categoryId)
+    {
+        _categoryId = categoryId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _rows = await Analytics.GetSlowMovingAsync(_days, _categoryId);
+}

@@ -189,3 +189,43 @@ Scenariusze F1–F5 nie wymagają Fakturowni: bez konfiguracji faktura czeka w k
 | 4 | Zeskanuj ten sam kod jeszcze raz | Ilość 2 |
 | 5 | „Stany magazynowe” → aparat → zeskanuj kod | Lista zawęża się do zeskanowanego produktu |
 | 6 | W narzędziach przeglądarki (zakładka sieci) sprawdź pobierane pliki przy pierwszym skanie | `ponyfill.js` i `zxing_reader.wasm` z domeny aplikacji albo wcale (gdy przeglądarka ma własny czytnik), nic z CDN |
+
+# Scenariusze testów ręcznych: analizy i generator
+
+**Dane:** baza po scenariuszach powyżej oraz po uruchomieniu generatora (README, sekcja „Przykładowe dane”).
+
+## A1. Generator danych
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Uruchom generator bez `--environment Development` | Komunikat, że generator działa tylko w Development albo Testing; baza bez zmian |
+| 2 | Uruchom z `--environment Development` | Postęp co 30 dni, na końcu podsumowanie z liczbą faktur i ruchów |
+| 3 | Uruchom drugi raz bez zmiany `--prefix` | Komunikat, że dane z tym prefiksem już istnieją |
+| 4 | W aplikacji otwórz „Faktury” | Faktury z numerami `DEMO …`, ze statusem „Wysłana”, bez przycisku PDF |
+| 5 | Przy skonfigurowanej Fakturowni poczekaj minutę | Żadna faktura `DEMO` nie trafia do Fakturowni |
+
+## A2. Pulpit
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Otwórz „Pulpit” | Sprzedaż netto, marża z procentem, liczba faktur i wykres dni bieżącego miesiąca |
+| 2 | Wystaw fakturę z F1 i wróć na pulpit | Sprzedaż i marża rosną o wartości z tej faktury |
+| 3 | Anuluj fakturę i wróć na pulpit | Sprzedaż wraca do poprzedniej wartości |
+| 4 | Sprawdź tabelę partii z bliską datą ważności | Partie do 14 dni, przeterminowane oznaczone na czerwono |
+
+## A3. Sprzedaż i marża, ABC
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Sprzedaż i marża”, ostatnie 12 miesięcy | Wykres miesięczny, tabele według kategorii i produktów; suma tabel zgodna z kartą „Sprzedaż netto” |
+| 2 | Zmień okres na jeden tydzień | Wykres przechodzi na dni |
+| 3 | Wybierz kategorię, potem klienta | Wartości zawężają się do wybranej kategorii i klienta |
+| 4 | „Analiza ABC” za rok | Klasa A to niewielka część produktów dająca około 80% sprzedaży; udział narastający rośnie do 100% |
+
+## A4. Towary zalegające
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Towary zalegające”, 90 dni | Towary ze stanem, bez sprzedaży od 90 dni albo nigdy niesprzedane („nigdy”), od największej wartości |
+| 2 | Zmień liczbę dni na 0 | Lista obejmuje wszystkie towary ze stanem, których nie sprzedano dzisiaj |
+| 3 | Kliknij nazwę produktu | Historia ruchów potwierdza datę ostatniego wydania |
