@@ -88,7 +88,7 @@ Do wykonania w dwóch kartach przeglądarki.
 
 ## S8. Czytnik i klawisz Enter
 
-**Dane:** kod EAN Mleka 1L z listy produktów.
+**Dane:** kod EAN Mleka 1L z listy produktów oraz dwa towary o nakładających się kodach: SKU `1`, nazwa BOGDAN i SKU `10`, nazwa 1212.
 
 | Krok | Działanie | Oczekiwany wynik |
 |---|---|---|
@@ -97,6 +97,11 @@ Do wykonania w dwóch kartach przeglądarki.
 | 3 | Wpisz `5900000000000`, Enter | Komunikat, że nie znaleziono towaru, brak nowej pozycji |
 | 4 | Naciśnij Enter w polu ilości | Nic się nie dzieje, dokument niezatwierdzony |
 | 5 | „Pokaż podgląd”, „Zatwierdź”, potwierdź i szybko kliknij „Zatwierdź” ponownie | Przycisk zablokowany na czas zapisu, powstaje jeden dokument |
+| 6 | Nowy dokument PW, wpisz `1`, Enter | Pozycja BOGDAN, mimo że „1” jest też fragmentem kodów innych towarów; pole puste, kursor w polu |
+| 7 | Wpisz `10`, Enter | Druga pozycja: 1212 |
+| 8 | Wpisz pełny EAN towaru BOGDAN, Enter | Bez nowej pozycji, ilość BOGDAN wynosi 2 |
+| 9 | Wpisz fragment pasujący do kilku towarów, który nie jest niczyim kodem, Enter | Lista do wyboru, żadna pozycja nie zostaje dodana |
+| 10 | Wpisz `nieistniejacy`, Enter | Komunikat „Nie znaleziono produktu o kodzie nieistniejacy”, tekst zaznaczony w polu, następny skan go zastępuje |
 
 ## S9. Korekty
 
