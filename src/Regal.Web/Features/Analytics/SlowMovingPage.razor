@@ -10,7 +10,7 @@
 
     <MudGrid Spacing="2" Class="mb-3">
         <MudItem xs="6" md="3">
-            <MudNumericField T="int" Value="_days" ValueChanged="OnDaysChanged" Label="Bez sprzedaży od (dni)" Min="0" HideSpinButtons="true" DebounceInterval="300" Immediate="true" />
+            <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" Value="_days" ValueChanged="OnDaysChanged" Label="Bez sprzedaży od (dni)" Min="0" HideSpinButtons="true" DebounceInterval="300" Immediate="true" />
         </MudItem>
         <MudItem xs="6" md="4">
             <MudSelect T="int?" Value="_categoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">

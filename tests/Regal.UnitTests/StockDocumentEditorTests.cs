@@ -311,6 +311,33 @@ public sealed class StockDocumentEditorTests : IAsyncLifetime
     }
 
     [Fact]
+    public void Decimal_comma_is_read_as_in_poland()
+    {
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("pl-PL");
+        try
+        {
+            var editor = Render(StockDocumentType.PW);
+            ScanAndWait(editor);
+
+            editor.FindComponents<MudNumericField<decimal?>>()[0].Find("input").Change("3");
+            editor.FindComponents<MudNumericField<decimal?>>()[1].Find("input").Change("2,50");
+            Preview(editor);
+            editor.WaitForAssertion(() => Assert.False(ApproveDisabled(editor)));
+            ButtonIn(editor, "Zatwierdź").Click();
+            ClickInDialog("Zatwierdź");
+
+            editor.WaitForAssertion(() => Assert.Single(_posts));
+            var line = Assert.Single(_posts[0].Lines);
+            Assert.Equal((3m, 2.50m), (line.Quantity, line.UnitCost!.Value));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+        }
+    }
+
+    [Fact]
     public void Draft_carries_the_lines_type_and_reason()
     {
         var editor = ReadyToApprove(StockDocumentType.RW);

@@ -42,13 +42,13 @@
             </div>
             <MudGrid Spacing="2">
                 <MudItem xs="12" sm="3">
-                    <MudNumericField T="decimal?" Value="line.Quantity" ValueChanged="value => Changed(() => line.Quantity = value)"
+                    <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="line.Quantity" ValueChanged="value => Changed(() => line.Quantity = value)"
                                      Label="@($"Ilość ({line.Product.Unit})")" Min="0" HideSpinButtons="true" />
                 </MudItem>
                 @if (IsReceipt)
                 {
                     <MudItem xs="12" sm="3">
-                        <MudNumericField T="decimal?" Value="line.UnitCost" ValueChanged="value => Changed(() => line.UnitCost = value)" Min="0" HideSpinButtons="true"
+                        <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="line.UnitCost" ValueChanged="value => Changed(() => line.UnitCost = value)" Min="0" HideSpinButtons="true"
                                          Label="@(_type == StockDocumentType.PZ ? "Cena zakupu (zł)" : "Koszt (zł)")"
                                          HelperText="@(_type == StockDocumentType.PW ? $"Puste: średnia {StockLabels.Cost(line.Product.AverageCost)}" : null)" />
                     </MudItem>
