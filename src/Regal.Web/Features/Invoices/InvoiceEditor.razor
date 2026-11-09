@@ -1,0 +1,298 @@
+@inject IDialogService Dialogs
+
+@* Deliberately not a <form>: without one, Enter in a field has nothing to submit. *@
+<div>
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+    }
+
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="12" md="6">
+            <MudAutocomplete T="ContractorListItem" Value="_contractor" ValueChanged="OnContractorChanged" SearchFunc="SearchContractorsAsync"
+                             ToStringFunc="ContractorText"
+                             Label="Nabywca" DebounceInterval="300" ResetValueOnEmptyText="true" CoerceText="true" Clearable="true" />
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudNumericField T="int" Value="_paymentDays" ValueChanged="value => Changed(() => _paymentDays = value)" Label="Termin płatności (dni)"
+                             Min="0" Max="InvoiceRules.MaxPaymentDays" HideSpinButtons="true" />
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudSelect T="string" Value="_paymentMethod" ValueChanged="value => Changed(() => _paymentMethod = value)" Label="Sposób płatności">
+                @foreach (var method in InvoicePaymentMethods.All)
+                {
+                    <MudSelectItem Value="method">@InvoiceLabels.PaymentMethod(method)</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12">
+            <ProductPicker Search="SearchProducts" FindByCode="FindByCode" Picked="AddProduct" />
+        </MudItem>
+    </MudGrid>
+
+    @foreach (var line in _lines)
+    {
+        var amounts = AmountsOf(line);
+        <MudPaper Outlined="true" Class="pa-3 mb-2" @key="line">
+            <div class="d-flex align-center">
+                <MudText Typo="Typo.subtitle1" Class="flex-grow-1">
+                    @line.Product.Name
+                    @if (line.Product.Kind == ProductKind.Service)
+                    {
+                        <MudChip T="string" Size="Size.Small">usługa</MudChip>
+                    }
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Usuń pozycję" Size="Size.Small" OnClick="() => Changed(() => _lines.Remove(line))" />
+            </div>
+            <MudGrid Spacing="2">
+                <MudItem xs="6" sm="3">
+                    <MudNumericField T="decimal?" Value="line.Quantity" ValueChanged="value => Changed(() => line.Quantity = value)"
+                                     Label="@($"Ilość ({line.Product.Unit})")" Min="0" HideSpinButtons="true" />
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudNumericField T="decimal?" Value="line.NetPrice" ValueChanged="value => Changed(() => line.NetPrice = value)"
+                                     Label="Cena netto (zł)" Min="0" HideSpinButtons="true" />
+                </MudItem>
+                <MudItem xs="6" sm="2">
+                    <MudNumericField T="decimal" Value="line.DiscountPercent" ValueChanged="value => Changed(() => line.DiscountPercent = value)"
+                                     Label="Rabat (%)" Min="0" Max="100" HideSpinButtons="true" />
+                </MudItem>
+                <MudItem xs="6" sm="4" Class="d-flex flex-column justify-center">
+                    <MudText Typo="Typo.body2">VAT @InvoiceLabels.VatRate(line.Product.VatRate)</MudText>
+                    <MudText Typo="Typo.body2"><strong>@StockLabels.Money(amounts.Gross)</strong> brutto</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+
+    @if (_lines.Count > 0)
+    {
+        var totals = _lines.Select(AmountsOf).ToList();
+        <MudPaper Class="pa-3 mb-2" Elevation="0">
+            <MudText>Netto: @StockLabels.Money(totals.Sum(t => t.Net)) · VAT: @StockLabels.Money(totals.Sum(t => t.Vat)) · <strong>Brutto: @StockLabels.Money(totals.Sum(t => t.Gross))</strong></MudText>
+        </MudPaper>
+    }
+
+    @if (_preview is not null)
+    {
+        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Podgląd wydania</MudText>
+        <MudTable T="PreviewRow" Items="_preview" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+            <HeaderContent>
+                <MudTh>Pozycja</MudTh>
+                <MudTh>Partia</MudTh>
+                <MudTh>Data ważności</MudTh>
+                <MudTh>Ilość</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Pozycja">@context.Name</MudTd>
+                @if (context.Error is not null)
+                {
+                    <MudTd DataLabel="Problem" colspan="3"><MudText Typo="Typo.body2" Color="Color.Error">@context.Error</MudText></MudTd>
+                }
+                else
+                {
+                    <MudTd DataLabel="Partia">@(context.Batch ?? "usługa, bez wydania")</MudTd>
+                    <MudTd DataLabel="Data ważności">@StockLabels.Date(context.ExpiryDate)</MudTd>
+                    <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity)</MudTd>
+                }
+            </RowTemplate>
+        </MudTable>
+    }
+
+    <div class="d-flex justify-end flex-wrap gap-2 mt-4">
+        <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" OnClick="PreviewAsync"
+                   Disabled="@(_lines.Count == 0 || _busy)">Pokaż podgląd</MudButton>
+        <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Primary" OnClick="IssueAsync"
+                   Disabled="@(!CanIssue)">Wystaw fakturę</MudButton>
+    </div>
+</div>
+
+@code {
+    private sealed class Line(ProductPick product)
+    {
+        public ProductPick Product { get; } = product;
+        public decimal? Quantity { get; set; } = 1;
+        public decimal? NetPrice { get; set; } = product.NetPrice;
+        public decimal DiscountPercent { get; set; }
+    }
+
+    private sealed record PreviewRow(string Name, string? Batch, DateOnly? ExpiryDate, decimal Quantity, string? Error);
+
+    // Kept across attempts: if a send's reply is lost, sending again cannot issue a second invoice.
+    private readonly Guid _requestId = Guid.NewGuid();
+    private readonly List<Line> _lines = [];
+    private ContractorListItem? _contractor;
+    private int _paymentDays = InvoiceRules.DefaultPaymentDays;
+    private string _paymentMethod = InvoicePaymentMethods.Default;
+    private string? _error;
+    private IReadOnlyList<PreviewRow>? _preview;
+    private bool _busy;
+
+    /// <summary>A buyer chosen before the editor opens.</summary>
+    [Parameter]
+    public ContractorListItem? InitialContractor { get; set; }
+
+    [Parameter, EditorRequired]
+    public Func<string, CancellationToken, Task<IReadOnlyList<ProductPick>>> SearchProducts { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<string, CancellationToken, Task<ProductPick?>> FindByCode { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<string?, CancellationToken, Task<IReadOnlyList<ContractorListItem>>> SearchContractors { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<StockDocumentDraft, Task<IReadOnlyList<IssuePreviewLine>>> PreviewIssue { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<InvoiceDraft, Task<SaveResult>> Issue { get; set; } = null!;
+
+    /// <summary>Receives the id of the issued invoice.</summary>
+    [Parameter, EditorRequired]
+    public EventCallback<int> Issued { get; set; }
+
+    private bool CanIssue => !_busy && _preview is not null && _preview.All(row => row.Error is null);
+
+    protected override void OnInitialized() => _contractor = InitialContractor;
+
+    private static string? ContractorText(ContractorListItem? contractor) =>
+        contractor is null ? null : contractor.Nip is null ? contractor.Name : $"{contractor.Name} (NIP {contractor.Nip})";
+
+    private static InvoiceLineAmounts AmountsOf(Line line) =>
+        InvoiceRules.Amounts(line.Quantity ?? 0, line.NetPrice ?? 0, line.DiscountPercent, line.Product.VatRate);
+
+    private void Changed(Action apply)
+    {
+        apply();
+        _preview = null;
+        _error = null;
+    }
+
+    private void OnContractorChanged(ContractorListItem? contractor) => Changed(() => _contractor = contractor);
+
+    private async Task<IEnumerable<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
+        await SearchContractors(term, cancellationToken);
+
+    /// <summary>A product already on the invoice gets one more unit, so scanning twice means two pieces.</summary>
+    private void AddProduct(ProductPick product)
+    {
+        var existing = _lines.FirstOrDefault(line => line.Product.Id == product.Id);
+        Changed(() =>
+        {
+            if (existing is null)
+            {
+                _lines.Add(new Line(product));
+            }
+            else
+            {
+                existing.Quantity = (existing.Quantity ?? 0) + 1;
+            }
+        });
+    }
+
+    private InvoiceDraft BuildDraft() => new()
+    {
+        RequestId = _requestId,
+        ContractorId = _contractor?.Id,
+        PaymentDays = _paymentDays,
+        PaymentMethod = _paymentMethod,
+        Lines = _lines.Select(line => new InvoiceDraftLine
+        {
+            ProductId = line.Product.Id,
+            Quantity = line.Quantity ?? 0,
+            NetPrice = line.NetPrice ?? 0,
+            DiscountPercent = line.DiscountPercent,
+        }).ToList(),
+    };
+
+    private async Task PreviewAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        _preview = null;
+        try
+        {
+            var draft = BuildDraft();
+            _error = InvoiceRules.Validate(draft);
+            if (_error is not null)
+            {
+                return;
+            }
+
+            var goodsIds = _lines.Where(l => l.Product.Kind == ProductKind.Goods).Select(l => l.Product.Id).ToList();
+            var issue = goodsIds.Count == 0 ? [] : await PreviewIssue(InvoicePayload.IssueDraftFor(draft, goodsIds));
+
+            var rows = new List<PreviewRow>();
+            foreach (var line in _lines)
+            {
+                var quantityError = StockDraftValidator.ValidateQuantity(line.Quantity ?? 0, line.Product.Unit);
+                var stock = issue.FirstOrDefault(i => i.ProductId == line.Product.Id);
+                if (quantityError is not null || stock?.Error is not null)
+                {
+                    rows.Add(new PreviewRow(line.Product.Name, null, null, 0, quantityError ?? stock!.Error));
+                }
+                else if (stock is null)
+                {
+                    rows.Add(new PreviewRow(line.Product.Name, null, null, line.Quantity ?? 0, null));
+                }
+                else
+                {
+                    rows.AddRange(stock.Allocations.Select(a => new PreviewRow(line.Product.Name, a.Batch.Number, a.Batch.ExpiryDate, a.Quantity, null)));
+                }
+            }
+
+            _preview = rows;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task IssueAsync()
+    {
+        // Set before the first await: events of one circuit run one at a time, so a second
+        // click is handled only after this line has run and is ignored.
+        if (!CanIssue)
+        {
+            return;
+        }
+
+        _busy = true;
+        var issued = false;
+        try
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Wystawić fakturę?",
+                "Faktura trafi do Fakturowni, a towar zostanie wydany dokumentem WZ. Wystawionej faktury nie można zmienić.",
+                yesText: "Wystaw",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Issue(BuildDraft());
+            if (result.IsSuccess)
+            {
+                issued = true;
+                await Issued.InvokeAsync(result.Id!.Value);
+            }
+            else
+            {
+                _error = result.Error;
+                _preview = null; // stock may have moved on, so what was shown no longer holds
+            }
+        }
+        finally
+        {
+            // Stays set after success, so nothing can issue again on the way to the next page.
+            _busy = issued;
+        }
+    }
+}

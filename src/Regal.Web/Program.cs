@@ -29,6 +29,7 @@ builder.Services.AddScoped<ContractorService>();
 builder.Services.AddScoped<StockDocumentService>();
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<InvoiceService>();
+builder.Services.AddScoped<InvoiceQueries>();
 builder.Services.AddScoped<InvoiceSender>();
 builder.Services.AddHostedService<InvoiceSendingWorker>();
 builder.Services.Configure<FakturowniaOptions>(builder.Configuration.GetSection(FakturowniaOptions.Section));

@@ -1,0 +1,26 @@
+@page "/invoices/new"
+@inject InvoiceService Invoices
+@inject StockDocumentService Documents
+@inject StockService Stock
+@inject ContractorService Contractors
+@inject NavigationManager Navigation
+
+<PageTitle>Nowa faktura – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Nowa faktura</MudText>
+
+    <InvoiceEditor SearchProducts="(term, token) => Stock.SearchSellableAsync(term, MaxSuggestions, token)"
+                   FindByCode="(code, token) => Stock.FindSellableByCodeAsync(code, token)"
+                   SearchContractors="SearchContractorsAsync"
+                   PreviewIssue="draft => Documents.PreviewIssueAsync(draft)"
+                   Issue="draft => Invoices.IssueAsync(draft)"
+                   Issued="id => Navigation.NavigateTo(InvoiceRoutes.Details(id))" />
+</MudContainer>
+
+@code {
+    private const int MaxSuggestions = 10;
+
+    private async Task<IReadOnlyList<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
+        (await Contractors.SearchAsync(term, includeInactive: false, 0, MaxSuggestions, cancellationToken)).Items;
+}
