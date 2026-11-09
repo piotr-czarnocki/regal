@@ -1,0 +1,75 @@
+@inject ContractorService Contractors
+
+<MudDialog>
+    <DialogContent>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+        }
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <MudTextField T="string" @bind-Value="_input.Name" Label="Nazwa" MaxLength="200" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" @bind-Value="_input.Nip" Label="NIP (opcjonalnie)" MaxLength="13" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" @bind-Value="_input.Phone" Label="Telefon" MaxLength="30" InputType="InputType.Telephone" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField T="string" @bind-Value="_input.Email" Label="E-mail" MaxLength="320" InputType="InputType.Email" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField T="string" @bind-Value="_input.Address" Label="Adres" MaxLength="500" Lines="2" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Anuluj</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="_saving" OnClick="SaveAsync">Zapisz</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance Dialog { get; set; } = null!;
+
+    [Parameter]
+    public int? ContractorId { get; set; }
+
+    private ContractorInput _input = new();
+    private string? _error;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ContractorId is { } id)
+        {
+            var existing = await Contractors.GetForEditAsync(id);
+            if (existing is null)
+            {
+                _error = "Nie znaleziono kontrahenta.";
+                return;
+            }
+
+            _input = existing;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        var result = await Contractors.SaveAsync(ContractorId, _input);
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            Dialog.Close(DialogResult.Ok(result.Id));
+        }
+        else
+        {
+            _error = result.Error;
+        }
+    }
+}

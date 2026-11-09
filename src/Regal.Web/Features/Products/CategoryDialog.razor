@@ -1,0 +1,45 @@
+@inject CategoryService Categories
+
+<MudDialog>
+    <DialogContent>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+        }
+        <MudTextField T="string" @bind-Value="Name" Label="Nazwa" MaxLength="100" AutoFocus="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Anuluj</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="_saving" OnClick="SaveAsync">Zapisz</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance Dialog { get; set; } = null!;
+
+    [Parameter]
+    public int? CategoryId { get; set; }
+
+    [Parameter]
+    public string? Name { get; set; }
+
+    private string? _error;
+    private bool _saving;
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        var result = await Categories.SaveAsync(CategoryId, Name);
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            Dialog.Close(DialogResult.Ok(result.Id));
+        }
+        else
+        {
+            _error = result.Error;
+        }
+    }
+}

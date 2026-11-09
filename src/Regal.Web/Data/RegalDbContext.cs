@@ -1,16 +1,78 @@
 using Microsoft.EntityFrameworkCore;
 using Regal.Web.Data.Entities;
+using Regal.Web.Features.Products;
 
 namespace Regal.Web.Data;
 
 public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : DbContext(options)
 {
+    public const string InternalEanSequence = "InternalEanNumbers";
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<AuditLogEntry> AuditLog => Set<AuditLogEntry>();
 
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+
+    public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<Product> Products => Set<Product>();
+
+    public DbSet<Contractor> Contractors => Set<Contractor>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasSequence<long>(InternalEanSequence).StartsAt(1).HasMax(Ean13.MaxInternalNumber);
+
+        modelBuilder.Entity<Warehouse>(warehouse =>
+        {
+            warehouse.ToTable("Warehouses");
+            // The id is assigned by hand: a seeded row would not advance an identity counter.
+            warehouse.Property(w => w.Id).ValueGeneratedNever();
+            warehouse.Property(w => w.Name).HasMaxLength(100);
+            warehouse.HasData(new Warehouse { Id = Warehouse.MainWarehouseId, Name = "Magazyn główny" });
+        });
+
+        modelBuilder.Entity<Category>(category =>
+        {
+            category.ToTable("Categories");
+            // Case-insensitive uniqueness is the index IX_Categories_Name_Lower, created in the migration.
+            category.Property(c => c.Name).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Product>(product =>
+        {
+            product.ToTable("Products", table =>
+            {
+                table.HasCheckConstraint("CK_Products_NetPrice_NonNegative", "\"NetPrice\" >= 0");
+                table.HasCheckConstraint("CK_Products_AverageCost_NonNegative", "\"AverageCost\" >= 0");
+            });
+            product.Property(p => p.Sku).HasMaxLength(50);
+            product.Property(p => p.Ean).HasMaxLength(13);
+            product.Property(p => p.Name).HasMaxLength(200);
+            product.Property(p => p.Unit).HasMaxLength(20);
+            product.Property(p => p.Kind).HasConversion<string>().HasMaxLength(20);
+            product.Property(p => p.NetPrice).HasPrecision(18, 2);
+            product.Property(p => p.AverageCost).HasPrecision(18, 4);
+            product.Property(p => p.VatRate).HasMaxLength(3);
+            product.HasIndex(p => p.Sku).IsUnique();
+            product.HasIndex(p => p.Ean).IsUnique();
+            product.HasOne(p => p.Category)
+                .WithMany()
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Contractor>(contractor =>
+        {
+            contractor.ToTable("Contractors");
+            contractor.Property(c => c.Name).HasMaxLength(200);
+            contractor.Property(c => c.Nip).HasMaxLength(10);
+            contractor.Property(c => c.Address).HasMaxLength(500);
+            contractor.Property(c => c.Email).HasMaxLength(320);
+            contractor.Property(c => c.Phone).HasMaxLength(30);
+        });
+
         modelBuilder.Entity<User>(user =>
         {
             user.ToTable("Users", table =>
