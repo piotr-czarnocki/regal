@@ -38,6 +38,8 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public RegalDbContext CreateAppDbContext() => new AppDbContextFactory(AppConnectionString).CreateDbContext();
 
+    public IDbContextFactory<RegalDbContext> DbContextFactory => new AppDbContextFactory(AppConnectionString);
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();

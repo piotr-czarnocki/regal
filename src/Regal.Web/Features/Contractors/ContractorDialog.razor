@@ -1,0 +1,46 @@
+@inject ContractorService Contractors
+
+<FormDialog Save="SaveAsync" Error="@_loadError">
+    <MudGrid Spacing="2">
+        <MudItem xs="12">
+            <MudTextField T="string" @bind-Value="_input.Name" Label="Nazwa" MaxLength="200" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" @bind-Value="_input.Nip" Label="NIP (opcjonalnie)" MaxLength="13" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" @bind-Value="_input.Phone" Label="Telefon" MaxLength="30" InputType="InputType.Telephone" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField T="string" @bind-Value="_input.Email" Label="E-mail" MaxLength="320" InputType="InputType.Email" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField T="string" @bind-Value="_input.Address" Label="Adres" MaxLength="500" Lines="2" />
+        </MudItem>
+    </MudGrid>
+</FormDialog>
+
+@code {
+    [Parameter]
+    public int? ContractorId { get; set; }
+
+    private ContractorInput _input = new();
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ContractorId is { } id)
+        {
+            var existing = await Contractors.GetForEditAsync(id);
+            if (existing is null)
+            {
+                _loadError = "Nie znaleziono kontrahenta.";
+                return;
+            }
+
+            _input = existing;
+        }
+    }
+
+    private Task<SaveResult> SaveAsync() => Contractors.SaveAsync(ContractorId, _input);
+}

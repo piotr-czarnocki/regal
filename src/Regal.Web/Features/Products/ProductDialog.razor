@@ -1,0 +1,101 @@
+@inject ProductService Products
+@inject CategoryService Categories
+
+<FormDialog Save="SaveAsync" Error="@_loadError">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6">
+            <MudSelect T="ProductKind" @bind-Value="_input.Kind" Label="Typ" Disabled="IsEdit">
+                <MudSelectItem Value="ProductKind.Goods">Towar</MudSelectItem>
+                <MudSelectItem Value="ProductKind.Service">Usługa</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" @bind-Value="_input.Sku" Label="SKU" MaxLength="50" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField T="string" @bind-Value="_input.Name" Label="Nazwa" MaxLength="200" />
+        </MudItem>
+        @if (IsGoods)
+        {
+            <MudItem xs="12">
+                <MudTextField T="string" @bind-Value="_input.Ean" Label="EAN" MaxLength="13" InputMode="InputMode.numeric"
+                              HelperText="Zostaw puste, aby wygenerować kod wewnętrzny." />
+            </MudItem>
+        }
+        <MudItem xs="12" sm="6">
+            <MudSelect T="int?" @bind-Value="_input.CategoryId" Label="Kategoria">
+                @foreach (var category in _categories)
+                {
+                    <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField T="string" @bind-Value="_input.Unit" Label="Jednostka" MaxLength="20" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudNumericField T="decimal" @bind-Value="_input.NetPrice" Label="Cena netto (zł)" Min="0" Format="F2" HideSpinButtons="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudSelect T="string" @bind-Value="_input.VatRate" Label="Stawka VAT">
+                @foreach (var rate in VatRates.All)
+                {
+                    <MudSelectItem Value="rate">@rate</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        @if (IsGoods)
+        {
+            <MudItem xs="12" sm="6">
+                <MudSwitch T="bool" @bind-Value="_input.HasExpiry" Label="Ma datę ważności" Color="Color.Primary" />
+            </MudItem>
+            @if (IsEdit)
+            {
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string" Value="@_input.AverageCost.ToString("N4")" Label="Cena średnia (zł)" ReadOnly="true" />
+                </MudItem>
+            }
+        }
+    </MudGrid>
+</FormDialog>
+
+@code {
+    [Parameter]
+    public int? ProductId { get; set; }
+
+    private ProductInput _input = new();
+    private IReadOnlyList<CategoryItem> _categories = [];
+    private string? _loadError;
+
+    private bool IsEdit => ProductId is not null;
+    private bool IsGoods => _input.Kind == ProductKind.Goods;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await Categories.GetAllAsync();
+
+        if (ProductId is { } id)
+        {
+            var existing = await Products.GetForEditAsync(id);
+            if (existing is null)
+            {
+                _loadError = "Nie znaleziono produktu.";
+                return;
+            }
+
+            _input = existing;
+        }
+    }
+
+    private Task<SaveResult> SaveAsync()
+    {
+        if (!IsGoods)
+        {
+            _input.Ean = null;
+        }
+
+        return ProductId is { } id
+            ? Products.UpdateAsync(id, _input)
+            : Products.CreateAsync(_input);
+    }
+}

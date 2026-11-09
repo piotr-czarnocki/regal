@@ -27,3 +27,12 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** podczas konfiguracji przypadkowo pokazałem Client secret Google na zrzucie ekranu.
 - **Rozwiązanie:** sekret został wymieniony (rotacja), stary usunięty, a historia PowerShella wyczyszczona.
 - **Wniosek:** nie robić zrzutów ekranu poleceń z sekretami.
+
+## Etap „Kartoteki” (9.11.2026)
+
+### Popularny prefiks 2xx nie jest przeznaczony dla jednej firmy
+
+- **Objaw:** przy wyborze prefiksu wewnętrznego EAN-13 naturalnym kandydatem wydawał się zakres `200–299`, często spotykany w sklepach.
+- **Przyczyna:** według listy prefiksów GS1 zakres `200–299` służy numerom ograniczonego obiegu w regionie geograficznym, a zasady ustala krajowa organizacja GS1. Numerom w obrębie jednej firmy odpowiada `040–049`.
+- **Rozwiązanie:** generator używa prefiksu `040`, a ręcznie wpisanych kodów z zakresu `04x` nie przyjmujemy. Pełnego tekstu GS1 General Specifications nie udało się odczytać automatycznie (PDF), więc podstawą jest tabela prefiksów ze strony GS1.
+- **Do pamiętania:** kod zaczynający się od `0` to jednocześnie UPC-A, więc część skanerów zwróci 12 cyfr. Trzeba to obsłużyć w etapie skanowania.

@@ -1,0 +1,100 @@
+@page "/products"
+@inject ProductService Products
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Produkty i usługi – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Produkty i usługi</MudText>
+
+    <MudTable @ref="_table" T="ProductListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <ToolBarContent>
+            <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: nazwa, SKU, EAN" Immediate="true" DebounceInterval="300"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+            <MudSpacer />
+            <MudSwitch T="bool" Value="_includeInactive" ValueChanged="OnIncludeInactiveChanged" Label="Nieaktywne" Color="Color.Primary" Class="ml-2" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => EditAsync(null)" Class="ml-2">Dodaj</MudButton>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>SKU</MudTh>
+            <MudTh>EAN</MudTh>
+            <MudTh>Nazwa</MudTh>
+            <MudTh>Kategoria</MudTh>
+            <MudTh>Typ</MudTh>
+            <MudTh>Jedn.</MudTh>
+            <MudTh>Cena netto</MudTh>
+            <MudTh>VAT</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="SKU">@context.Sku</MudTd>
+            <MudTd DataLabel="EAN">@context.Ean</MudTd>
+            <MudTd DataLabel="Nazwa">@context.Name</MudTd>
+            <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
+            <MudTd DataLabel="Typ">@(context.Kind == ProductKind.Goods ? "Towar" : "Usługa")</MudTd>
+            <MudTd DataLabel="Jedn.">@context.Unit</MudTd>
+            <MudTd DataLabel="Cena netto">@context.NetPrice.ToString("N2") zł</MudTd>
+            <MudTd DataLabel="VAT">@VatLabel(context.VatRate)</MudTd>
+            <MudTd DataLabel="Status">@(context.IsActive ? "Aktywny" : "Nieaktywny")</MudTd>
+            <MudTd DataLabel="">
+                <MudButton Size="Size.Small" OnClick="() => EditAsync(context.Id)">Edytuj</MudButton>
+                <MudButton Size="Size.Small" OnClick="() => SetActiveAsync(context)">@(context.IsActive ? "Dezaktywuj" : "Aktywuj")</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak produktów.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private MudTable<ProductListItem>? _table;
+    private string? _search;
+    private bool _includeInactive;
+
+    private static string VatLabel(string rate) => char.IsAsciiDigit(rate[0]) ? $"{rate}%" : rate;
+
+    private async Task<TableData<ProductListItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await Products.SearchAsync(_search, _includeInactive, state.Page, state.PageSize, cancellationToken);
+        return new TableData<ProductListItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnIncludeInactiveChanged(bool value)
+    {
+        _includeInactive = value;
+        return _table!.ReloadServerData();
+    }
+
+    private async Task EditAsync(int? productId)
+    {
+        var parameters = new DialogParameters<ProductDialog> { { x => x.ProductId, productId } };
+        var dialog = await Dialogs.ShowAsync<ProductDialog>(
+            productId is null ? "Nowy produkt lub usługa" : "Edycja produktu", parameters, DialogDefaults.Form);
+
+        if (await dialog.Result is { Canceled: false })
+        {
+            await _table!.ReloadServerData();
+        }
+    }
+
+    private async Task SetActiveAsync(ProductListItem product)
+    {
+        var result = await Products.SetActiveAsync(product.Id, !product.IsActive);
+        if (result.IsSuccess)
+        {
+            await _table!.ReloadServerData();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+        }
+    }
+}

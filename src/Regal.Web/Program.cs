@@ -3,6 +3,8 @@ using MudBlazor.Services;
 using Regal.Web.Components;
 using Regal.Web.Data;
 using Regal.Web.Features.Auth;
+using Regal.Web.Features.Contractors;
+using Regal.Web.Features.Products;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,10 @@ var connectionString = builder.Configuration.GetConnectionString("Regal")
 builder.Services.AddDbContextFactory<RegalDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services.AddRegalAuth(builder.Configuration);
+
+builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<ContractorService>();
 
 var app = builder.Build();
 
@@ -33,6 +39,14 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+// Polish number formats everywhere, e.g. a comma in prices typed into forms.
+app.UseRequestLocalization(options =>
+{
+    options.SetDefaultCulture("pl-PL");
+    options.AddSupportedCultures("pl-PL");
+    options.AddSupportedUICultures("pl-PL");
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

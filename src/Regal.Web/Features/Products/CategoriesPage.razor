@@ -1,0 +1,63 @@
+@page "/categories"
+@inject CategoryService Categories
+@inject IDialogService Dialogs
+
+<PageTitle>Kategorie – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Kategorie</MudText>
+
+    <MudTable @ref="_table" T="CategoryItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <ToolBarContent>
+            <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj" Immediate="true" DebounceInterval="300"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => EditAsync(null)" Class="ml-2">Dodaj</MudButton>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Nazwa</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Nazwa">@context.Name</MudTd>
+            <MudTd DataLabel="">
+                <MudButton Size="Size.Small" OnClick="() => EditAsync(context)">Edytuj</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak kategorii.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private MudTable<CategoryItem>? _table;
+    private string? _search;
+
+    private async Task<TableData<CategoryItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await Categories.SearchAsync(_search, state.Page, state.PageSize, cancellationToken);
+        return new TableData<CategoryItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return _table!.ReloadServerData();
+    }
+
+    private async Task EditAsync(CategoryItem? category)
+    {
+        var parameters = new DialogParameters<CategoryDialog>
+        {
+            { x => x.CategoryId, category?.Id },
+            { x => x.Name, category?.Name },
+        };
+        var dialog = await Dialogs.ShowAsync<CategoryDialog>(
+            category is null ? "Nowa kategoria" : "Edycja kategorii", parameters, DialogDefaults.Form);
+
+        if (await dialog.Result is { Canceled: false })
+        {
+            await _table!.ReloadServerData();
+        }
+    }
+}

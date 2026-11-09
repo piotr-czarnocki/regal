@@ -48,6 +48,7 @@ public static class AuthSetup
         services.AddAuthorization();
         services.AddCascadingAuthenticationState();
         services.AddScoped<AuthService>();
+        services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<AuthenticationStateProvider, ActiveUserAuthenticationStateProvider>();
 
         return services;

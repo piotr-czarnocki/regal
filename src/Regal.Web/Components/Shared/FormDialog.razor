@@ -1,0 +1,81 @@
+@inject IJSRuntime JS
+
+<MudDialog>
+    <DialogContent>
+        @if ((_saveError ?? Error) is { } message)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">@message</MudAlert>
+        }
+
+        @* novalidate: the service decides what is valid, not the browser's own pop-ups. *@
+        <form id="@_formId" @ref="_form" novalidate autocomplete="off" @onsubmit="SubmitAsync">
+            @ChildContent
+        </form>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Anuluj</MudButton>
+        @* Sits outside the form, so it is tied to it by id. As the form's submit button it also enables Enter. *@
+        <MudButton ButtonType="ButtonType.Submit" form="@_formId" Color="Color.Primary" Variant="Variant.Filled" Disabled="_saving">Zapisz</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private readonly string _formId = $"form-{Guid.NewGuid():N}";
+    private ElementReference _form;
+    private string? _saveError;
+    private bool _saving;
+
+    [CascadingParameter]
+    private IMudDialogInstance Dialog { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = null!;
+
+    /// <summary>Runs the service call; the dialog closes on success and shows the message on failure.</summary>
+    [Parameter, EditorRequired]
+    public Func<Task<SaveResult>> Save { get; set; } = null!;
+
+    /// <summary>A problem found before saving, e.g. the record could not be loaded.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Shared/FormDialog.razor.js");
+            await module.InvokeVoidAsync("focusFirstField", _form);
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        // Set before the first await: events of one circuit run one at a time, so a second
+        // Enter is handled only after this line has run and is ignored.
+        if (_saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        var closing = false;
+        try
+        {
+            var result = await Save();
+            if (result.IsSuccess)
+            {
+                closing = true;
+                Dialog.Close(DialogResult.Ok(result.Id));
+            }
+            else
+            {
+                _saveError = result.Error;
+            }
+        }
+        finally
+        {
+            // Stays set while closing, so nothing can save again on the way out.
+            _saving = closing;
+        }
+    }
+}

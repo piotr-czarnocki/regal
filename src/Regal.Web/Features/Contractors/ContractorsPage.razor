@@ -1,0 +1,92 @@
+@page "/contractors"
+@inject ContractorService Contractors
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Kontrahenci – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Kontrahenci</MudText>
+
+    <MudTable @ref="_table" T="ContractorListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <ToolBarContent>
+            <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: nazwa, NIP, e-mail, telefon" Immediate="true" DebounceInterval="300"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+            <MudSpacer />
+            <MudSwitch T="bool" Value="_includeInactive" ValueChanged="OnIncludeInactiveChanged" Label="Nieaktywni" Color="Color.Primary" Class="ml-2" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => EditAsync(null)" Class="ml-2">Dodaj</MudButton>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Nazwa</MudTh>
+            <MudTh>NIP</MudTh>
+            <MudTh>Adres</MudTh>
+            <MudTh>E-mail</MudTh>
+            <MudTh>Telefon</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Nazwa">@context.Name</MudTd>
+            <MudTd DataLabel="NIP">@context.Nip</MudTd>
+            <MudTd DataLabel="Adres">@context.Address</MudTd>
+            <MudTd DataLabel="E-mail">@context.Email</MudTd>
+            <MudTd DataLabel="Telefon">@context.Phone</MudTd>
+            <MudTd DataLabel="Status">@(context.IsActive ? "Aktywny" : "Nieaktywny")</MudTd>
+            <MudTd DataLabel="">
+                <MudButton Size="Size.Small" OnClick="() => EditAsync(context.Id)">Edytuj</MudButton>
+                <MudButton Size="Size.Small" OnClick="() => SetActiveAsync(context)">@(context.IsActive ? "Dezaktywuj" : "Aktywuj")</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak kontrahentów.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private MudTable<ContractorListItem>? _table;
+    private string? _search;
+    private bool _includeInactive;
+
+    private async Task<TableData<ContractorListItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await Contractors.SearchAsync(_search, _includeInactive, state.Page, state.PageSize, cancellationToken);
+        return new TableData<ContractorListItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnIncludeInactiveChanged(bool value)
+    {
+        _includeInactive = value;
+        return _table!.ReloadServerData();
+    }
+
+    private async Task EditAsync(int? contractorId)
+    {
+        var parameters = new DialogParameters<ContractorDialog> { { x => x.ContractorId, contractorId } };
+        var dialog = await Dialogs.ShowAsync<ContractorDialog>(
+            contractorId is null ? "Nowy kontrahent" : "Edycja kontrahenta", parameters, DialogDefaults.Form);
+
+        if (await dialog.Result is { Canceled: false })
+        {
+            await _table!.ReloadServerData();
+        }
+    }
+
+    private async Task SetActiveAsync(ContractorListItem contractor)
+    {
+        var result = await Contractors.SetActiveAsync(contractor.Id, !contractor.IsActive);
+        if (result.IsSuccess)
+        {
+            await _table!.ReloadServerData();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,15 @@
+@inject CategoryService Categories
+
+<FormDialog Save="SaveAsync">
+    <MudTextField T="string" @bind-Value="Name" Label="Nazwa" MaxLength="100" />
+</FormDialog>
+
+@code {
+    [Parameter]
+    public int? CategoryId { get; set; }
+
+    [Parameter]
+    public string? Name { get; set; }
+
+    private Task<SaveResult> SaveAsync() => Categories.SaveAsync(CategoryId, Name);
+}
