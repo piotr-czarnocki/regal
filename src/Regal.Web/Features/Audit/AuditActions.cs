@@ -8,4 +8,6 @@ public static class AuditActions
     public const string EntityUpdated = "EntityUpdated";
     public const string EntityDeactivated = "EntityDeactivated";
     public const string EntityActivated = "EntityActivated";
+    public const string StockDocumentPosted = "StockDocumentPosted";
+    public const string StockDocumentReversed = "StockDocumentReversed";
 }

@@ -151,6 +151,9 @@ public sealed class ProductService(
         var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
 
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await ProductLocks.LockAsync(db, [id], cancellationToken);
+
         var product = await db.Products.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product is null)
         {
@@ -174,6 +177,12 @@ public sealed class ProductService(
             return SaveResult.Fail("Wybrana kategoria nie istnieje.");
         }
 
+        var hasExpiry = product.Kind == ProductKind.Goods && input.HasExpiry;
+        if (hasExpiry != product.HasExpiry && await db.Batches.AnyAsync(b => b.ProductId == id, cancellationToken))
+        {
+            return SaveResult.Fail("Nie można zmienić ustawienia daty ważności, bo produkt ma już partie.");
+        }
+
         product.Sku = NormalizeSku(input.Sku);
         // A cleared field keeps the current code: goods must always have one.
         product.Ean = ean ?? product.Ean;
@@ -182,7 +191,7 @@ public sealed class ProductService(
         product.Unit = input.Unit!.Trim();
         product.NetPrice = input.NetPrice;
         product.VatRate = input.VatRate;
-        product.HasExpiry = product.Kind == ProductKind.Goods && input.HasExpiry;
+        product.HasExpiry = hasExpiry;
 
         try
         {
@@ -191,6 +200,7 @@ public sealed class ProductService(
                 await db.SaveChangesAsync(cancellationToken);
             }
 
+            await transaction.CommitAsync(cancellationToken);
             return SaveResult.Ok(product.Id);
         }
         catch (DbUpdateException exception) when (DuplicateMessage(exception) is not null)
@@ -204,10 +214,18 @@ public sealed class ProductService(
         var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
 
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await ProductLocks.LockAsync(db, [id], cancellationToken);
+
         var product = await db.Products.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product is null)
         {
             return SaveResult.Fail("Nie znaleziono produktu.");
+        }
+
+        if (!isActive && await db.Stock.AnyAsync(s => s.Batch!.ProductId == id && s.Quantity > 0, cancellationToken))
+        {
+            return SaveResult.Fail("Nie można dezaktywować produktu, który ma stan magazynowy.");
         }
 
         if (product.IsActive != isActive)
@@ -217,6 +235,7 @@ public sealed class ProductService(
             await db.SaveChangesAsync(cancellationToken);
         }
 
+        await transaction.CommitAsync(cancellationToken);
         return SaveResult.Ok(product.Id);
     }
 

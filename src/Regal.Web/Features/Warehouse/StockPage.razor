@@ -1,0 +1,138 @@
+@page "/stock"
+@inject StockService Stock
+@inject CategoryService Categories
+
+<PageTitle>Stany magazynowe – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Stany magazynowe</MudText>
+
+    <MudGrid Spacing="2" Class="mb-2">
+        <MudItem xs="12" sm="6" md="5">
+            <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: nazwa, SKU, EAN" Immediate="true" DebounceInterval="300"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudSelect T="int?" Value="_categoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">
+                <MudSelectItem T="int?" Value="null">Wszystkie</MudSelectItem>
+                @foreach (var category in _categories)
+                {
+                    <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudNumericField T="int?" Value="_expiringWithinDays" ValueChanged="OnExpiringChanged" Label="Ważność do (dni)" Min="0" HideSpinButtons="true" Immediate="true" DebounceInterval="300" />
+        </MudItem>
+    </MudGrid>
+
+    <MudTable @ref="_table" T="StockListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <HeaderContent>
+            <MudTh></MudTh>
+            <MudTh>Produkt</MudTh>
+            <MudTh>SKU</MudTh>
+            <MudTh>Kategoria</MudTh>
+            <MudTh>Ilość</MudTh>
+            <MudTh>Cena średnia</MudTh>
+            <MudTh>Wartość</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="">
+                <MudIconButton Size="Size.Small" aria-label="Pokaż partie"
+                               Icon="@(_batches.ContainsKey(context.ProductId) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                               OnClick="() => ToggleBatchesAsync(context.ProductId)" />
+            </MudTd>
+            <MudTd DataLabel="Produkt">
+                <MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.Name</MudLink>
+                @if (!context.IsActive)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">nieaktywny</MudChip>
+                }
+                @if (context.HasExpiredBatch)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Error">przeterminowane</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="SKU">@context.Sku</MudTd>
+            <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
+            <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+            <MudTd DataLabel="Cena średnia">@StockLabels.Cost(context.AverageCost)</MudTd>
+            <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
+        </RowTemplate>
+        <ChildRowContent>
+            @if (_batches.TryGetValue(context.ProductId, out var batches))
+            {
+                <MudTr>
+                    <td colspan="7" class="pa-2">
+                        <MudTable T="StockBatchRow" Items="batches" Dense="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+                                  RowClassFunc="@((batch, _) => batch.IsExpired ? "batch-expired" : string.Empty)">
+                            <HeaderContent>
+                                <MudTh>Partia</MudTh>
+                                <MudTh>Data ważności</MudTh>
+                                <MudTh>Ilość</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="batch">
+                                <MudTd DataLabel="Partia">@batch.Number</MudTd>
+                                <MudTd DataLabel="Data ważności">
+                                    @StockLabels.Date(batch.ExpiryDate)
+                                    @if (batch.IsExpired)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Error">przeterminowana</MudChip>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="Ilość">@StockLabels.Quantity(batch.Quantity) @context.Unit</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </td>
+                </MudTr>
+            }
+        </ChildRowContent>
+        <NoRecordsContent><MudText>Brak towaru na stanie.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private readonly Dictionary<int, IReadOnlyList<StockBatchRow>> _batches = [];
+    private MudTable<StockListItem>? _table;
+    private IReadOnlyList<CategoryItem> _categories = [];
+    private string? _search;
+    private int? _categoryId;
+    private int? _expiringWithinDays;
+
+    protected override async Task OnInitializedAsync() => _categories = await Categories.GetAllAsync();
+
+    private async Task<TableData<StockListItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var filter = new StockFilter(_categoryId, _search, _expiringWithinDays);
+        var result = await Stock.SearchAsync(filter, state.Page, state.PageSize, cancellationToken);
+        _batches.Clear();
+        return new TableData<StockListItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private async Task ToggleBatchesAsync(int productId)
+    {
+        if (!_batches.Remove(productId))
+        {
+            _batches[productId] = await Stock.GetBatchesAsync(productId);
+        }
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnCategoryChanged(int? value)
+    {
+        _categoryId = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnExpiringChanged(int? value)
+    {
+        _expiringWithinDays = value;
+        return _table!.ReloadServerData();
+    }
+}

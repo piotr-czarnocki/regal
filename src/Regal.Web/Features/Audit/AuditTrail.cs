@@ -58,6 +58,10 @@ public static class AuditTrail
     public static void AddActivation<TEntity>(RegalDbContext db, bool isActive, int id, int userId, TimeProvider timeProvider) =>
         Add(db, isActive ? AuditActions.EntityActivated : AuditActions.EntityDeactivated, typeof(TEntity).Name, id, userId, null, timeProvider);
 
+    /// <summary>The caller saves it together with the document, in the document's transaction.</summary>
+    public static void AddStockDocument(RegalDbContext db, string action, int id, int userId, string details, TimeProvider timeProvider) =>
+        Add(db, action, nameof(StockDocument), id, userId, details, timeProvider);
+
     private static void Add(
         RegalDbContext db,
         string action,

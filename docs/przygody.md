@@ -36,3 +36,41 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Przyczyna:** według listy prefiksów GS1 zakres `200–299` służy numerom ograniczonego obiegu w regionie geograficznym, a zasady ustala krajowa organizacja GS1. Numerom w obrębie jednej firmy odpowiada `040–049`.
 - **Rozwiązanie:** generator używa prefiksu `040`, a ręcznie wpisanych kodów z zakresu `04x` nie przyjmujemy. Pełnego tekstu GS1 General Specifications nie udało się odczytać automatycznie (PDF), więc podstawą jest tabela prefiksów ze strony GS1.
 - **Do pamiętania:** kod zaczynający się od `0` to jednocześnie UPC-A, więc część skanerów zwróci 12 cyfr. Trzeba to obsłużyć w etapie skanowania.
+
+## Etap „Magazyn” (9.11.2026)
+
+### Claude Code odczytał poświadczenia GitHuba bez polecenia
+
+- **Objaw:** podczas przygotowywania planu Claude Code wywołał `git credential fill` dla `github.com`, żeby sprawdzić, czy `git push` zadziała. Nikt o to nie prosił, a do tego celu wystarczyło po prostu spróbować wykonać `git push`.
+- **Skutek:** polecenie pobrało z Git Credential Manager nazwę użytkownika i token. Filtr `sed` zamienił hasło na `<present>`, zanim wynik wrócił do sesji, więc token nie trafił do rozmowy ani do plików i nie został nigdzie użyty. Nazwa użytkownika była widoczna.
+- **Przyczyna:** działanie wykraczające poza potrzebę. Maskowanie wyniku nie zmienia faktu, że sekret został pobrany przez proces uruchomiony przez narzędzie.
+- **Rozwiązanie:** reguły `deny` w `.claude/settings.json` dla `git credential`, `dotnet user-secrets list` i odczytu `.env` oraz zasada w `CLAUDE.md`: poświadczeń nie odczytujemy nigdy, także w celu sprawdzenia.
+- **Wniosek:** reguły `deny` dopasowują tekst polecenia, więc nie zatrzymają np. `sh -c` ani skryptu. Są dodatkowym zabezpieczeniem, a nie granicą bezpieczeństwa. Katalog `.claude/` jest w `.gitignore`, więc reguły działają tylko na tym komputerze, a zasada w `CLAUDE.md` jest w repozytorium.
+
+### Test zakleszczenia przechodził także bez blokady
+
+- **Objaw:** po usunięciu `FOR UPDATE` padły cztery testy współbieżności, ale test dokumentów z produktami w odwrotnej kolejności nadal był zielony.
+- **Przyczyna:** test tworzył same WZ. Licznik numerów jest zwiększany przed zmianą stanów i blokuje swój wiersz do końca transakcji, więc dokumenty jednego typu nigdy nie zmieniały stanów jednocześnie.
+- **Rozwiązanie:** test miesza WZ i RW, które mają osobne liczniki. Bez blokady kończy się teraz błędem `40P01: deadlock detected`. Szczegóły są w `analiza-dynamiczna.md`.
+
+### Działająca aplikacja blokowała build
+
+- **Objaw:** `dotnet test` w konfiguracji Debug kończył się błędem `MSB3027`: nie można skopiować `Regal.Web.exe`, bo plik jest zajęty.
+- **Przyczyna:** uruchomiona aplikacja trzymała otwarty plik w `bin/Debug`.
+- **Rozwiązanie:** zatrzymanie aplikacji przed budowaniem. Doraźnie wystarcza `-c Release`, który ma osobny katalog wyjściowy.
+
+### Czyszczenie śledzenia zmian w cudzej transakcji
+
+- **Objaw:** przy przeglądzie kodu okazało się, że odrzucenie partii z inną datą ważności wywołuje `ChangeTracker.Clear()`.
+- **Przyczyna:** w transakcji własnej to nieszkodliwe, ale `PostInTransactionAsync` działa na kontekście wywołującego. Faktura z etapu 3 straciłaby śledzone encje i po cichu ich nie zapisała.
+- **Rozwiązanie:** usunięcie tego wywołania. Po błędzie odłączane są tylko encje dokumentu, a test sprawdza, że transakcja wywołującego nadal działa.
+
+### Nazwa folderu zasłoniła encję
+
+- **Objaw:** w folderze `Features/Warehouse` nazwa `Warehouse` oznacza przestrzeń nazw, więc `Warehouse.MainWarehouseId` nie wskazuje encji.
+- **Rozwiązanie:** mała klasa `MainWarehouse` z identyfikatorem magazynu, zamiast zmiany nazwy folderu ustalonej w SPEC.
+
+### bUnit 2.x nie ma już `IRenderedFragment`
+
+- **Objaw:** błąd `CS0246` w testach komponentów napisanych według starszych przykładów.
+- **Rozwiązanie:** metody pomocnicze przyjmują `IRenderedComponent<T>`.

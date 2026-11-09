@@ -20,8 +20,98 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
 
     public DbSet<Contractor> Contractors => Set<Contractor>();
 
+    public DbSet<Batch> Batches => Set<Batch>();
+
+    public DbSet<StockLevel> Stock => Set<StockLevel>();
+
+    public DbSet<StockDocument> StockDocuments => Set<StockDocument>();
+
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+
+    public DbSet<DocumentCounter> DocumentCounters => Set<DocumentCounter>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Batch>(batch =>
+        {
+            batch.ToTable("Batches");
+            batch.Property(b => b.Number).HasMaxLength(50);
+            batch.HasIndex(b => new { b.ProductId, b.Number }).IsUnique();
+            batch.HasIndex(b => b.ExpiryDate).HasFilter("\"ExpiryDate\" IS NOT NULL");
+            batch.HasOne(b => b.Product)
+                .WithMany()
+                .HasForeignKey(b => b.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StockLevel>(stock =>
+        {
+            stock.ToTable("Stock", table =>
+                table.HasCheckConstraint("CK_Stock_Quantity_NonNegative", "\"Quantity\" >= 0"));
+            stock.HasKey(s => new { s.WarehouseId, s.BatchId });
+            stock.Property(s => s.Quantity).HasPrecision(18, 3);
+            stock.HasOne(s => s.Warehouse)
+                .WithMany()
+                .HasForeignKey(s => s.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+            stock.HasOne(s => s.Batch)
+                .WithMany()
+                .HasForeignKey(s => s.BatchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StockDocument>(document =>
+        {
+            document.ToTable("StockDocuments");
+            document.Property(d => d.Type).HasConversion<string>().HasMaxLength(2);
+            document.Property(d => d.Number).HasMaxLength(30);
+            document.Property(d => d.Notes).HasMaxLength(500);
+            document.HasIndex(d => d.Number).IsUnique();
+            document.HasIndex(d => d.RequestId).IsUnique();
+            document.HasIndex(d => d.ReversesDocumentId).IsUnique().HasFilter("\"ReversesDocumentId\" IS NOT NULL");
+            document.HasIndex(d => d.DocumentDate);
+            document.HasIndex(d => new { d.Type, d.DocumentDate });
+            document.HasOne(d => d.Contractor)
+                .WithMany()
+                .HasForeignKey(d => d.ContractorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            document.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            document.HasOne(d => d.ReversesDocument)
+                .WithMany()
+                .HasForeignKey(d => d.ReversesDocumentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StockMovement>(movement =>
+        {
+            movement.ToTable("StockMovements", table =>
+            {
+                table.HasCheckConstraint("CK_StockMovements_QuantityChange_NonZero", "\"QuantityChange\" <> 0");
+                table.HasCheckConstraint("CK_StockMovements_UnitCost_NonNegative", "\"UnitCost\" >= 0");
+            });
+            movement.Property(m => m.QuantityChange).HasPrecision(18, 3);
+            movement.Property(m => m.UnitCost).HasPrecision(18, 4);
+            movement.HasIndex(m => new { m.BatchId, m.Id });
+            movement.HasOne(m => m.Document)
+                .WithMany(d => d.Movements)
+                .HasForeignKey(m => m.DocumentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            movement.HasOne(m => m.Batch)
+                .WithMany()
+                .HasForeignKey(m => m.BatchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DocumentCounter>(counter =>
+        {
+            counter.ToTable("DocumentCounters");
+            counter.HasKey(c => new { c.Type, c.Year });
+            counter.Property(c => c.Type).HasConversion<string>().HasMaxLength(2);
+        });
+
         modelBuilder.HasSequence<long>(InternalEanSequence).StartsAt(1).HasMax(Ean13.MaxInternalNumber);
 
         modelBuilder.Entity<Warehouse>(warehouse =>

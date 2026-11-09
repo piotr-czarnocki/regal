@@ -1,0 +1,46 @@
+@page "/stock/{ProductId:int}/history"
+@inject StockService Stock
+@inject ProductService Products
+
+<PageTitle>Historia ruchów – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Historia ruchów: @_productName</MudText>
+
+    <MudTable T="ProductMovementRow" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <HeaderContent>
+            <MudTh>Data</MudTh>
+            <MudTh>Dokument</MudTh>
+            <MudTh>Partia</MudTh>
+            <MudTh>Data ważności</MudTh>
+            <MudTh>Ilość</MudTh>
+            <MudTh>Koszt jedn.</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Data">@StockLabels.Date(context.DocumentDate)</MudTd>
+            <MudTd DataLabel="Dokument"><MudLink Href="@StockDocumentRoutes.Details(context.DocumentId)">@context.DocumentNumber</MudLink></MudTd>
+            <MudTd DataLabel="Partia">@context.BatchNumber</MudTd>
+            <MudTd DataLabel="Data ważności">@StockLabels.Date(context.ExpiryDate)</MudTd>
+            <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.QuantityChange)</MudTd>
+            <MudTd DataLabel="Koszt jedn.">@StockLabels.Cost(context.UnitCost)</MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak ruchów.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private string? _productName;
+
+    [Parameter]
+    public int ProductId { get; set; }
+
+    protected override async Task OnParametersSetAsync() =>
+        _productName = (await Products.GetForEditAsync(ProductId))?.Name ?? "nie znaleziono produktu";
+
+    private async Task<TableData<ProductMovementRow>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await Stock.GetProductMovementsAsync(ProductId, state.Page, state.PageSize, cancellationToken);
+        return new TableData<ProductMovementRow> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+}

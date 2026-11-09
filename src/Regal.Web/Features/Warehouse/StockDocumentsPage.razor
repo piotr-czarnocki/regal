@@ -1,0 +1,102 @@
+@page "/stock-documents"
+@inject StockDocumentService Documents
+
+<PageTitle>Dokumenty magazynowe – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Dokumenty magazynowe</MudText>
+
+    <MudGrid Spacing="2" Class="mb-2">
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: numer, kontrahent" Immediate="true" DebounceInterval="300"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="StockDocumentType?" Value="_type" ValueChanged="OnTypeChanged" Label="Typ">
+                <MudSelectItem T="StockDocumentType?" Value="null">Wszystkie</MudSelectItem>
+                @foreach (var type in Enum.GetValues<StockDocumentType>())
+                {
+                    <MudSelectItem T="StockDocumentType?" Value="type">@StockLabels.TypeName(type)</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudDatePicker Date="_from" DateChanged="OnFromChanged" Label="Od" Editable="true" Clearable="true" DateFormat="dd.MM.yyyy" />
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudDatePicker Date="_to" DateChanged="OnToChanged" Label="Do" Editable="true" Clearable="true" DateFormat="dd.MM.yyyy" />
+        </MudItem>
+        <MudItem xs="12" md="1" Class="d-flex align-center justify-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/stock-documents/new">Nowy</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <MudTable @ref="_table" T="StockDocumentListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <HeaderContent>
+            <MudTh>Numer</MudTh>
+            <MudTh>Typ</MudTh>
+            <MudTh>Data</MudTh>
+            <MudTh>Kontrahent</MudTh>
+            <MudTh>Korekta</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Numer"><MudLink Href="@StockDocumentRoutes.Details(context.Id)">@context.Number</MudLink></MudTd>
+            <MudTd DataLabel="Typ">@context.Type</MudTd>
+            <MudTd DataLabel="Data">@StockLabels.Date(context.DocumentDate)</MudTd>
+            <MudTd DataLabel="Kontrahent">@context.ContractorName</MudTd>
+            <MudTd DataLabel="Korekta">
+                @if (context.ReversesDocumentId is { } original)
+                {
+                    <MudLink Href="@StockDocumentRoutes.Details(original)">Korekta dokumentu</MudLink>
+                }
+                else if (context.ReversedByDocumentId is { } correction)
+                {
+                    <MudLink Href="@StockDocumentRoutes.Details(correction)">Skorygowany</MudLink>
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak dokumentów.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private MudTable<StockDocumentListItem>? _table;
+    private string? _search;
+    private StockDocumentType? _type;
+    private DateTime? _from;
+    private DateTime? _to;
+
+    private static DateOnly? ToDate(DateTime? value) => value is { } date ? DateOnly.FromDateTime(date) : null;
+
+    private async Task<TableData<StockDocumentListItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var filter = new StockDocumentFilter(_type, ToDate(_from), ToDate(_to), _search);
+        var result = await Documents.SearchAsync(filter, state.Page, state.PageSize, cancellationToken);
+        return new TableData<StockDocumentListItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnTypeChanged(StockDocumentType? value)
+    {
+        _type = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnFromChanged(DateTime? value)
+    {
+        _from = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnToChanged(DateTime? value)
+    {
+        _to = value;
+        return _table!.ReloadServerData();
+    }
+}
