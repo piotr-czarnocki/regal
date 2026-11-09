@@ -62,12 +62,16 @@ public static class AuditTrail
     public static void AddStockDocument(RegalDbContext db, string action, int id, int userId, string details, TimeProvider timeProvider) =>
         Add(db, action, nameof(StockDocument), id, userId, details, timeProvider);
 
+    /// <summary>The user is empty when the background sender is the one acting.</summary>
+    public static void AddInvoice(RegalDbContext db, string action, int id, int? userId, string? details, TimeProvider timeProvider) =>
+        Add(db, action, nameof(Invoice), id, userId, details, timeProvider);
+
     private static void Add(
         RegalDbContext db,
         string action,
         string entityType,
         int id,
-        int userId,
+        int? userId,
         string? details,
         TimeProvider timeProvider) =>
         db.AuditLog.Add(new AuditLogEntry

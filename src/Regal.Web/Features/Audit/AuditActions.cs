@@ -10,4 +10,9 @@ public static class AuditActions
     public const string EntityActivated = "EntityActivated";
     public const string StockDocumentPosted = "StockDocumentPosted";
     public const string StockDocumentReversed = "StockDocumentReversed";
+    public const string InvoiceIssued = "InvoiceIssued";
+    public const string InvoiceSent = "InvoiceSent";
+    public const string InvoiceSendFailed = "InvoiceSendFailed";
+    public const string InvoiceRetried = "InvoiceRetried";
+    public const string InvoiceCancelled = "InvoiceCancelled";
 }
