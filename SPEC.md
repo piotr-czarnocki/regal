@@ -144,14 +144,29 @@ Korekta:
 - Dane kontrahenta i pozycji trafiają do Fakturowni razem z fakturą; kartoteki są prowadzone tylko w Regale.
 - Testy automatyczne nigdy nie łączą się z prawdziwą Fakturownią. Do testów ręcznych służy osobne konto testowe bez włączonej integracji z KSeF.
 
+Ustalenia etapu „Faktury”:
+
+- Pozycja ma cenę netto z kartoteki, którą można zmienić, i rabat w procentach. VAT liczony jest od wartości po rabacie, na każdej pozycji, z zaokrągleniem do groszy (połowa w górę). Do Fakturowni trafia wartość brutto pozycji po rabacie.
+- Formularz ma termin płatności (domyślnie 14 dni, 0–365) i sposób płatności (przelew, gotówka, karta).
+- Faktura może zawierać towary i usługi. WZ powstaje tylko dla towarów, a jego partie dobiera reguła FEFO. Faktura z samymi usługami nie ma WZ.
+- Koszt pozycji pochodzi z ruchów WZ, czyli ze średniej z chwili wydania. Dla usług wynosi 0.
+- `oid` to `regal-{RequestId}`. Ponowne wysłanie formularza zwraca istniejącą fakturę.
+- Wysyłka w tle pobiera zadanie z `FOR UPDATE SKIP LOCKED` i dzierżawą 5 minut, więc połączenie HTTP nie trzyma blokady w bazie. Przed utworzeniem faktury sprawdza, czy faktura o tym `oid` już istnieje, i wysyła ją z `oid_unique=yes`.
+- Błędy przejściowe (sieć, przekroczony czas, 429, 5xx) są ponawiane po 1, 2, 4… minutach, najwyżej co godzinę, maksymalnie 10 razy. Odmowa (4xx) nie jest ponawiana. W obu przypadkach faktura dostaje status „błąd wysyłki” i można ją ponowić ręcznie.
+- Anulowanie najpierw sprawdza w Fakturowni, że faktury nie ma; gdy Fakturownia nie odpowiada, anulowanie jest odrzucane. WZ faktury, która nie jest anulowana, nie da się skorygować ręcznie.
+- Bez skonfigurowanej Fakturowni faktury czekają w kolejce, a aplikacja działa normalnie.
+- Regał zapisuje sumę brutto policzoną przez Fakturownię i ostrzega, gdy różni się od własnej.
+
 ### 5.7. Skanowanie
 
 - Skaner w przeglądarce odczytuje EAN-13 i wpisuje go do pola; serwer wyszukuje produkt.
 - Działa w formularzach PZ, PW, WZ i RW oraz w wyszukiwaniu produktu.
 - Kod zawsze można wpisać ręcznie.
 - Kod jest traktowany jak niezaufane dane wejściowe.
-- Aparat wymaga HTTPS, więc telefon łączy się przez tunel HTTPS do lokalnej aplikacji (narzędzie do wyboru na etapie skanowania).
-- Bibliotekę JavaScript wybieramy na tym etapie po sprawdzeniu, czy jest utrzymywana.
+- Aparat wymaga HTTPS, więc telefon łączy się przez tunel HTTPS do lokalnej aplikacji. Wybrany został ngrok ze stałą domeną, bo logowanie Google wymaga stałego adresu przekierowania.
+- Czytnik działa także z klawiatury: kod wpisany albo zeskanowany czytnikiem USB i zatwierdzony Enterem jest szukany najpierw jako dokładny EAN, potem jako dokładny SKU, a dopiero potem jako fragment nazwy, SKU lub EAN. 12 cyfr traktowane jest jak EAN-13 z wiodącym zerem.
+- Biblioteka: `barcode-detector` 3.2.3 (MIT, wydana 19.10.2026) z ZXing-C++ w WebAssembly. Gdy przeglądarka ma własny `BarcodeDetector` z obsługą EAN-13, używany jest ten wbudowany. Pliki biblioteki są w `wwwroot/lib`, a suma kontrolna WASM jest sprawdzona; nic nie jest pobierane z CDN. Odrzucono `html5-qrcode`, którego ostatnie wydanie pochodzi z kwietnia 2023.
+- Odczytany kod przechodzi tylko wtedy, gdy ma do 50 znaków i składa się z liter, cyfr, kropek i myślników.
 
 ### 5.8. Analizy
 
@@ -232,9 +247,9 @@ Zasady:
 | `Stock` | `WarehouseId`, `BatchId` (klucz złożony), `Quantity` z `CHECK (Quantity >= 0)` |
 | `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `ContractorId`, `UserId`, `ReversesDocumentId` (unikalny indeks częściowy: jedna korekta na dokument), `CreatedAt` (UTC), `DocumentDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny klucz idempotencji) |
 | `StockMovements` | `Id`, `DocumentId`, `BatchId`, `QuantityChange`, `UnitCost` |
-| `Invoices` | `Id`, `Kind`, `Status`, `ExternalOrderId` (oid), `FakturowniaId`, `Number`, `ContractorId`, `StockDocumentId`, `UserId`, sumy, `IssuedAt` |
-| `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, kopia nazwy, ilość, cena netto, rabat, stawka VAT, koszt |
-| `OutboxMessages` | `Id`, `Type`, `Payload`, `Attempts`, `NextAttemptAt`, `LastError` |
+| `Invoices` | `Id`, `Kind`, `Status`, `ExternalOrderId` (oid, unikalny), `FakturowniaId`, `Number`, `PdfUrl`, `ContractorId`, `StockDocumentId`, `UserId`, sumy netto, VAT i brutto, `RemoteGrossTotal`, `PaymentDays`, `PaymentMethod`, `IssueDate` (Europe/Warsaw), `IssuedAt` (UTC) |
+| `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, kopia nazwy i jednostki, ilość, cena netto, rabat %, stawka VAT, wartości netto, VAT i brutto, koszt jednostkowy |
+| `OutboxMessages` | `Id`, `Type`, `InvoiceId`, `Payload` (pełne żądanie z chwili wystawienia), `Attempts`, `NextAttemptAt` (puste: nic do zrobienia), `LockedUntil` (dzierżawa), `LastError` |
 | `DocumentCounters` | `Type`, `Year` (klucz złożony), `LastNumber` |
 | `AuditLog` | `Id`, `UserId`, `Action`, `EntityType`, `EntityId`, `Details`, `CreatedAt` |
 
@@ -245,7 +260,7 @@ Kluczowe reguły:
 - **Wydanie:** warunkowy `UPDATE "Stock" ... WHERE "Quantity" >= @ilosc`; zero zmienionych wierszy oznacza brak towaru. Razem z `CHECK` to ostatnia bariera.
 - **Numeracja:** licznik zwiększany w tej samej transakcji co dokument (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`), więc wycofanie nie zostawia luki. Blokada wiersza licznika sprawia, że dokumenty tego samego typu zapisują się po kolei od chwili pobrania numeru.
 - **Transakcja wywołującego:** przyjęcie i wydanie można wykonać w cudzej otwartej transakcji; błąd cofa tylko dokument (savepoint). Faktura w etapie 3 tworzy WZ w ten sposób, raz na transakcję i zanim zablokuje inne produkty.
-- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches` i `AuditLog`; migracje wykonuje osobna rola.
+- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches`, `InvoiceLines` i `AuditLog`. W `Invoices` może zmieniać tylko kolumny `Status`, `FakturowniaId`, `Number`, `PdfUrl` i `RemoteGrossTotal`. Z `Invoices` i `OutboxMessages` nie może niczego usuwać. Migracje wykonuje osobna rola.
 - **Indeksy pod analizy:** dobierane na podstawie pomiarów w etapie analizy wydajności, z porównaniem przed i po.
 
 ## 9. Bezpieczeństwo
@@ -325,5 +340,6 @@ Testy jednostkowe i integracyjne powstają razem z każdą funkcją. Poziom 2 za
 - Utworzyć klienta OAuth w Google Cloud w tygodniu 1.
 - Potwierdzić prefiks wewnętrznego EAN-13 w zasadach GS1.
 - Sprawdzić w przeglądarce i na telefonie ekrany magazynu według `docs/scenariusze-testowe.md`, w tym czytnik USB.
+- Na koncie testowym Fakturowni potwierdzić: nagłówek `Authorization: Bearer` przy wyszukiwaniu po `oid`, odrzucanie duplikatu przy `oid_unique=yes`, nazwy pól odpowiedzi (`token`, `price_gross`) i zgodność sum (scenariusz F6).
 
 Rozstrzygnięte w etapie „Magazyn”: wycena PW bez podanego kosztu (punkt 5.5).

@@ -124,3 +124,68 @@ Do wykonania w dwóch kartach przeglądarki.
 | 5 | Wydaj cały Cukier, dezaktywuj go, skoryguj ostatnie wydanie | Korekta przechodzi, Cukier w stanach z oznaczeniem „nieaktywny” |
 | 6 | „Dokumenty magazynowe”: filtr typu, dat, szukanie po numerze i po kontrahencie | Lista zawęża się zgodnie z filtrami |
 | 7 | Powtórz kroki 1 i 3 oraz S4 kroki 1–2 na telefonie | Tabele układają się w karty, nic nie wychodzi poza ekran, zatwierdzenie działa |
+
+# Scenariusze testów ręcznych: faktury i skanowanie aparatem
+
+Scenariusze F1–F5 nie wymagają Fakturowni: bez konfiguracji faktura czeka w kolejce. F6 i F7 wymagają konta testowego Fakturowni (README, sekcja „Fakturownia”), a F7 dodatkowo tunelu do telefonu.
+
+**Dane:** stany z S1–S10, kontrahent Sklep Pod Lipą z poprawnym NIP oraz usługa Montaż (cena netto 100,00 zł, VAT 23%).
+
+## F1. Wystawienie faktury z towarem i usługą
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Nowa faktura”, nabywca Sklep Pod Lipą, zeskanuj Mleko 1L, wpisz `MONTAZ` i Enter | Dwie pozycje; przy usłudze oznaczenie „usługa” |
+| 2 | Mleko: ilość 10, rabat 10%; Montaż: ilość 1,5 | Suma brutto na dole przelicza się od razu |
+| 3 | „Pokaż podgląd” | Mleko: partia dobrana według ważności; Montaż: „usługa, bez wydania” |
+| 4 | „Wystaw fakturę”, potwierdź | Szczegóły faktury ze statusem „Do wysłania” i linkiem do nowego WZ |
+| 5 | Otwórz WZ | Wydanie tylko Mleka, 10 szt, z kosztem równym cenie średniej |
+
+## F2. Brak towaru wycofuje całą fakturę
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | W dwóch kartach przygotuj fakturę na cały stan Mleka, w obu „Pokaż podgląd” | Oba podglądy poprawne |
+| 2 | Wystaw w karcie A, potem w karcie B | B: komunikat o braku towaru, brak nowej faktury i brak nowego numeru WZ |
+
+## F3. Podwójne kliknięcie i Enter
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | W nowej fakturze naciśnij Enter w polu ilości i w polu rabatu | Nic się nie wystawia |
+| 2 | Potwierdź wystawienie i szybko kliknij „Wystaw fakturę” jeszcze raz | Przycisk zablokowany, powstaje jedna faktura |
+
+## F4. Anulowanie faktury, której nie ma w Fakturowni
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Bez skonfigurowanej Fakturowni otwórz fakturę z F1, „Anuluj fakturę” | Komunikat, że nie można sprawdzić faktury w Fakturowni, faktura bez zmian |
+| 2 | Otwórz WZ tej faktury i kliknij „Korekta” | Komunikat, że dokument należy do faktury |
+
+## F5. Lista faktur
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Faktury”: filtr statusu „Do wysłania”, filtr dat, szukanie po nazwie nabywcy i po NIP | Lista zawęża się zgodnie z filtrami |
+
+## F6. Wysyłka do konta testowego Fakturowni
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Skonfiguruj Fakturownię według README, uruchom aplikację | W ciągu kilku sekund faktura z F1 ma status „Wysłana”, numer i przycisk „PDF” |
+| 2 | Otwórz PDF | Nabywca, NIP, pozycje i sumy zgodne z Regałem; brak ostrzeżenia o różnicy sum |
+| 3 | W Fakturowni odszukaj fakturę i sprawdź pole „numer zamówienia” | Zawiera `regal-…`, takie samo jak w Regale |
+| 4 | Wystaw nową fakturę i zaraz po potwierdzeniu odłącz sieć na 2 minuty | Status „Do wysłania” z ostatnim błędem; po przywróceniu sieci „Wysłana” i tylko jedna faktura w Fakturowni |
+| 5 | Wystaw fakturę dla kontrahenta z błędnym adresem e-mail, jeśli Fakturownia go odrzuca | „Błąd wysyłki” z treścią odmowy; po poprawieniu danych w Fakturowni „Ponów wysyłkę” |
+| 6 | Spróbuj anulować wysłaną fakturę | Przycisku „Anuluj fakturę” nie ma |
+
+## F7. Skanowanie aparatem telefonu
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Na komputerze przez `https://localhost:7180` kliknij przycisk aparatu | Prośba o zgodę na aparat; po odmowie komunikat „Brak zgody na użycie aparatu” |
+| 2 | Przez `http://localhost:5180` kliknij przycisk aparatu | Komunikat, że aparat działa tylko przez HTTPS |
+| 3 | Na telefonie przez tunel (README) zaloguj się, „Nowy dokument” → aparat → zeskanuj EAN Mleka 1L | Okno się zamyka, pojawia się pozycja Mleko 1L |
+| 4 | Zeskanuj ten sam kod jeszcze raz | Ilość 2 |
+| 5 | „Stany magazynowe” → aparat → zeskanuj kod | Lista zawęża się do zeskanowanego produktu |
+| 6 | W narzędziach przeglądarki (zakładka sieci) sprawdź pobierane pliki przy pierwszym skanie | `ponyfill.js` i `zxing_reader.wasm` z domeny aplikacji albo wcale (gdy przeglądarka ma własny czytnik), nic z CDN |
