@@ -62,6 +62,36 @@ namespace Regal.Web.Data.Migrations
                     b.ToTable("AuditLog", (string)null);
                 });
 
+            modelBuilder.Entity("Regal.Web.Data.Entities.Batch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiryDate")
+                        .HasFilter("\"ExpiryDate\" IS NOT NULL");
+
+                    b.HasIndex("ProductId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("Batches", (string)null);
+                });
+
             modelBuilder.Entity("Regal.Web.Data.Entities.Category", b =>
                 {
                     b.Property<int>("Id")
@@ -115,6 +145,23 @@ namespace Regal.Web.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Contractors", (string)null);
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.DocumentCounter", b =>
+                {
+                    b.Property<string>("Type")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Type", "Year");
+
+                    b.ToTable("DocumentCounters", (string)null);
                 });
 
             modelBuilder.Entity("Regal.Web.Data.Entities.Product", b =>
@@ -189,6 +236,127 @@ namespace Regal.Web.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ContractorId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DocumentDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ReversesDocumentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractorId");
+
+                    b.HasIndex("DocumentDate");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("ReversesDocumentId")
+                        .IsUnique()
+                        .HasFilter("\"ReversesDocumentId\" IS NOT NULL");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Type", "DocumentDate");
+
+                    b.ToTable("StockDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockLevel", b =>
+                {
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.HasKey("WarehouseId", "BatchId");
+
+                    b.HasIndex("BatchId");
+
+                    b.ToTable("Stock", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Stock_Quantity_NonNegative", "\"Quantity\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockMovement", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("QuantityChange")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("BatchId", "Id");
+
+                    b.ToTable("StockMovements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StockMovements_QuantityChange_NonZero", "\"QuantityChange\" <> 0");
+
+                            t.HasCheckConstraint("CK_StockMovements_UnitCost_NonNegative", "\"UnitCost\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Regal.Web.Data.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -253,6 +421,17 @@ namespace Regal.Web.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Regal.Web.Data.Entities.Batch", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Regal.Web.Data.Entities.Product", b =>
                 {
                     b.HasOne("Regal.Web.Data.Entities.Category", "Category")
@@ -262,6 +441,74 @@ namespace Regal.Web.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockDocument", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.Contractor", "Contractor")
+                        .WithMany()
+                        .HasForeignKey("ContractorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Regal.Web.Data.Entities.StockDocument", "ReversesDocument")
+                        .WithMany()
+                        .HasForeignKey("ReversesDocumentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Regal.Web.Data.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contractor");
+
+                    b.Navigation("ReversesDocument");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockLevel", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.Batch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Regal.Web.Data.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockMovement", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.Batch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Regal.Web.Data.Entities.StockDocument", "Document")
+                        .WithMany("Movements")
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StockDocument", b =>
+                {
+                    b.Navigation("Movements");
                 });
 #pragma warning restore 612, 618
         }
