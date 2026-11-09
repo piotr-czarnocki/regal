@@ -1,0 +1,29 @@
+@page "/stock-documents/new"
+@inject StockDocumentService Documents
+@inject StockService Stock
+@inject ContractorService Contractors
+@inject NavigationManager Navigation
+
+<PageTitle>Nowy dokument – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Nowy dokument magazynowy</MudText>
+
+    <StockDocumentEditor SearchProducts="SearchProductsAsync"
+                         FindByCode="(code, token) => Stock.FindByCodeAsync(code, token)"
+                         LoadBatches="id => Stock.GetBatchesAsync(id)"
+                         SearchContractors="SearchContractorsAsync"
+                         PreviewIssue="draft => Documents.PreviewIssueAsync(draft)"
+                         Post="draft => Documents.PostAsync(draft)"
+                         Posted="id => Navigation.NavigateTo(StockDocumentRoutes.Details(id))" />
+</MudContainer>
+
+@code {
+    private const int MaxSuggestions = 10;
+
+    private Task<IReadOnlyList<ProductPick>> SearchProductsAsync(string term, CancellationToken cancellationToken) =>
+        Stock.SearchGoodsAsync(term, MaxSuggestions, cancellationToken);
+
+    private async Task<IReadOnlyList<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
+        (await Contractors.SearchAsync(term, includeInactive: false, 0, MaxSuggestions, cancellationToken)).Items;
+}

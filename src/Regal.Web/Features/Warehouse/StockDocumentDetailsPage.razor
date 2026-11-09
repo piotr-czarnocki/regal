@@ -1,0 +1,139 @@
+@page "/stock-documents/{Id:int}"
+@inject StockDocumentService Documents
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_document?.Number ?? "Dokument") – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono dokumentu.</MudAlert>
+    }
+    else if (_document is { } document)
+    {
+        <div class="d-flex flex-wrap align-center gap-2 mb-2">
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@document.Number</MudText>
+            @if (document.Reverses is null && document.ReversedBy is null)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="ReverseAsync" Disabled="_reversing">Korekta</MudButton>
+            }
+        </div>
+
+        @if (document.Reverses is { } original)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">Korekta dokumentu <MudLink Href="@StockDocumentRoutes.Details(original.Id)">@original.Number</MudLink></MudAlert>
+        }
+
+        @if (document.ReversedBy is { } correction)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">Dokument skorygowany dokumentem <MudLink Href="@StockDocumentRoutes.Details(correction.Id)">@correction.Number</MudLink></MudAlert>
+        }
+
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Typ</MudText>
+                <MudText>@StockLabels.TypeName(document.Type)</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Data</MudText>
+                <MudText>@StockLabels.Date(document.DocumentDate)</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Kontrahent</MudText>
+                <MudText>@(document.ContractorName ?? "–")</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Zatwierdził</MudText>
+                <MudText>@document.UserEmail</MudText>
+            </MudItem>
+            @if (document.Notes is not null)
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.body2">Uwagi</MudText>
+                    <MudText>@document.Notes</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudTable T="StockMovementRow" Items="document.Movements" Hover="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Produkt</MudTh>
+                <MudTh>Partia</MudTh>
+                <MudTh>Data ważności</MudTh>
+                <MudTh>Ilość</MudTh>
+                <MudTh>Koszt jedn.</MudTh>
+                <MudTh>Wartość</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Produkt"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.ProductName</MudLink></MudTd>
+                <MudTd DataLabel="Partia">@context.BatchNumber</MudTd>
+                <MudTd DataLabel="Data ważności">@StockLabels.Date(context.ExpiryDate)</MudTd>
+                <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.QuantityChange) @context.Unit</MudTd>
+                <MudTd DataLabel="Koszt jedn.">@StockLabels.Cost(context.UnitCost)</MudTd>
+                <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTd colspan="5"><strong>Razem</strong></MudTd>
+                <MudTd DataLabel="Razem"><strong>@StockLabels.Money(document.Movements.Sum(m => m.Value))</strong></MudTd>
+            </FooterContent>
+        </MudTable>
+    }
+</MudContainer>
+
+@code {
+    // One per opening of the page: a lost reply and a second click cannot post a second correction.
+    private readonly Guid _reverseRequestId = Guid.NewGuid();
+    private StockDocumentDetails? _document;
+    private bool _notFound;
+    private bool _reversing;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _document = await Documents.GetDetailsAsync(Id);
+        _notFound = _document is null;
+    }
+
+    private async Task ReverseAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_reversing)
+        {
+            return;
+        }
+
+        _reversing = true;
+        try
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Skorygować dokument?",
+                "Powstanie dokument odwrotny dla całego dokumentu. Tej operacji nie można cofnąć.",
+                yesText: "Utwórz korektę",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Documents.ReverseAsync(Id, _reverseRequestId);
+            if (result.IsSuccess)
+            {
+                Snackbar.Add("Utworzono korektę.", Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Error!, Severity.Error);
+            }
+        }
+        finally
+        {
+            _reversing = false;
+        }
+    }
+}

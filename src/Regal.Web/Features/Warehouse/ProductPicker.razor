@@ -1,0 +1,131 @@
+@implements IDisposable
+
+<MudTextField @ref="_field" T="string" Value="_text" ValueChanged="OnTextChanged" Immediate="true" OnKeyDown="OnKeyDownAsync"
+              Label="Dodaj produkt: nazwa, SKU lub EAN" HelperText="Zeskanuj kod albo wpisz go i naciśnij Enter." Variant="Variant.Outlined"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner" autocomplete="off" />
+
+@if (_error is not null)
+{
+    <MudText Typo="Typo.body2" Color="Color.Error" Class="mt-1" role="alert">@_error</MudText>
+}
+
+@if (_results.Count > 0)
+{
+    <MudPaper Outlined="true" Class="mt-1">
+        <MudList T="int" Dense="true">
+            @foreach (var product in _results)
+            {
+                <MudListItem T="int" Value="product.Id" OnClick="() => PickAsync(product)"
+                             Text="@product.Name" SecondaryText="@($"{product.Sku} · {product.Ean}")" />
+            }
+        </MudList>
+    </MudPaper>
+}
+
+@code {
+    private const int SearchDelayMilliseconds = 250;
+    private const int MinSearchLength = 2;
+
+    private MudTextField<string>? _field;
+    private CancellationTokenSource? _pendingSearch;
+    private string? _text;
+    private string? _error;
+    private IReadOnlyList<ProductPick> _results = [];
+
+    [Parameter, EditorRequired]
+    public Func<string, CancellationToken, Task<IReadOnlyList<ProductPick>>> Search { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<string, CancellationToken, Task<ProductPick?>> FindByCode { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public EventCallback<ProductPick> Picked { get; set; }
+
+    private static bool IsCode(string text) => text.Length is 12 or 13 && text.All(char.IsAsciiDigit);
+
+    private async Task OnTextChanged(string? value)
+    {
+        _text = value;
+        _error = null;
+        CancelSearch();
+
+        var term = value?.Trim();
+        if (term is null || term.Length < MinSearchLength)
+        {
+            _results = [];
+            return;
+        }
+
+        var pending = _pendingSearch = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(SearchDelayMilliseconds, pending.Token);
+            _results = await Search(term, pending.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer keystroke or an Enter replaced this search.
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key != "Enter")
+        {
+            return;
+        }
+
+        CancelSearch();
+        var text = _text?.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (!IsCode(text))
+        {
+            if (_results.Count == 1)
+            {
+                await PickAsync(_results[0]);
+            }
+
+            return;
+        }
+
+        // Cleared before the lookup, so the digits of a next scan are not wiped when it returns.
+        await ClearAsync();
+        var product = await FindByCode(text, CancellationToken.None);
+        if (product is null)
+        {
+            _error = $"Nie znaleziono aktywnego towaru o kodzie {text}.";
+            return;
+        }
+
+        await Picked.InvokeAsync(product);
+    }
+
+    private async Task PickAsync(ProductPick product)
+    {
+        CancelSearch();
+        await ClearAsync();
+        await Picked.InvokeAsync(product);
+        await _field!.FocusAsync();
+    }
+
+    private async Task ClearAsync()
+    {
+        _text = null;
+        _error = null;
+        _results = [];
+        await _field!.ClearAsync();
+    }
+
+    private void CancelSearch()
+    {
+        _pendingSearch?.Cancel();
+        _pendingSearch?.Dispose();
+        _pendingSearch = null;
+    }
+
+    public void Dispose() => CancelSearch();
+}
