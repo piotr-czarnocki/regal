@@ -25,4 +25,19 @@ jobs:
         run: pwsh tests/Regal.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
       - name: Test
         # Integration tests start PostgreSQL through the Docker engine on the runner.
-        run: dotnet test Regal.slnx --no-build --configuration Release --verbosity normal
+        run: dotnet test Regal.slnx --no-build --configuration Release --verbosity normal --logger "trx;LogFilePrefix=results"
+      - name: Report failed tests
+        # Annotations are readable without signing in, unlike the job log.
+        if: failure()
+        shell: python
+        run: |
+          import glob, xml.etree.ElementTree as ET
+          ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+          for path in glob.glob("**/*.trx", recursive=True):
+              for result in ET.parse(path).getroot().iterfind(".//t:UnitTestResult", ns):
+                  if result.get("outcome") != "Failed":
+                      continue
+                  message = result.find(".//t:Message", ns)
+                  text = (message.text or "") if message is not None else ""
+                  text = text.strip().replace("%", "%25").replace("\r", "").replace("\n", "%0A")[:900]
+                  print(f"::error title={result.get('testName')}::{text}")
