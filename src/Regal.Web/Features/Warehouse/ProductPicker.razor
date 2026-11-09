@@ -4,9 +4,9 @@
               Label="Dodaj produkt: nazwa, SKU lub EAN" HelperText="Zeskanuj kod albo wpisz go i naciśnij Enter." Variant="Variant.Outlined"
               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner" autocomplete="off" />
 
-@if (_error is not null)
+@foreach (var error in _errors)
 {
-    <MudText Typo="Typo.body2" Color="Color.Error" Class="mt-1" role="alert">@_error</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Error" Class="mt-1" role="alert">@error</MudText>
 }
 
 @if (_results.Count > 0)
@@ -26,11 +26,14 @@
     private const int SearchDelayMilliseconds = 250;
     private const int MinSearchLength = 2;
 
+    private readonly Queue<string> _scans = new();
+    private readonly List<string> _errors = [];
     private MudTextField<string>? _field;
     private CancellationTokenSource? _pendingSearch;
     private string? _text;
-    private string? _error;
     private IReadOnlyList<ProductPick> _results = [];
+    private bool _resolving;
+    private bool _selectTextAfterRender;
 
     [Parameter, EditorRequired]
     public Func<string, CancellationToken, Task<IReadOnlyList<ProductPick>>> Search { get; set; } = null!;
@@ -41,12 +44,29 @@
     [Parameter, EditorRequired]
     public EventCallback<ProductPick> Picked { get; set; }
 
-    private static bool IsCode(string text) => text.Length is 12 or 13 && text.All(char.IsAsciiDigit);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // After the render, because the text has to be in the browser before it can be selected.
+        if (_selectTextAfterRender)
+        {
+            _selectTextAfterRender = false;
+            await _field!.SelectAsync();
+        }
+    }
 
     private async Task OnTextChanged(string? value)
     {
+        if (value == _text)
+        {
+            return; // this component changed the field itself
+        }
+
         _text = value;
-        _error = null;
+        if (!_resolving)
+        {
+            _errors.Clear();
+        }
+
         CancelSearch();
 
         var term = value?.Trim();
@@ -82,40 +102,102 @@
             return;
         }
 
-        if (!IsCode(text))
+        _scans.Enqueue(text);
+        if (_resolving)
         {
-            if (_results.Count == 1)
+            await EmptyFieldAsync(); // the loop below, still running, will take this scan
+            return;
+        }
+
+        // One at a time and in order, so fast scans cannot overtake each other.
+        _resolving = true;
+        _errors.Clear();
+        try
+        {
+            // Emptied before the lookup, so the next scan starts in a free field.
+            await EmptyFieldAsync();
+            do
             {
-                await PickAsync(_results[0]);
+                while (_scans.TryDequeue(out var scan))
+                {
+                    await ResolveAsync(scan);
+                }
+
+                await _field!.FocusAsync();
+            }
+            while (_scans.Count > 0); // a scan can arrive during the focus call, while this loop still owns the queue
+        }
+        finally
+        {
+            _resolving = false;
+        }
+    }
+
+    /// <summary>Exact EAN or SKU first; only without one does the text count as a fragment.</summary>
+    private async Task ResolveAsync(string text)
+    {
+        var exact = await FindByCode(text, CancellationToken.None);
+        if (exact is not null)
+        {
+            if (exact.CanBeAdded)
+            {
+                await Picked.InvokeAsync(exact);
+            }
+            else
+            {
+                await ReportNotFoundAsync(text);
             }
 
             return;
         }
 
-        // Cleared before the lookup, so the digits of a next scan are not wiped when it returns.
-        await ClearAsync();
-        var product = await FindByCode(text, CancellationToken.None);
-        if (product is null)
+        var matches = await Search(text, CancellationToken.None);
+        switch (matches.Count)
         {
-            _error = $"Nie znaleziono aktywnego towaru o kodzie {text}.";
+            case 0:
+                await ReportNotFoundAsync(text);
+                break;
+            case 1:
+                await Picked.InvokeAsync(matches[0]);
+                break;
+            default:
+                _results = matches;
+                await ReturnTextToFieldAsync(text);
+                break;
+        }
+    }
+
+    private Task ReportNotFoundAsync(string text)
+    {
+        _errors.Add($"Nie znaleziono produktu o kodzie {text}");
+        return ReturnTextToFieldAsync(text);
+    }
+
+    /// <summary>Selected, so the next scan replaces it. Left alone when the next scan has already begun.</summary>
+    private async Task ReturnTextToFieldAsync(string text)
+    {
+        if (_scans.Count > 0 || !string.IsNullOrEmpty(_text))
+        {
             return;
         }
 
-        await Picked.InvokeAsync(product);
+        _text = text;
+        _selectTextAfterRender = true;
+        await _field!.SetTextAsync(text);
     }
 
     private async Task PickAsync(ProductPick product)
     {
         CancelSearch();
-        await ClearAsync();
+        _errors.Clear();
+        await EmptyFieldAsync();
         await Picked.InvokeAsync(product);
         await _field!.FocusAsync();
     }
 
-    private async Task ClearAsync()
+    private async Task EmptyFieldAsync()
     {
         _text = null;
-        _error = null;
         _results = [];
         await _field!.ClearAsync();
     }

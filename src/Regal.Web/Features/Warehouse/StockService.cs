@@ -34,7 +34,7 @@ public sealed record ProductMovementRow(
     decimal QuantityChange,
     decimal UnitCost);
 
-public sealed record ProductPick(int Id, string Sku, string? Ean, string Name, string Unit, bool HasExpiry, decimal AverageCost);
+public sealed record ProductPick(int Id, string Sku, string? Ean, string Name, string Unit, bool HasExpiry, decimal AverageCost, bool CanBeAdded = true);
 
 public sealed class StockService(
     IDbContextFactory<RegalDbContext> dbContextFactory,
@@ -151,26 +151,31 @@ public sealed class StockService(
             .ToListAsync(cancellationToken);
     }
 
-    /// <summary>An exact scanned or typed code. Scanners may report codes starting with 0 as 12-digit UPC-A.</summary>
+    /// <summary>
+    /// The product with exactly this EAN, otherwise with exactly this SKU. Scanners may report codes
+    /// starting with 0 as 12-digit UPC-A. An inactive product or a service is returned with
+    /// CanBeAdded false: the code does name it, so the caller must not settle for a similar one.
+    /// </summary>
     public async Task<ProductPick?> FindByCodeAsync(string? code, CancellationToken cancellationToken = default)
     {
         await currentUser.RequireUserIdAsync(Roles.Administrator);
 
-        var ean = code?.Trim();
-        if (string.IsNullOrEmpty(ean) || !ean.All(char.IsAsciiDigit))
+        var text = code?.Trim();
+        if (string.IsNullOrEmpty(text))
         {
             return null;
         }
 
-        if (ean.Length == 12)
-        {
-            ean = "0" + ean;
-        }
+        var ean = text.Length == 12 && text.All(char.IsAsciiDigit) ? "0" + text : text;
+        var sku = text.ToUpperInvariant(); // ProductService stores every SKU in upper case
 
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await db.Products.AsNoTracking()
-            .Where(p => p.IsActive && p.Kind == ProductKind.Goods && p.Ean == ean)
-            .Select(p => new ProductPick(p.Id, p.Sku, p.Ean, p.Name, p.Unit, p.HasExpiry, p.AverageCost))
-            .SingleOrDefaultAsync(cancellationToken);
+        var matches = await db.Products.AsNoTracking()
+            .Where(p => p.Ean == ean || p.Sku == sku)
+            .Select(p => new ProductPick(
+                p.Id, p.Sku, p.Ean, p.Name, p.Unit, p.HasExpiry, p.AverageCost, p.IsActive && p.Kind == ProductKind.Goods))
+            .ToListAsync(cancellationToken);
+
+        return matches.FirstOrDefault(p => p.Ean == ean) ?? matches.FirstOrDefault();
     }
 }

@@ -17,6 +17,7 @@ public sealed class ProductPickerTests : IAsyncLifetime
     private readonly List<ProductPick> _picked = [];
     private readonly List<string> _codes = [];
     private IReadOnlyList<ProductPick> _searchResults = [];
+    private Func<string, Task<ProductPick?>>? _lookup;
 
     public ProductPickerTests()
     {
@@ -33,7 +34,7 @@ public sealed class ProductPickerTests : IAsyncLifetime
         .Add(x => x.FindByCode, (code, _) =>
         {
             _codes.Add(code);
-            return Task.FromResult<ProductPick?>(code is "5901234123457" or "901234123457" ? Mleko : null);
+            return _lookup?.Invoke(code) ?? Task.FromResult<ProductPick?>(code is "5901234123457" or "901234123457" ? Mleko : null);
         })
         .Add(x => x.Picked, EventCallback.Factory.Create<ProductPick>(this, _picked.Add)));
 
@@ -74,8 +75,221 @@ public sealed class ProductPickerTests : IAsyncLifetime
         Type(picker, "5900000000000");
         PressEnter(picker);
 
-        picker.WaitForAssertion(() => Assert.Contains("Nie znaleziono aktywnego towaru o kodzie 5900000000000", picker.Markup));
+        picker.WaitForAssertion(() => Assert.Contains("Nie znaleziono produktu o kodzie 5900000000000", picker.Markup));
         Assert.Empty(_picked);
+    }
+
+    private int JsCalls(string name) =>
+        _context.JSInterop.Invocations.Count(call => call.Identifier.Contains(name, StringComparison.OrdinalIgnoreCase));
+
+    private static string FieldText(IRenderedComponent<ProductPicker> picker) =>
+        picker.Find("input").GetAttribute("value") ?? string.Empty;
+
+    /// <summary>A scanner starts its next code only once the field is free for it.</summary>
+    private static void PressEnterAndWaitForEmptyField(IRenderedComponent<ProductPicker> picker)
+    {
+        PressEnter(picker);
+        picker.WaitForAssertion(() => Assert.Equal(string.Empty, FieldText(picker)));
+    }
+
+    [Fact]
+    public void Enter_on_a_one_character_code_finds_its_exact_match()
+    {
+        _lookup = code => Task.FromResult<ProductPick?>(code == "1" ? Mleko : null);
+        var picker = Render();
+
+        Type(picker, "1");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal([Mleko], _picked));
+    }
+
+    [Fact]
+    public void Enter_pressed_right_after_typing_does_not_depend_on_the_search_delay()
+    {
+        _lookup = code => Task.FromResult<ProductPick?>(code == "10" ? Maslo : null);
+        var picker = Render();
+
+        Type(picker, "10");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal([Maslo], _picked));
+    }
+
+    [Fact]
+    public void Text_is_trimmed_before_the_lookup()
+    {
+        _lookup = code => Task.FromResult<ProductPick?>(code == "abc" ? Mleko : null);
+        var picker = Render();
+
+        Type(picker, "  abc ");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal([Mleko], _picked));
+        Assert.Equal(["abc"], _codes);
+    }
+
+    [Fact]
+    public void Exact_match_wins_over_matches_by_fragment()
+    {
+        _lookup = code => Task.FromResult<ProductPick?>(Maslo);
+        _searchResults = [Mleko, Maslo];
+        var picker = Render();
+
+        Type(picker, "1");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal([Maslo], _picked));
+    }
+
+    [Fact]
+    public void Several_matches_by_fragment_show_a_list_and_add_nothing()
+    {
+        _searchResults = [Mleko, Maslo];
+        var picker = Render();
+
+        Type(picker, "1");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal(2, picker.FindAll(".mud-list-item").Count));
+        Assert.Empty(_picked);
+    }
+
+    [Fact]
+    public void The_only_match_by_fragment_is_added_without_waiting_for_the_search_delay()
+    {
+        _searchResults = [Maslo];
+        var picker = Render();
+
+        Type(picker, "s");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal([Maslo], _picked));
+    }
+
+    [Fact]
+    public void No_match_names_the_text_and_adds_nothing()
+    {
+        var picker = Render();
+
+        Type(picker, "  xyz ");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Contains("Nie znaleziono produktu o kodzie xyz", picker.Markup));
+        Assert.Empty(_picked);
+    }
+
+    [Fact]
+    public void After_no_match_the_text_is_back_in_the_field_and_selected_for_the_next_scan()
+    {
+        var picker = Render();
+
+        Type(picker, "5900000000000");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal("5900000000000", FieldText(picker)));
+        picker.WaitForAssertion(() => Assert.True(JsCalls("select") > 0));
+    }
+
+    [Fact]
+    public void After_adding_a_product_the_field_is_empty_and_keeps_the_focus()
+    {
+        var picker = Render();
+
+        Type(picker, "5901234123457");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal([Mleko], _picked));
+        Assert.Equal(string.Empty, FieldText(picker));
+        picker.WaitForAssertion(() => Assert.True(JsCalls("focus") > 0));
+    }
+
+    [Fact]
+    public void Focus_stays_in_the_field_after_no_match()
+    {
+        var picker = Render();
+
+        Type(picker, "xyz");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.True(JsCalls("focus") > 0));
+    }
+
+    [Fact]
+    public void Two_fast_scans_are_resolved_one_at_a_time_and_in_order()
+    {
+        var first = new TaskCompletionSource<ProductPick?>();
+        _lookup = code => code == "A1" ? first.Task : Task.FromResult<ProductPick?>(Maslo);
+        var picker = Render();
+
+        Type(picker, "A1");
+        PressEnterAndWaitForEmptyField(picker);
+        Type(picker, "B2");
+        PressEnter(picker);
+
+        picker.WaitForAssertion(() => Assert.Equal(["A1"], _codes));
+        Assert.Empty(_picked);
+
+        first.SetResult(Mleko);
+
+        picker.WaitForAssertion(() => Assert.Equal([Mleko, Maslo], _picked));
+        Assert.Equal(["A1", "B2"], _codes);
+        Assert.Equal(string.Empty, FieldText(picker));
+    }
+
+    [Fact]
+    public void A_scan_arriving_while_focus_is_being_restored_is_not_lost()
+    {
+        var focus = _context.JSInterop.SetupVoid(call => call.Identifier.Contains("focus", StringComparison.OrdinalIgnoreCase));
+        _lookup = _ => Task.FromResult<ProductPick?>(Mleko);
+        var picker = Render();
+
+        Type(picker, "A1");
+        PressEnter(picker);
+        picker.WaitForAssertion(() => Assert.True(JsCalls("focus") > 0));
+        Type(picker, "B2");
+        PressEnter(picker);
+        picker.WaitForAssertion(() => Assert.Equal(string.Empty, FieldText(picker)));
+
+        focus.SetVoidResult();
+
+        picker.WaitForAssertion(() => Assert.Equal(2, _picked.Count));
+        Assert.Equal(["A1", "B2"], _codes);
+    }
+
+    [Fact]
+    public void A_failed_scan_followed_at_once_by_a_good_one_keeps_both_outcomes()
+    {
+        var first = new TaskCompletionSource<ProductPick?>();
+        _lookup = code => code == "ZLY" ? first.Task : Task.FromResult<ProductPick?>(Maslo);
+        var picker = Render();
+
+        Type(picker, "ZLY");
+        PressEnterAndWaitForEmptyField(picker);
+        Type(picker, "DOBRY");
+        PressEnter(picker);
+
+        first.SetResult(null);
+
+        picker.WaitForAssertion(() => Assert.Equal([Maslo], _picked));
+        picker.WaitForAssertion(() => Assert.Contains("Nie znaleziono produktu o kodzie ZLY", picker.Markup));
+    }
+
+    [Fact]
+    public void Text_of_a_failed_scan_does_not_overwrite_the_next_scan_being_typed()
+    {
+        var first = new TaskCompletionSource<ProductPick?>();
+        _lookup = code => code == "ZLY" ? first.Task : Task.FromResult<ProductPick?>(null);
+        var picker = Render();
+
+        Type(picker, "ZLY");
+        PressEnterAndWaitForEmptyField(picker);
+        Type(picker, "NOW");
+
+        first.SetResult(null);
+
+        picker.WaitForAssertion(() => Assert.Contains("Nie znaleziono produktu o kodzie ZLY", picker.Markup));
+        Assert.Equal("NOW", FieldText(picker));
     }
 
     [Fact]

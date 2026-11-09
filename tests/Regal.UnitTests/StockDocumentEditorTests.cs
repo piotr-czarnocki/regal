@@ -23,6 +23,9 @@ public sealed class StockDocumentEditorTests : IAsyncLifetime
     private readonly IRenderedComponent<MudDialogProvider> _dialogs;
     private Func<Task<SaveResult>> _postResult = () => Task.FromResult(SaveResult.Ok(42));
     private IReadOnlyList<IssuePreviewLine> _issuePreview = [];
+    private readonly List<StockDocumentDraft> _previewDrafts = [];
+    private int _lookups;
+    private Task<ProductPick?>? _firstLookup;
 
     public StockDocumentEditorTests()
     {
@@ -39,10 +42,18 @@ public sealed class StockDocumentEditorTests : IAsyncLifetime
     private IRenderedComponent<StockDocumentEditor> Render(StockDocumentType type) => _context.Render<StockDocumentEditor>(parameters => parameters
         .Add(x => x.InitialType, type)
         .Add(x => x.SearchProducts, (_, _) => Task.FromResult<IReadOnlyList<ProductPick>>([]))
-        .Add(x => x.FindByCode, (_, _) => Task.FromResult<ProductPick?>(Mleko))
+        .Add(x => x.FindByCode, (_, _) =>
+        {
+            var first = Interlocked.Increment(ref _lookups) == 1;
+            return first && _firstLookup is not null ? _firstLookup : Task.FromResult<ProductPick?>(Mleko);
+        })
         .Add(x => x.LoadBatches, _ => Task.FromResult<IReadOnlyList<StockBatchRow>>([]))
         .Add(x => x.SearchContractors, (_, _) => Task.FromResult<IReadOnlyList<ContractorListItem>>([]))
-        .Add(x => x.PreviewIssue, _ => Task.FromResult(_issuePreview))
+        .Add(x => x.PreviewIssue, draft =>
+        {
+            _previewDrafts.Add(draft);
+            return Task.FromResult(_issuePreview);
+        })
         .Add(x => x.Post, draft =>
         {
             _posts.Add(draft);
@@ -95,6 +106,17 @@ public sealed class StockDocumentEditorTests : IAsyncLifetime
         return editor;
     }
 
+    private static async Task UntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition());
+    }
+
     private void ClickInDialog(string text)
     {
         _dialogs.WaitForAssertion(() => Assert.Contains(text, _dialogs.Markup));
@@ -144,6 +166,30 @@ public sealed class StockDocumentEditorTests : IAsyncLifetime
 
         editor.WaitForAssertion(() => Assert.Equal("2", QuantityOf(editor)));
         Assert.Single(editor.FindComponents<MudNumericField<decimal?>>());
+    }
+
+    [Fact]
+    public async Task A_scan_arriving_during_the_previous_lookup_makes_one_line_with_quantity_two()
+    {
+        var firstLookup = new TaskCompletionSource<ProductPick?>();
+        _firstLookup = firstLookup.Task;
+        var editor = Render(StockDocumentType.WZ);
+        var picker = editor.FindComponent<ProductPicker>();
+
+        Scan(editor);
+        picker.WaitForAssertion(() => Assert.Equal(string.Empty, picker.Find("input").GetAttribute("value") ?? string.Empty));
+        await UntilAsync(() => Volatile.Read(ref _lookups) == 1);
+        Scan(editor);
+        firstLookup.SetResult(Mleko);
+        await UntilAsync(() => Volatile.Read(ref _lookups) == 2);
+        editor.WaitForAssertion(() => Assert.Contains("Mleko", editor.Markup));
+
+        // Reads the draft the editor would send, because a numeric field read early can show stale markup.
+        ButtonIn(editor, "Pokaż podgląd").Click();
+        editor.WaitForAssertion(() => Assert.Single(_previewDrafts));
+        var line = Assert.Single(_previewDrafts[0].Lines);
+        Assert.Equal(2m, line.Quantity);
+        Assert.Empty(_posts);
     }
 
     [Fact]
