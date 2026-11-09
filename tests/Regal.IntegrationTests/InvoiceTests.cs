@@ -154,6 +154,9 @@ public class InvoiceTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
 
         Assert.Equal(InvoiceStatus.Sent, (await InvoiceAsync(id)).Status);
         Assert.Equal(1, Fakturownia.CreatesFor(oid));
+
+        // The retry finds the invoice instead of asking to create it again and relying on the refusal.
+        Assert.Equal(1, Fakturownia.CreateCalls);
     }
 
     [Fact]
@@ -269,6 +272,9 @@ public class InvoiceTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
         }
 
         Assert.Equal(12, Fakturownia.TotalCreates);
+
+        // Not even a refused attempt: the duplicate check in Fakturownia is a second line of defence, not the first.
+        Assert.Equal(12, Fakturownia.CreateCalls);
     }
 
     [Fact]

@@ -45,3 +45,38 @@ Do zapytania wrócił fragment `FOR UPDATE`. Polecenie `git diff --exit-code` dl
 - Warunkowy `UPDATE` i `CHECK` są ostatnią barierą: nawet bez blokady stan nie spadł poniżej zera.
 - Numeracja bez luk powoduje, że dokumenty tego samego typu zapisują się po kolei od chwili pobrania numeru. To świadomy koszt tego wymagania.
 - Test współbieżności trzeba sprawdzić, usuwając to, co ma chronić. Inaczej nie wiadomo, czy potrafi się nie udać.
+
+## Testy integracyjne: wysyłka faktur bez duplikatów
+
+### Cel
+
+Wysyłkę faktur do Fakturowni chronią dwie warstwy z jednego zabezpieczenia:
+
+- pobranie zadania z `FOR UPDATE SKIP LOCKED`, żeby dwa procesy wysyłki nie wzięły tego samego zadania;
+- wyszukanie faktury po `oid` przed jej utworzeniem, żeby ponowienie po zgubionej odpowiedzi nie utworzyło duplikatu.
+
+Udawana Fakturownia w testach, jak prawdziwa przy `oid_unique=yes`, odrzuca drugą fakturę z tym samym `oid`. Eksperyment sprawdza, czy testy wykrywają brak każdego z tych zabezpieczeń.
+
+### Metoda
+
+W `InvoiceSender` na próbę usuwano po jednym zabezpieczeniu i uruchamiano 28 testów faktur 3 razy.
+
+### Wyniki
+
+| Usunięte | Pierwsza wersja testów | Po wzmocnieniu testów |
+|---|---|---|
+| `FOR UPDATE SKIP LOCKED` | Wszystkie testy przeszły 3 z 3 razy | `Parallel_senders_send_each_invoice_exactly_once`: 28–31 żądań utworzenia zamiast 12, 3 z 3 |
+| Wyszukanie po `oid` przed utworzeniem | Przeszedł test zgubionej odpowiedzi, padły 3 inne testy, ale z innego powodu (opis niżej) | `Lost_reply_after_a_successful_create…`: 2 żądania utworzenia zamiast 1, 3 z 3 |
+
+**Dlaczego pierwsza wersja nie wykrywała braku zabezpieczeń.** Testy sprawdzały tylko efekt końcowy: jedna faktura w Fakturowni. Ten efekt zapewniało też odrzucanie duplikatów `oid` przez udawaną Fakturownię, więc brak blokady albo wyszukania niczego nie psuł. Wzmocnione testy sprawdzają, że do Fakturowni trafia dokładnie jedno żądanie utworzenia na fakturę, łącznie z odrzuconymi.
+
+**Trzy testy, które padły przy usuniętym wyszukaniu w pierwszej wersji,** nie wykrywały duplikatu. Dwa wstrzykiwały błąd właśnie w wyszukiwanie, którego już nie było. Trzeci zależał od kolejności wywołań udawanego klienta.
+
+### Przywrócenie
+
+Usunięte fragmenty przywrócono. `git diff --exit-code` dla katalogu `src` zwrócił 0, czyli kod jest identyczny z commitem. Pełny zestaw przeszedł potem 3 razy z rzędu: 199 testów jednostkowych i 124 integracyjne.
+
+### Wnioski
+
+- Jeśli zabezpieczeń jest kilka, test efektu końcowego nie mówi, czy działa każde z nich. Trzeba mierzyć to, czemu dane zabezpieczenie zapobiega, tutaj liczbę żądań.
+- Działanie `oid_unique` w prawdziwej Fakturowni nie jest jeszcze potwierdzone, sprawdzi to część D na koncie testowym. Do tego czasu duplikatom zapobiegają blokada i wyszukanie, a nie Fakturownia.

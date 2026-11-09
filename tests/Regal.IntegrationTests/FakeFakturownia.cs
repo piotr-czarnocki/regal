@@ -9,6 +9,7 @@ public sealed class FakeFakturownia : IFakturowniaClient
     private readonly ConcurrentDictionary<string, RemoteInvoice> _invoices = new();
     private readonly ConcurrentDictionary<string, int> _creates = new();
     private long _lastId;
+    private int _createCalls;
     private int _loseNextCreateReply;
     private int _hideNextFind;
 
@@ -23,6 +24,9 @@ public sealed class FakeFakturownia : IFakturowniaClient
     public ConcurrentBag<string> Payloads { get; } = [];
 
     public int TotalCreates => _creates.Values.Sum();
+
+    /// <summary>Every create request, refused duplicates included.</summary>
+    public int CreateCalls => Volatile.Read(ref _createCalls);
 
     public int CreatesFor(string oid) => _creates.GetValueOrDefault(oid);
 
@@ -54,6 +58,7 @@ public sealed class FakeFakturownia : IFakturowniaClient
 
     public async Task<RemoteInvoice> CreateAsync(string requestJson, CancellationToken cancellationToken)
     {
+        Interlocked.Increment(ref _createCalls);
         if (CreateErrors.TryDequeue(out var error))
         {
             throw error;
