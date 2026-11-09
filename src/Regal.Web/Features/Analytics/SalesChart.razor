@@ -1,0 +1,28 @@
+@if (Points.Count == 0 || Points.All(p => p.NetSales == 0))
+{
+    <MudText Typo="Typo.body2" Class="my-4">Brak sprzedaży w tym okresie.</MudText>
+}
+else
+{
+    <MudChart T="double" ChartType="ChartType.Line" ChartSeries="_series" ChartLabels="_labels" Height="280px" Width="100%" />
+}
+
+@code {
+    private List<ChartSeries<double>> _series = [];
+    private string[] _labels = [];
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SalesPoint> Points { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        // Every few labels only, so they stay readable on a phone.
+        var every = Math.Max(1, Points.Count / 8);
+        _labels = Points.Select((p, i) => i % every == 0 ? p.Label : string.Empty).ToArray();
+        _series =
+        [
+            new ChartSeries<double> { Name = "Sprzedaż netto", Data = new ChartData<double>(Points.Select(p => (double)p.NetSales).ToList()) },
+            new ChartSeries<double> { Name = "Marża", Data = new ChartData<double>(Points.Select(p => (double)p.Margin).ToList()) },
+        ];
+    }
+}

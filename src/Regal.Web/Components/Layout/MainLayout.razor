@@ -30,7 +30,7 @@
         <Authorized>
             <MudDrawer @bind-Open="_drawerOpen" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always" Elevation="1">
                 <MudNavMenu>
-                    <MudNavLink Href="/" Match="NavLinkMatch.All">Start</MudNavLink>
+                    <MudNavLink Href="/" Match="NavLinkMatch.All">Pulpit</MudNavLink>
                     <MudNavLink Href="/products">Produkty i usługi</MudNavLink>
                     <MudNavLink Href="/categories">Kategorie</MudNavLink>
                     <MudNavLink Href="/contractors">Kontrahenci</MudNavLink>
@@ -39,6 +39,11 @@
                     <MudNavLink Href="/stock">Stany magazynowe</MudNavLink>
                     <MudNavLink Href="/invoices" Match="NavLinkMatch.All">Faktury</MudNavLink>
                     <MudNavLink Href="/invoices/new">Nowa faktura</MudNavLink>
+                    <MudNavGroup Title="Analizy" Expanded="true">
+                        <MudNavLink Href="/analytics/sales">Sprzedaż i marża</MudNavLink>
+                        <MudNavLink Href="/analytics/abc">Analiza ABC</MudNavLink>
+                        <MudNavLink Href="/analytics/slow-moving">Towary zalegające</MudNavLink>
+                    </MudNavGroup>
                 </MudNavMenu>
             </MudDrawer>
         </Authorized>

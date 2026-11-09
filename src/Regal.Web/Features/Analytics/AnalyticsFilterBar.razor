@@ -1,0 +1,63 @@
+@inject CategoryService Categories
+@inject ContractorService Contractors
+
+<MudGrid Spacing="2" Class="mb-3">
+    <MudItem xs="6" md="2">
+        <MudDatePicker Date="ToDateTime(Value.From)" DateChanged="OnFromChanged" Label="Od" Editable="true" DateFormat="dd.MM.yyyy" />
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudDatePicker Date="ToDateTime(Value.To)" DateChanged="OnToChanged" Label="Do" Editable="true" DateFormat="dd.MM.yyyy" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudSelect T="int?" Value="Value.CategoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">
+            <MudSelectItem T="int?" Value="null">Wszystkie</MudSelectItem>
+            @foreach (var category in _categories)
+            {
+                <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    @if (ShowContractor)
+    {
+        <MudItem xs="12" md="4">
+            <MudAutocomplete T="ContractorListItem" Value="_contractor" ValueChanged="OnContractorChanged" SearchFunc="SearchContractorsAsync"
+                             ToStringFunc="c => c?.Name" Label="Klient (wszyscy, gdy puste)" DebounceInterval="300"
+                             ResetValueOnEmptyText="true" CoerceText="true" Clearable="true" />
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private IReadOnlyList<CategoryItem> _categories = [];
+    private ContractorListItem? _contractor;
+
+    [Parameter, EditorRequired]
+    public AnalyticsFilter Value { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<AnalyticsFilter> ValueChanged { get; set; }
+
+    [Parameter]
+    public bool ShowContractor { get; set; } = true;
+
+    protected override async Task OnInitializedAsync() => _categories = await Categories.GetAllAsync();
+
+    private static DateTime ToDateTime(DateOnly date) => date.ToDateTime(TimeOnly.MinValue);
+
+    private Task OnFromChanged(DateTime? value) =>
+        value is { } date ? ValueChanged.InvokeAsync(Value with { From = DateOnly.FromDateTime(date) }) : Task.CompletedTask;
+
+    private Task OnToChanged(DateTime? value) =>
+        value is { } date ? ValueChanged.InvokeAsync(Value with { To = DateOnly.FromDateTime(date) }) : Task.CompletedTask;
+
+    private Task OnCategoryChanged(int? categoryId) => ValueChanged.InvokeAsync(Value with { CategoryId = categoryId });
+
+    private Task OnContractorChanged(ContractorListItem? contractor)
+    {
+        _contractor = contractor;
+        return ValueChanged.InvokeAsync(Value with { ContractorId = contractor?.Id });
+    }
+
+    private async Task<IEnumerable<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
+        (await Contractors.SearchAsync(term, includeInactive: true, 0, 10, cancellationToken)).Items;
+}

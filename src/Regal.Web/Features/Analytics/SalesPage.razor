@@ -1,0 +1,92 @@
+@page "/analytics/sales"
+@inject AnalyticsService Analytics
+
+<PageTitle>Sprzedaż i marża – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Sprzedaż i marża</MudText>
+
+    <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" />
+
+    @if (_summary is not null)
+    {
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="6" md="3"><StatCard Title="Sprzedaż netto" Value="@StockLabels.Money(_summary.NetSales)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Koszt" Value="@StockLabels.Money(_summary.Cost)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Marża" Value="@StockLabels.Money(_summary.Margin)" Note="@(_summary.MarginPercent is { } percent ? $"{percent:0.0}% sprzedaży" : null)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Faktury" Value="@_summary.InvoiceCount.ToString()" /></MudItem>
+        </MudGrid>
+
+        <MudPaper Outlined="true" Class="pa-3 mb-3">
+            <SalesChart Points="_points" />
+        </MudPaper>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="5">
+                <MudText Typo="Typo.h6" Class="mb-1">Według kategorii</MudText>
+                <MudTable T="CategorySales" Items="_categories" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Kategoria</MudTh>
+                        <MudTh>Netto</MudTh>
+                        <MudTh>Marża</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
+                        <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+                        <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak sprzedaży.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+            <MudItem xs="12" md="7">
+                <MudText Typo="Typo.h6" Class="mb-1">Według produktów</MudText>
+                <MudTable T="ProductSales" Items="_products" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Produkt</MudTh>
+                        <MudTh>Ilość</MudTh>
+                        <MudTh>Netto</MudTh>
+                        <MudTh>Koszt</MudTh>
+                        <MudTh>Marża</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Produkt">@context.Name</MudTd>
+                        <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                        <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+                        <MudTd DataLabel="Koszt">@StockLabels.Money(context.Cost)</MudTd>
+                        <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak sprzedaży.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private AnalyticsFilter _filter = null!;
+    private SalesSummary? _summary;
+    private IReadOnlyList<SalesPoint> _points = [];
+    private IReadOnlyList<CategorySales> _categories = [];
+    private IReadOnlyList<ProductSales> _products = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = Analytics.Today;
+        _filter = new AnalyticsFilter(today.AddMonths(-11).AddDays(1 - today.Day), today);
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChanged(AnalyticsFilter filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _summary = await Analytics.GetSummaryAsync(_filter);
+        _points = await Analytics.GetSalesOverTimeAsync(_filter);
+        _categories = await Analytics.GetSalesByCategoryAsync(_filter);
+        _products = await Analytics.GetSalesByProductAsync(_filter, take: 50);
+    }
+}
