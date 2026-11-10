@@ -42,7 +42,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 2. Proforma i faktura korygująca przez Fakturownię. **Gotowe** (punkt 5.12).
 3. Wysyłka faktury mailem, status płatności z Fakturowni. **Gotowe** (punkt 5.13).
 4. Inwentaryzacja ze skanowaniem. **Gotowe** (punkt 5.14).
-5. Pobieranie danych firmy po NIP-ie.
+5. Pobieranie danych firmy po NIP-ie. **Gotowe** (punkt 5.15).
 6. Analizy klientów, prosta prognoza zamówień i porównanie okresów.
 7. Eksport analiz do Excela (.xlsx).
 8. Etykiety z kodami w PDF do druku.
@@ -258,6 +258,14 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Numeracja `INW/{numer}/{rok}` nadawana przy zatwierdzeniu, bez luk. Arkusz bez różnic też dostaje numer.
 - Zatwierdzenie blokuje najpierw wiersz arkusza, potem wszystkie produkty rosnąco, a dopiero potem księguje dokumenty, więc kilka dokumentów w jednej transakcji nie łamie kolejności blokad. Zmiany pozycji też blokują wiersz arkusza.
 - Zatwierdzonego ani anulowanego arkusza nie można zmienić; pilnuje tego serwis i wyzwalacz w bazie.
+
+### 5.15. Dane firmy po NIP-ie (poziom 2)
+
+- W oknie kontrahenta przycisk „Pobierz dane” obok NIP-u wypełnia nazwę i adres z wykazu podatników VAT Ministerstwa Finansów („biała lista”, `GET https://wl-api.mf.gov.pl/api/search/nip/{nip}?date=RRRR-MM-DD`, bez klucza). Dane można poprawić przed zapisem; nic nie zapisuje się samo.
+- NIP jest najpierw normalizowany i sprawdzany sumą kontrolną; niepoprawny nie jest wysyłany. Data zapytania to dzisiejsza data w Polsce.
+- Adres pochodzi z `workingAddress`, a gdy go nie ma, z `residenceAddress` (osoby fizyczne). Okno pokazuje status VAT („Czynny”, „Zwolniony”, „Niezarejestrowany”).
+- Gdy wykaz nie zna NIP-u, nie odpowiada albo odrzuca zapytanie, okno mówi o tym, a wpisane dane zostają bez zmian.
+- Zapytanie idzie tylko po kliknięciu, nigdy w tle ani przy zapisie, bo API nie podaje limitów. Testy używają udawanego wykazu.
 
 ## 6. Technologie
 

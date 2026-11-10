@@ -325,3 +325,15 @@ Reguły opisuje `SPEC.md`, punkt 5.14. Reguły sprawdzają testy `StocktakeTests
 | 2 | Otwórz RW | Powód „Niedobór inwentaryzacyjny INW/…”, partia Chleba |
 | 3 | „Stany magazynowe” | Chleb 3, Mleko 12; produkty spoza arkusza bez zmian |
 | 4 | Wróć do arkusza | Brak pola skanowania i przycisków; kolumna „Stan przy zatwierdzeniu” |
+
+# Scenariusze testów ręcznych: kontrahenci (poziom 2)
+
+## K1. Dane firmy po NIP-ie
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Kontrahenci” → „Dodaj”, NIP prawdziwej firmy z myślnikami, „Pobierz dane” | Nazwa i adres z białej listy, komunikat ze statusem VAT |
+| 2 | Popraw nazwę, zapisz | Kontrahent z poprawioną nazwą i NIP-em bez myślników |
+| 3 | NIP z błędną cyfrą kontrolną, „Pobierz dane” | Komunikat o niepoprawnym NIP-ie, pola bez zmian |
+| 4 | Poprawny NIP, którego nie ma w wykazie | Komunikat, że wykaz nie zna podmiotu |
+| 5 | Bez internetu, „Pobierz dane” | Komunikat, że wykaz nie odpowiada; wpisane dane zostają |

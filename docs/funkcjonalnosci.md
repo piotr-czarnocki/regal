@@ -40,6 +40,7 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 ## 3. Kontrahenci
 
 - Nazwa, NIP (opcjonalny, sprawdzany), adres, e-mail, telefon, aktywność.
+- **Dane po NIP-ie (poziom 2):** przycisk „Pobierz dane” wypełnia nazwę i adres z wykazu podatników VAT Ministerstwa Finansów („biała lista”) i pokazuje status VAT. Dane można poprawić przed zapisem.
 - Ten sam kontrahent może być dostawcą i odbiorcą.
 - Kontrahenta z dokumentami można tylko dezaktywować.
 
@@ -131,4 +132,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5) oraz inwentaryzacja ze skanowaniem (punkt 4); nie powstały m.in. eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4) oraz dane firmy po NIP-ie (punkt 3); nie powstały m.in. eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).

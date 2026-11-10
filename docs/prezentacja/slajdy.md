@@ -51,8 +51,8 @@ Około 15 minut: 10 slajdów i pokaz na żywo według [`pokaz-na-zywo.md`](pokaz
 
 | Rodzaj | Liczba | Narzędzie |
 |---|---:|---|
-| Jednostkowe | 260 | xUnit, bUnit |
-| Integracyjne | 234 | Testcontainers, PostgreSQL 18 |
+| Jednostkowe | 274 | xUnit, bUnit |
+| Integracyjne | 236 | Testcontainers, PostgreSQL 18 |
 | Funkcjonalne | 13 | Playwright |
 | Wydajności | 7 zapytań, 8 stron | BenchmarkDotNet, k6 |
 
