@@ -617,6 +617,9 @@ namespace Regal.Web.Data.Migrations
                     b.Property<int?>("ReversesDocumentId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("StocktakeId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(2)
@@ -640,6 +643,8 @@ namespace Regal.Web.Data.Migrations
                     b.HasIndex("ReversesDocumentId")
                         .IsUnique()
                         .HasFilter("\"ReversesDocumentId\" IS NOT NULL");
+
+                    b.HasIndex("StocktakeId");
 
                     b.HasIndex("UserId");
 
@@ -703,6 +708,96 @@ namespace Regal.Web.Data.Migrations
                             t.HasCheckConstraint("CK_StockMovements_QuantityChange_NonZero", "\"QuantityChange\" <> 0");
 
                             t.HasCheckConstraint("CK_StockMovements_UnitCost_NonNegative", "\"UnitCost\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.Stocktake", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Number")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("Stocktakes", (string)null);
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StocktakeCounter", b =>
+                {
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Year");
+
+                    b.ToTable("StocktakeCounters", (string)null);
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StocktakeLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Counted")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<decimal?>("Expected")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<int>("StocktakeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("StocktakeId", "BatchId")
+                        .IsUnique();
+
+                    b.ToTable("StocktakeLines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_StocktakeLines_Counted_NonNegative", "\"Counted\" IS NULL OR \"Counted\" >= 0");
                         });
                 });
 
@@ -919,6 +1014,11 @@ namespace Regal.Web.Data.Migrations
                         .HasForeignKey("ReversesDocumentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Regal.Web.Data.Entities.Stocktake", "Stocktake")
+                        .WithMany()
+                        .HasForeignKey("StocktakeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Regal.Web.Data.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -928,6 +1028,8 @@ namespace Regal.Web.Data.Migrations
                     b.Navigation("Contractor");
 
                     b.Navigation("ReversesDocument");
+
+                    b.Navigation("Stocktake");
 
                     b.Navigation("User");
                 });
@@ -970,6 +1072,36 @@ namespace Regal.Web.Data.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("Regal.Web.Data.Entities.Stocktake", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.StocktakeLine", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.Batch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Regal.Web.Data.Entities.Stocktake", "Stocktake")
+                        .WithMany("Lines")
+                        .HasForeignKey("StocktakeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Stocktake");
+                });
+
             modelBuilder.Entity("Regal.Web.Data.Entities.CustomerOrder", b =>
                 {
                     b.Navigation("Lines");
@@ -983,6 +1115,11 @@ namespace Regal.Web.Data.Migrations
             modelBuilder.Entity("Regal.Web.Data.Entities.StockDocument", b =>
                 {
                     b.Navigation("Movements");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.Stocktake", b =>
+                {
+                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }

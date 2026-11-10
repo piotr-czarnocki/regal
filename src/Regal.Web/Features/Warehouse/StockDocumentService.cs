@@ -70,7 +70,8 @@ public sealed class StockDocumentService(
     /// <summary>
     /// Approves the draft inside the caller's open transaction: the caller commits. A failure undoes
     /// only this document, up to a savepoint. Call it before the transaction locks other products
-    /// and only once per transaction, or the ascending lock order no longer prevents deadlocks.
+    /// and only once per transaction, or the ascending lock order no longer prevents deadlocks;
+    /// several documents are safe when the caller has already locked all their products ascending.
     /// </summary>
     public async Task<SaveResult> PostInTransactionAsync(RegalDbContext db, StockDocumentDraft draft, CancellationToken cancellationToken = default)
     {
@@ -398,6 +399,7 @@ public sealed class StockDocumentService(
         }
 
         var document = await NewDocumentAsync(db, draft.Type, draft.RequestId, draft.ContractorId, draft.Notes?.Trim(), null, userId, now, cancellationToken);
+        document.StocktakeId = draft.StocktakeId;
 
         string NumberOf(StockDocumentLine line) => BatchNumbers.Normalize(line.BatchNumber) ?? document.Number;
 
@@ -460,6 +462,7 @@ public sealed class StockDocumentService(
         }
 
         var document = await NewDocumentAsync(db, draft.Type, draft.RequestId, draft.ContractorId, draft.Notes?.Trim(), null, userId, now, cancellationToken);
+        document.StocktakeId = draft.StocktakeId;
         document.Movements = movements;
 
         return await SaveDocumentAsync(db, document, [], AuditActions.StockDocumentPosted, $"number={document.Number}", userId, cancellationToken);

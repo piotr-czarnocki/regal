@@ -31,6 +31,7 @@ builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ContractorService>();
 builder.Services.AddScoped<StockDocumentService>();
 builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<StocktakeService>();
 builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddScoped<InvoiceQueries>();
 builder.Services.AddScoped<CustomerOrderService>();

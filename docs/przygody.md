@@ -234,3 +234,23 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** wszystkie 200 testów integracyjnych padło w 1 ms z `DockerApiException: … InternalServerError`.
 - **Przyczyna:** Docker Desktop zgłaszał „Docker Desktop is unable to start”, a dystrybucja WSL `docker-desktop` była zatrzymana.
 - **Rozwiązanie:** `docker desktop restart`. Wolumeny zostały nienaruszone, a baza deweloperska wystartowała sama. Wniosek: gdy padają wszystkie testy naraz i w 1 ms, przyczyną jest środowisko, a nie kod.
+
+## Poziom 2: inwentaryzacja (10.11.2026)
+
+### Blokady, której nie dało się złapać wyścigiem
+
+- **Objaw:** po usunięciu blokady wszystkich produktów arkusza przechodziły i test zgodności stanów, i losowy wyścig zatwierdzeń z dokumentami WZ (8 par, 5 przebiegów).
+- **Przyczyna:** test zgodności sprawdzał liczby, a te są poprawne także bez blokady. Wyścig trafiał w okno kilku milisekund, a dwa zatwierdzenia i tak szły po kolei przez licznik numerów INW.
+- **Rozwiązanie:** test deterministyczny. Test sam blokuje produkt X, uruchamia zatwierdzenie i prosi o produkt Y. Bez blokady z góry baza zgłasza zakleszczenie 5 na 5 razy (`analiza-dynamiczna.md`, eksperyment 5).
+
+### Ten sam błąd w teście drugi raz tego samego dnia
+
+- **Objaw:** test strony inwentaryzacji przechodził pierwsze asercje (`"-4"`, `"-3"` w HTML), a potem nie znajdował pola ilości, bo pozycji jeszcze nie było.
+- **Przyczyna:** jak przy teście kodów „1” i „10”: GUID-y w losowych identyfikatorach MudBlazor zawierają fragmenty w rodzaju „-4”, więc asercja na całym HTML przechodziła od razu.
+- **Rozwiązanie:** test czyta komórki kolumny „Różnica” (`td[data-label="Różnica"]`). Wniosek z poprzedniego wpisu trzeba stosować przy pisaniu nowych testów, nie tylko przy naprawie starych.
+
+### Drugi skan ginął w teście strony arkusza
+
+- **Objaw:** test strony arkusza czasem kończył się różnicą −4 zamiast −3, tylko w pełnym zestawie testów. Raport TRX: „Check count: 1”, czyli po drugim skanie strona nie przerenderowała się ani razu.
+- **Przyczyna:** bUnit wysyła zdarzenia bez czekania na ich obsługę. Drugi skan trafiał w trwającą obsługę pierwszego (zapis w bazie i odświeżenie arkusza) i ginął w samym teście. To ten sam efekt, który wcześniej dwa razy zmylił przy błędzie z Enterem.
+- **Rozwiązanie:** pomocnicza metoda skanu czeka na zmianę licznika `data-settled` pola produktu, tego samego, na który czekają testy w przeglądarce. Oczekiwanie na operacje na bazie wydłużone do 10 s.

@@ -13,6 +13,7 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 | Kategorie | `/categories` | Słownik kategorii produktów |
 | Kontrahenci | `/contractors` | Odbiorcy i dostawcy |
 | Stany magazynowe | `/stock` | Stan każdego towaru i jego partii; z wiersza historia ruchów (`/stock/{id}/history`) |
+| Inwentaryzacja | `/stocktakes` | Arkusze spisu; arkusz ze skanowaniem, różnicami i zatwierdzeniem (`/stocktakes/{id}`) |
 | Dokumenty magazynowe | `/stock-documents` | Lista PZ, PW, WZ, RW z wyszukiwaniem; nowy dokument (`/stock-documents/new`), szczegóły i korekta (`/stock-documents/{id}`) |
 | Zamówienia | `/orders` | Zamówienia klientów ze statusem; nowe zamówienie (`/orders/new`), szczegóły z pokryciem, faktura i anulowanie (`/orders/{id}`) |
 | Faktury | `/invoices` | Lista faktur ze statusem wysyłki; nowa faktura (`/invoices/new`, z zamówienia `/invoices/new?order={id}`), szczegóły (`/invoices/{id}`) |
@@ -72,6 +73,12 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 - Ekran stanów pokazuje ilość, cenę średnią i wartość każdego towaru oraz rozwinięcie na partie z datami ważności. Partie przeterminowane i z bliską datą są oznaczone. Produkt nieaktywny, który ma jeszcze stan, jest widoczny z oznaczeniem „nieaktywny”.
 - Historia produktu pokazuje każdy ruch z numerem dokumentu, partią, ilością i kosztem.
 
+### Inwentaryzacja (poziom 2)
+
+- „Inwentaryzacja” → „Nowy arkusz spisu” otwiera arkusz, na który skanuje się towary czytnikiem albo telefonem. Towar z jedną partią liczy się samym skanowaniem (każdy skan to sztuka); przy kilku partiach ilość wpisuje się przy partii. Arkusz zapisuje się po każdej zmianie.
+- Arkusz pokazuje stan w tej chwili i różnicę. Spis może być częściowy: towary spoza arkusza zostają bez zmian.
+- Zatwierdzenie porównuje ilości ze stanem w chwili zatwierdzenia i księguje różnice: niedobory dokumentem RW z tej samej partii, nadwyżki dokumentem PW na tę samą partię po cenie średniej. Arkusz dostaje numer `INW/n/rok`, a jego dokumenty są z nim powiązane. Zatwierdzonego arkusza nie można zmienić.
+
 ### Wycena
 
 - Cena średnia (średnia ważona) zmienia się tylko przy przyjęciu. Wydanie zapisuje koszt według średniej z chwili wydania, dzięki czemu marża faktury nie zmienia się po późniejszych zakupach.
@@ -124,4 +131,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące oraz wysyłka mailem ze statusem płatności (punkt 5); nie powstały m.in. inwentaryzacja, eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5) oraz inwentaryzacja ze skanowaniem (punkt 4); nie powstały m.in. eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).

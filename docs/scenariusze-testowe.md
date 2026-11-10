@@ -299,3 +299,29 @@ Reguły opisuje `SPEC.md`, punkt 5.11. Scenariusz Z1 jest zautomatyzowany testem
 | 1 | Otwarte zamówienie, „Anuluj zamówienie”, potwierdź | Status „anulowane”, brak przycisku „Wystaw fakturę”, rezerwacja zwolniona |
 | 2 | Adres `/invoices/new?order=<id>` anulowanego zamówienia | Komunikat, że z zamówienia nie można wystawić faktury |
 | 3 | Zrealizowane zamówienie | Brak przycisku anulowania; cofnięcie sprzedaży to anulowanie faktury |
+
+# Scenariusze testów ręcznych: inwentaryzacja (poziom 2)
+
+Reguły opisuje `SPEC.md`, punkt 5.14. Reguły sprawdzają testy `StocktakeTests` i `StocktakePagesTests`.
+
+**Dane:** Chleb (szt) z jedną partią i stanem 5, Mleko 1L z partiami WCZESNA (5 szt) i POZNA (5 szt).
+
+## I1. Liczenie skanerem
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Inwentaryzacja” → „Nowy arkusz spisu” | Pusty arkusz „w trakcie liczenia” z polem skanowania |
+| 2 | Zeskanuj Chleb trzy razy (czytnik USB albo telefon) | Jedna pozycja, policzono 3, stan teraz 5, różnica −2 |
+| 3 | Zeskanuj Mleko | Dwie pozycje (WCZESNA i POZNA) bez ilości |
+| 4 | „Zatwierdź spis” bez ilości przy Mleku | Komunikat: policz wszystkie pozycje, 2 bez ilości |
+| 5 | WCZESNA: 5, POZNA: 7 | Różnice: Mleko POZNA +2 |
+| 6 | Zamknij kartę i otwórz arkusz z listy | Wszystkie ilości zapisane |
+
+## I2. Zatwierdzenie i dokumenty
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Zatwierdź spis”, potwierdź | Numer `INW/n/rok`, status „zatwierdzony”, linki do RW (Chleb −2) i PW (Mleko +2 na partii POZNA po cenie średniej) |
+| 2 | Otwórz RW | Powód „Niedobór inwentaryzacyjny INW/…”, partia Chleba |
+| 3 | „Stany magazynowe” | Chleb 3, Mleko 12; produkty spoza arkusza bez zmian |
+| 4 | Wróć do arkusza | Brak pola skanowania i przycisków; kolumna „Stan przy zatwierdzeniu” |

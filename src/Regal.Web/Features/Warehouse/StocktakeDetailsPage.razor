@@ -1,0 +1,200 @@
+@page "/stocktakes/{Id:int}"
+@inject StocktakeService Stocktakes
+@inject StockService Stock
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_sheet?.Number ?? "Arkusz spisu") – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono arkusza spisu.</MudAlert>
+    }
+    else if (_sheet is { } sheet)
+    {
+        var draft = sheet.Status == StocktakeStatus.Draft;
+        <div class="d-flex flex-wrap align-center gap-2 mb-2">
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@(sheet.Number ?? $"Arkusz spisu nr {sheet.Id}")</MudText>
+            <MudChip T="string" Size="Size.Small" Color="StocktakeLabels.Color(sheet.Status)">@StocktakeLabels.Status(sheet.Status)</MudChip>
+            @if (draft)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApproveAsync" Disabled="_working">Zatwierdź spis</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelAsync" Disabled="_working">Anuluj arkusz</MudButton>
+            }
+        </div>
+
+        @if (draft)
+        {
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Skanuj towary po kolei. Przy towarze z jedną partią każdy skan dolicza sztukę; przy kilku partiach wpisz ilość przy partii. Stan oczekiwany to stan w tej chwili.
+            </MudText>
+            <div class="mb-3">
+                <ProductPicker Search="(term, token) => Stock.SearchGoodsAsync(term, MaxSuggestions, token)"
+                               FindByCode="(code, token) => Stock.FindByCodeAsync(code, token)"
+                               Picked="AddAsync" />
+            </div>
+        }
+        else if (sheet.Documents.Count > 0)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                Różnice zaksięgowano:
+                @foreach (var document in sheet.Documents)
+                {
+                    <MudLink Href="@StockDocumentRoutes.Details(document.Id)" Class="ml-2">@document.Number</MudLink>
+                }
+            </MudAlert>
+        }
+        else if (sheet.Status == StocktakeStatus.Approved)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-3">Spis zgodny ze stanem, bez różnic.</MudAlert>
+        }
+
+        <MudTable T="StocktakeLineRow" Items="sheet.Lines" Dense="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Towar</MudTh>
+                <MudTh>Partia</MudTh>
+                <MudTh>@(draft ? "Stan teraz" : "Stan przy zatwierdzeniu")</MudTh>
+                <MudTh>Policzono</MudTh>
+                <MudTh>Różnica</MudTh>
+                @if (draft)
+                {
+                    <MudTh></MudTh>
+                }
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Towar">@context.ProductName</MudTd>
+                <MudTd DataLabel="Partia">@context.BatchNumber @(context.ExpiryDate is { } expiry ? $"(do {StockLabels.Date(expiry)})" : null)</MudTd>
+                <MudTd DataLabel="Stan">@StockLabels.Quantity(context.Expected) @context.Unit</MudTd>
+                <MudTd DataLabel="Policzono">
+                    @if (draft)
+                    {
+                        <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="context.Counted" ValueChanged="value => CountAsync(context, value)"
+                                         Label="@($"Policzono ({context.Unit})")" Min="0" HideSpinButtons="true" Margin="Margin.Dense" />
+                    }
+                    else
+                    {
+                        @($"{StockLabels.Quantity(context.Counted ?? 0)} {context.Unit}")
+                    }
+                </MudTd>
+                <MudTd DataLabel="Różnica">
+                    @if (context.Difference is { } difference && difference != 0)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="@(difference < 0 ? Color.Error : Color.Warning)">@(difference > 0 ? "+" : null)@StockLabels.Quantity(difference)</MudChip>
+                    }
+                </MudTd>
+                @if (draft)
+                {
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Usuń pozycję" Size="Size.Small" OnClick="() => RemoveAsync(context)" />
+                    </MudTd>
+                }
+            </RowTemplate>
+            <NoRecordsContent><MudText>Arkusz jest pusty. Zeskanuj albo wybierz towar.</MudText></NoRecordsContent>
+        </MudTable>
+    }
+</MudContainer>
+
+@code {
+    private const int MaxSuggestions = 10;
+
+    private StocktakeDetails? _sheet;
+    private bool _notFound;
+    private bool _working;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _sheet = await Stocktakes.GetDetailsAsync(Id);
+        _notFound = _sheet is null;
+    }
+
+    private async Task AddAsync(ProductPick product)
+    {
+        var result = await Stocktakes.AddProductAsync(Id, product.Id);
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Warning);
+        await LoadAsync();
+    }
+
+    private async Task CountAsync(StocktakeLineRow line, decimal? counted)
+    {
+        var result = await Stocktakes.SetCountedAsync(Id, line.Id, counted);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task RemoveAsync(StocktakeLineRow line)
+    {
+        await Stocktakes.RemoveLineAsync(Id, line.Id);
+        await LoadAsync();
+    }
+
+    private async Task ApproveAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_working || _sheet is null)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var shortages = _sheet.Lines.Count(l => l.Difference < 0);
+            var surpluses = _sheet.Lines.Count(l => l.Difference > 0);
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Zatwierdzić spis?",
+                $"Niedobory: {shortages} pozycji (RW), nadwyżki: {surpluses} pozycji (PW), liczone od stanu w chwili zatwierdzenia. Zatwierdzonego arkusza nie można zmienić.",
+                yesText: "Zatwierdź",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Stocktakes.ApproveAsync(Id);
+            Snackbar.Add(result.IsSuccess ? "Spis zatwierdzony." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Error);
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Anulować arkusz?", "Policzone ilości nie zostaną zaksięgowane. Anulowanego arkusza nie można przywrócić.",
+                yesText: "Anuluj arkusz", cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Stocktakes.CancelAsync(Id);
+            Snackbar.Add(result.IsSuccess ? "Arkusz anulowany." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Error);
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+}
