@@ -10,6 +10,7 @@ using Regal.Web.Data;
 using Regal.Web.Data.Entities;
 using Regal.Web.Features.Auth;
 using Regal.Web.Integrations.Fakturownia;
+using Regal.Web.Integrations.VatRegistry;
 
 namespace Regal.TestHost;
 
@@ -20,6 +21,8 @@ namespace Regal.TestHost;
 public sealed class RegalTestHost(string connectionString) : WebApplicationFactory<Program>
 {
     public FakeFakturownia Fakturownia { get; } = new();
+
+    public FakeVatRegistry VatRegistry { get; } = new();
 
     /// <summary>Available after Start, e.g. http://127.0.0.1:51234.</summary>
     public Uri BaseAddress { get; private set; } = null!;
@@ -70,6 +73,7 @@ public sealed class RegalTestHost(string connectionString) : WebApplicationFacto
                 options.DefaultForbidScheme = TestAuthHandler.SchemeName;
             });
             services.AddSingleton<IFakturowniaClient>(Fakturownia);
+            services.AddSingleton<IVatRegistry>(VatRegistry);
         });
     }
 }

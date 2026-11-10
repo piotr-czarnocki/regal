@@ -11,6 +11,7 @@ using Regal.Web.Features.Orders;
 using Regal.Web.Features.Products;
 using Regal.Web.Features.Warehouse;
 using Regal.Web.Integrations.Fakturownia;
+using Regal.Web.Integrations.VatRegistry;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,8 @@ builder.Services.AddRegalAuth(builder.Configuration);
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ContractorService>();
+builder.Services.AddScoped<CompanyLookupService>();
+builder.Services.AddHttpClient<IVatRegistry, VatRegistryClient>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddScoped<StockDocumentService>();
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<StocktakeService>();
