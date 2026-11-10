@@ -103,7 +103,7 @@ Pozostałe parametry: `--products`, `--customers`, `--suppliers`, `--days`, `--i
 dotnet test Regal.slnx
 ```
 
-Testy integracyjne i testy w przeglądarce same uruchamiają PostgreSQL przez Testcontainers, więc Docker musi być włączony. Testy w przeglądarce za pierwszym razem potrzebują Chromium: `pwsh tests/Regal.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium` (po zbudowaniu).
+Testy integracyjne i testy w przeglądarce same uruchamiają PostgreSQL przez Testcontainers, więc Docker musi być włączony. Testy w przeglądarce przy pierwszym uruchomieniu same pobierają Chromium (potrzebny internet); na Linuksie biblioteki systemowe przeglądarki trzeba doinstalować tak jak w CI (`playwright.ps1 install --with-deps chromium`).
 
 ### Testy wydajności
 
@@ -247,7 +247,7 @@ Other options: `--products`, `--customers`, `--suppliers`, `--days`, `--invoices
 dotnet test Regal.slnx
 ```
 
-Integration and browser tests start PostgreSQL through Testcontainers, so Docker must be running. Browser tests need Chromium the first time: `pwsh tests/Regal.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium` (after a build).
+Integration and browser tests start PostgreSQL through Testcontainers, so Docker must be running. Browser tests download Chromium themselves on the first run (internet needed); on Linux, install the browser's system libraries as CI does (`playwright.ps1 install --with-deps chromium`).
 
 ### Performance tests
 
