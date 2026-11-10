@@ -96,7 +96,7 @@ public sealed class OrderPagesTests : InvoiceTestBase
 
         var page = _context.Render<NewInvoicePage>();
         page.WaitForAssertion(() => Assert.Contains(number, page.Markup));
-        Assert.Equal(10m, page.FindComponents<MudNumericField<decimal?>>().First(f => f.Instance.Label == "Ilość (szt)").Instance.Value);
+        Assert.Equal("10", page.FindComponents<MudNumericField<decimal?>>().First(f => f.Instance.Label == "Ilość (szt)").Find("input").GetAttribute("value"));
 
         ClickButton(page, "Pokaż podgląd");
         page.WaitForAssertion(() => Assert.False(page.FindAll("button").Single(b => b.TextContent.Contains("Wystaw fakturę")).HasAttribute("disabled")));
