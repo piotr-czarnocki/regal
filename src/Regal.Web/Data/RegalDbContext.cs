@@ -42,8 +42,43 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
 
     public DbSet<OrderCounter> OrderCounters => Set<OrderCounter>();
 
+    public DbSet<Stocktake> Stocktakes => Set<Stocktake>();
+
+    public DbSet<StocktakeLine> StocktakeLines => Set<StocktakeLine>();
+
+    public DbSet<StocktakeCounter> StocktakeCounters => Set<StocktakeCounter>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Stocktake>(stocktake =>
+        {
+            stocktake.ToTable("Stocktakes");
+            stocktake.Property(s => s.Number).HasMaxLength(30);
+            stocktake.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
+            stocktake.Property(s => s.Notes).HasMaxLength(500);
+            stocktake.HasIndex(s => s.Number).IsUnique();
+            stocktake.HasIndex(s => new { s.Status, s.CreatedAt });
+            stocktake.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StocktakeLine>(line =>
+        {
+            line.ToTable("StocktakeLines", table =>
+                table.HasCheckConstraint("CK_StocktakeLines_Counted_NonNegative", "\"Counted\" IS NULL OR \"Counted\" >= 0"));
+            line.Property(l => l.Counted).HasPrecision(18, 3);
+            line.Property(l => l.Expected).HasPrecision(18, 3);
+            line.HasIndex(l => new { l.StocktakeId, l.BatchId }).IsUnique();
+            line.HasOne(l => l.Stocktake).WithMany(s => s.Lines).HasForeignKey(l => l.StocktakeId).OnDelete(DeleteBehavior.Restrict);
+            line.HasOne(l => l.Batch).WithMany().HasForeignKey(l => l.BatchId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StocktakeCounter>(counter =>
+        {
+            counter.ToTable("StocktakeCounters");
+            counter.HasKey(c => c.Year);
+            counter.Property(c => c.Year).ValueGeneratedNever();
+        });
+
         modelBuilder.Entity<CustomerOrder>(order =>
         {
             order.ToTable("CustomerOrders");
@@ -176,6 +211,7 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
             document.Property(d => d.Notes).HasMaxLength(500);
             document.HasIndex(d => d.Number).IsUnique();
             document.HasIndex(d => d.RequestId).IsUnique();
+            document.HasOne(d => d.Stocktake).WithMany().HasForeignKey(d => d.StocktakeId).OnDelete(DeleteBehavior.Restrict);
             document.HasIndex(d => d.ReversesDocumentId).IsUnique().HasFilter("\"ReversesDocumentId\" IS NOT NULL");
             document.HasIndex(d => d.DocumentDate);
             document.HasIndex(d => new { d.Type, d.DocumentDate });

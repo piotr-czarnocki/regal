@@ -17,6 +17,8 @@ public static class AuditActions
     public const string InvoiceCancelled = "InvoiceCancelled";
     public const string InvoiceCorrected = "InvoiceCorrected";
     public const string InvoiceEmailed = "InvoiceEmailed";
+    public const string StocktakeApproved = "StocktakeApproved";
+    public const string StocktakeCancelled = "StocktakeCancelled";
     public const string OrderCreated = "OrderCreated";
     public const string OrderCancelled = "OrderCancelled";
     public const string OrderCompleted = "OrderCompleted";

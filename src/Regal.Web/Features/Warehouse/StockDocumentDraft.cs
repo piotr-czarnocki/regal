@@ -19,6 +19,9 @@ public sealed class StockDocumentDraft
     /// </summary>
     public int? OrderId { get; set; }
 
+    /// <summary>The stocktake whose differences this document posts. Set only by the stocktake service.</summary>
+    public int? StocktakeId { get; set; }
+
     public List<StockDocumentLine> Lines { get; set; } = [];
 }
 

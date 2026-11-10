@@ -22,3 +22,21 @@ public static class StockLabels
 
     public static string Cost(decimal value) => $"{value:N4} zł";
 }
+
+public static class StocktakeLabels
+{
+    public static string Status(StocktakeStatus status) => status switch
+    {
+        StocktakeStatus.Draft => "w trakcie liczenia",
+        StocktakeStatus.Approved => "zatwierdzony",
+        StocktakeStatus.Cancelled => "anulowany",
+        _ => status.ToString(),
+    };
+
+    public static MudBlazor.Color Color(StocktakeStatus status) => status switch
+    {
+        StocktakeStatus.Draft => MudBlazor.Color.Info,
+        StocktakeStatus.Approved => MudBlazor.Color.Success,
+        _ => MudBlazor.Color.Default,
+    };
+}

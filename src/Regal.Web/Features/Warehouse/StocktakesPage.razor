@@ -1,0 +1,64 @@
+@page "/stocktakes"
+@inject StocktakeService Stocktakes
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Inwentaryzacja – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Inwentaryzacja</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NewAsync" Disabled="_creating">Nowy arkusz spisu</MudButton>
+    </div>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Arkusz obejmuje tylko zeskanowane towary. Zatwierdzenie porównuje policzone ilości ze stanem w tej chwili i księguje różnice dokumentami RW i PW.
+    </MudText>
+
+    <MudTable @ref="_table" T="StocktakeListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <HeaderContent>
+            <MudTh>Arkusz</MudTh>
+            <MudTh>Utworzony</MudTh>
+            <MudTh>Pozycje</MudTh>
+            <MudTh>Status</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Arkusz"><MudLink Href="@StockDocumentRoutes.Stocktake(context.Id)">@(context.Number ?? $"Arkusz nr {context.Id}")</MudLink></MudTd>
+            <MudTd DataLabel="Utworzony">@context.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudTd>
+            <MudTd DataLabel="Pozycje">@context.LineCount</MudTd>
+            <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Color="StocktakeLabels.Color(context.Status)">@StocktakeLabels.Status(context.Status)</MudChip></MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak arkuszy spisu.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private MudTable<StocktakeListItem>? _table;
+    private bool _creating;
+
+    private async Task<TableData<StocktakeListItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await Stocktakes.SearchAsync(state.Page, state.PageSize, cancellationToken);
+        return new TableData<StocktakeListItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private async Task NewAsync()
+    {
+        if (_creating)
+        {
+            return;
+        }
+
+        _creating = true;
+        var result = await Stocktakes.CreateAsync();
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo(StockDocumentRoutes.Stocktake(result.Id!.Value));
+        }
+        else
+        {
+            Snackbar.Add(result.Error!, Severity.Error);
+            _creating = false;
+        }
+    }
+}

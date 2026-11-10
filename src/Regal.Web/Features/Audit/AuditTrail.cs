@@ -66,6 +66,9 @@ public static class AuditTrail
     public static void AddInvoice(RegalDbContext db, string action, int id, int? userId, string? details, TimeProvider timeProvider) =>
         Add(db, action, nameof(Invoice), id, userId, details, timeProvider);
 
+    public static void AddStocktake(RegalDbContext db, string action, int id, int userId, string? details, TimeProvider timeProvider) =>
+        Add(db, action, nameof(Stocktake), id, userId, details, timeProvider);
+
     /// <summary>The caller saves it together with the order change, in the same transaction.</summary>
     public static void AddOrder(RegalDbContext db, string action, int id, int userId, string? details, TimeProvider timeProvider) =>
         Add(db, action, nameof(CustomerOrder), id, userId, details, timeProvider);

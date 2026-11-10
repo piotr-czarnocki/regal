@@ -49,5 +49,10 @@ public sealed class StockDocument
     /// <summary>Idempotency key: the same draft sent twice creates one document.</summary>
     public Guid RequestId { get; set; }
 
+    /// <summary>Set on the RW and PW that post the differences of a stocktake.</summary>
+    public int? StocktakeId { get; set; }
+
+    public Stocktake? Stocktake { get; set; }
+
     public List<StockMovement> Movements { get; set; } = [];
 }
