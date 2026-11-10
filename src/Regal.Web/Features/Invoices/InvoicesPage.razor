@@ -40,7 +40,13 @@
             <MudTh>Status</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Numer"><MudLink Href="@InvoiceRoutes.Details(context.Id)">@(context.Number ?? "(bez numeru)")</MudLink></MudTd>
+            <MudTd DataLabel="Numer">
+                <MudLink Href="@InvoiceRoutes.Details(context.Id)">@(context.Number ?? "(bez numeru)")</MudLink>
+                @if (context.Kind != InvoiceKind.Vat)
+                {
+                    <MudChip T="string" Size="Size.Small">@InvoiceLabels.Kind(context.Kind)</MudChip>
+                }
+            </MudTd>
             <MudTd DataLabel="Data">@StockLabels.Date(context.IssueDate)</MudTd>
             <MudTd DataLabel="Nabywca">@context.ContractorName</MudTd>
             <MudTd DataLabel="Brutto">@StockLabels.Money(context.GrossTotal)</MudTd>

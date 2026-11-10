@@ -85,6 +85,77 @@ public sealed class StockDocumentService(
         return await InCallerTransactionAsync(db, () => ReverseCoreAsync(db, documentId, requestId, userId, cancellationToken), requestId, cancellationToken);
     }
 
+    /// <summary>
+    /// Takes part of a WZ back into stock, for a correcting invoice: the correction of the WZ, with
+    /// these quantities per product, on the batches they left, at the costs recorded then. The batch
+    /// issued last is refilled first. Same rules for the caller as PostInTransactionAsync.
+    /// </summary>
+    public async Task<SaveResult> ReturnInTransactionAsync(
+        RegalDbContext db, int issueDocumentId, IReadOnlyDictionary<int, decimal> returned, Guid requestId, string notes,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        return await InCallerTransactionAsync(
+            db, () => ReturnCoreAsync(db, issueDocumentId, returned, requestId, notes, userId, cancellationToken), requestId, cancellationToken);
+    }
+
+    private async Task<SaveResult> ReturnCoreAsync(
+        RegalDbContext db,
+        int issueDocumentId,
+        IReadOnlyDictionary<int, decimal> returned,
+        Guid requestId,
+        string notes,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var products = (await ProductLocks.LockAsync(db, returned.Keys, cancellationToken)).ToDictionary(p => p.Id);
+
+        if (await FindByRequestIdAsync(db, requestId, cancellationToken) is { } existingId)
+        {
+            return SaveResult.Ok(existingId);
+        }
+
+        var original = await db.StockDocuments.AsNoTracking()
+            .Include(d => d.Movements.OrderBy(m => m.Id)).ThenInclude(m => m.Batch)
+            .SingleOrDefaultAsync(d => d.Id == issueDocumentId, cancellationToken);
+        if (original is not { Type: StockDocumentType.WZ, ReversesDocumentId: null })
+        {
+            return SaveResult.Fail("Zwrot dotyczy tylko wydania WZ, które nie jest korektą.");
+        }
+
+        if (await db.StockDocuments.AnyAsync(d => d.ReversesDocumentId == issueDocumentId, cancellationToken))
+        {
+            return SaveResult.Fail(AlreadyReversed);
+        }
+
+        var movements = new List<StockMovement>();
+        foreach (var (productId, quantity) in returned)
+        {
+            var issued = original.Movements.Where(m => m.Batch!.ProductId == productId).OrderByDescending(m => m.Id).ToList();
+            if (quantity <= 0 || quantity > -issued.Sum(m => m.QuantityChange))
+            {
+                return SaveResult.Fail($"{products.GetValueOrDefault(productId)?.Name ?? "Produkt"}: można zwrócić najwyżej tyle, ile wydano.");
+            }
+
+            var left = quantity;
+            foreach (var movement in issued.TakeWhile(_ => left > 0))
+            {
+                var back = Math.Min(left, -movement.QuantityChange);
+                movements.Add(new StockMovement { BatchId = movement.BatchId, QuantityChange = back, UnitCost = movement.UnitCost, Batch = movement.Batch });
+                left -= back;
+            }
+        }
+
+        var averages = await AveragesAfterReturnAsync(
+            db, movements.Select(m => (m.Batch!.ProductId, m.QuantityChange, m.UnitCost)), products, cancellationToken);
+        var document = await NewDocumentAsync(
+            db, StockDocumentType.WZ, requestId, original.ContractorId, notes, original.Id, userId, timeProvider.GetUtcNow(), cancellationToken);
+        document.Movements = movements.Select(m => new StockMovement { BatchId = m.BatchId, QuantityChange = m.QuantityChange, UnitCost = m.UnitCost }).ToList();
+
+        return await SaveDocumentAsync(
+            db, document, averages, AuditActions.StockDocumentReversed, $"number={document.Number};reverses={original.Number};partial=true", userId, cancellationToken);
+    }
+
     private static async Task<SaveResult> InCallerTransactionAsync(
         RegalDbContext db, Func<Task<SaveResult>> work, Guid requestId, CancellationToken cancellationToken)
     {
@@ -496,19 +567,25 @@ public sealed class StockDocumentService(
                     product.Sum(m => m.QuantityChange * m.UnitCost)));
     }
 
-    private static async Task<Dictionary<int, decimal>> AveragesAfterIssueReversalAsync(
-        RegalDbContext db, StockDocument original, Dictionary<int, Product> products, CancellationToken cancellationToken)
+    private static Task<Dictionary<int, decimal>> AveragesAfterIssueReversalAsync(
+        RegalDbContext db, StockDocument original, Dictionary<int, Product> products, CancellationToken cancellationToken) =>
+        AveragesAfterReturnAsync(db, original.Movements.Select(m => (m.Batch!.ProductId, -m.QuantityChange, m.UnitCost)), products, cancellationToken);
+
+    /// <summary>Goods coming back at the cost they left with count as a receipt at that cost.</summary>
+    private static async Task<Dictionary<int, decimal>> AveragesAfterReturnAsync(
+        RegalDbContext db,
+        IEnumerable<(int ProductId, decimal Quantity, decimal Cost)> returns,
+        Dictionary<int, Product> products,
+        CancellationToken cancellationToken)
     {
         var stock = await LoadProductStockAsync(db, products.Keys, cancellationToken);
         var averages = products.Values.ToDictionary(p => p.Id, p => p.AverageCost);
 
-        foreach (var movement in original.Movements)
+        foreach (var (productId, quantity, cost) in returns)
         {
-            var productId = movement.Batch!.ProductId;
-            var returned = -movement.QuantityChange;
             var currentStock = stock.GetValueOrDefault(productId);
-            averages[productId] = AverageCost.AfterReceipt(currentStock, averages[productId], returned, movement.UnitCost);
-            stock[productId] = currentStock + returned;
+            averages[productId] = AverageCost.AfterReceipt(currentStock, averages[productId], quantity, cost);
+            stock[productId] = currentStock + quantity;
         }
 
         return averages;

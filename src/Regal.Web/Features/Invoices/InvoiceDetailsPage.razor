@@ -15,7 +15,11 @@
     else if (_invoice is { } invoice)
     {
         <div class="d-flex flex-wrap align-center gap-2 mb-2">
-            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@(invoice.Number ?? "Faktura bez numeru")</MudText>
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@(invoice.Number ?? $"{InvoiceLabels.Kind(invoice.Kind)} bez numeru")</MudText>
+            @if (invoice.Kind != InvoiceKind.Vat)
+            {
+                <MudChip T="string" Size="Size.Small">@InvoiceLabels.Kind(invoice.Kind)</MudChip>
+            }
             <InvoiceStatusChip Status="invoice.Status" />
             @if (invoice.PdfUrl is not null)
             {
@@ -25,11 +29,35 @@
             {
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="RetryAsync" Disabled="_working">Ponów wysyłkę</MudButton>
             }
-            @if (invoice.Status is InvoiceStatus.ToSend or InvoiceStatus.Failed)
+            @if (invoice.Status is InvoiceStatus.ToSend or InvoiceStatus.Failed && invoice.Kind != InvoiceKind.Correction)
             {
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelAsync" Disabled="_working">Anuluj fakturę</MudButton>
             }
+            @if (invoice is { Kind: InvoiceKind.Vat, Status: InvoiceStatus.Sent, CorrectedBy: null })
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@InvoiceRoutes.Correction(invoice.Id)">Korekta</MudButton>
+            }
         </div>
+
+        @if (invoice.Corrects is { } corrected)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                Korekta faktury <MudLink Href="@InvoiceRoutes.Details(corrected.Id)">@corrected.Text</MudLink>. Przyczyna: @invoice.CorrectionReason.
+                Pozycje pokazują zmianę względem faktury.
+            </MudAlert>
+        }
+
+        @if (invoice.CorrectedBy is { } correction)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                Skorygowana fakturą <MudLink Href="@InvoiceRoutes.Details(correction.Id)">@correction.Text</MudLink>.
+            </MudAlert>
+        }
+
+        @if (invoice.Kind == InvoiceKind.Proforma)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">Proforma nie wydaje towaru i nie liczy się do sprzedaży.</MudAlert>
+        }
 
         @if (invoice.Status == InvoiceStatus.ToSend)
         {
@@ -75,7 +103,7 @@
                 }
                 else
                 {
-                    <MudText>brak (same usługi)</MudText>
+                    <MudText>@(invoice.Kind switch { InvoiceKind.Proforma => "brak (proforma)", InvoiceKind.Correction => "brak (korekta bez zwrotu towaru)", _ => "brak (same usługi)" })</MudText>
                 }
             </MudItem>
             <MudItem xs="12" sm="6">
@@ -97,7 +125,13 @@
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Pozycja">@context.ProductName</MudTd>
-                <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                <MudTd DataLabel="Ilość">
+                    @StockLabels.Quantity(context.Quantity) @context.Unit
+                    @if (context.QuantityBefore is { } before)
+                    {
+                        <MudText Typo="Typo.caption">było @StockLabels.Quantity(before), jest @StockLabels.Quantity(before + context.Quantity)</MudText>
+                    }
+                </MudTd>
                 <MudTd DataLabel="Cena netto">@StockLabels.Money(context.NetPrice)</MudTd>
                 <MudTd DataLabel="Rabat">@($"{context.DiscountPercent:0.##}%")</MudTd>
                 <MudTd DataLabel="VAT">@InvoiceLabels.VatRate(context.VatRate)</MudTd>

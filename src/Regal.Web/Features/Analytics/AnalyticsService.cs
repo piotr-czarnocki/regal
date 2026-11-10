@@ -56,7 +56,7 @@ public sealed class AnalyticsService(
             .GroupBy(_ => 1)
             .Select(g => new { Net = g.Sum(l => l.NetValue), Cost = g.Sum(l => l.Quantity * l.UnitCost) })
             .SingleOrDefaultAsync(cancellationToken);
-        var invoices = await lines.Select(l => l.InvoiceId).Distinct().CountAsync(cancellationToken);
+        var invoices = await lines.Where(l => l.Invoice!.Kind == InvoiceKind.Vat).Select(l => l.InvoiceId).Distinct().CountAsync(cancellationToken);
 
         return new SalesSummary(totals?.Net ?? 0, RoundMoney(totals?.Cost ?? 0), invoices);
     }
@@ -167,7 +167,7 @@ public sealed class AnalyticsService(
         var lastSales =
             from l in db.InvoiceLines
             join i in db.Invoices on l.InvoiceId equals i.Id
-            where i.Status != InvoiceStatus.Cancelled
+            where i.Status != InvoiceStatus.Cancelled && i.Kind == InvoiceKind.Vat // a proforma or a return is not a sale
             group i.IssueDate by l.ProductId into g
             select new { ProductId = g.Key, LastSale = g.Max() };
 
@@ -217,6 +217,7 @@ public sealed class AnalyticsService(
     {
         var lines = db.InvoiceLines.AsNoTracking().Where(l =>
             l.Invoice!.Status != InvoiceStatus.Cancelled
+            && l.Invoice.Kind != InvoiceKind.Proforma // corrections count: their lines are differences
             && l.Invoice.IssueDate >= filter.From
             && l.Invoice.IssueDate <= filter.To);
 

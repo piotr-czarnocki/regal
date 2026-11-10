@@ -96,13 +96,19 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
             invoice.HasOne(i => i.Contractor).WithMany().HasForeignKey(i => i.ContractorId).OnDelete(DeleteBehavior.Restrict);
             invoice.HasOne(i => i.StockDocument).WithMany().HasForeignKey(i => i.StockDocumentId).OnDelete(DeleteBehavior.Restrict);
             invoice.HasOne(i => i.User).WithMany().HasForeignKey(i => i.UserId).OnDelete(DeleteBehavior.Restrict);
+            invoice.Property(i => i.CorrectionReason).HasMaxLength(500);
+            invoice.HasIndex(i => i.CorrectsInvoiceId).IsUnique();
+            invoice.HasOne(i => i.CorrectsInvoice).WithMany().HasForeignKey(i => i.CorrectsInvoiceId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<InvoiceLine>(line =>
         {
             line.ToTable("InvoiceLines", table =>
             {
-                table.HasCheckConstraint("CK_InvoiceLines_Quantity_Positive", "\"Quantity\" > 0");
+                // An invoice line sells something; a correction line can only take quantity away.
+                table.HasCheckConstraint(
+                    "CK_InvoiceLines_Quantity_Positive",
+                    "(\"CorrectsLineId\" IS NULL AND \"Quantity\" > 0) OR (\"CorrectsLineId\" IS NOT NULL AND \"Quantity\" <= 0)");
                 table.HasCheckConstraint("CK_InvoiceLines_Discount_Range", "\"DiscountPercent\" BETWEEN 0 AND 100");
             });
             line.Property(l => l.ProductName).HasMaxLength(200);
@@ -117,6 +123,7 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
             line.Property(l => l.UnitCost).HasPrecision(18, 4);
             line.HasOne(l => l.Invoice).WithMany(i => i.Lines).HasForeignKey(l => l.InvoiceId).OnDelete(DeleteBehavior.Restrict);
             line.HasOne(l => l.Product).WithMany().HasForeignKey(l => l.ProductId).OnDelete(DeleteBehavior.Restrict);
+            line.HasOne(l => l.CorrectsLine).WithMany().HasForeignKey(l => l.CorrectsLineId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<OutboxMessage>(message =>

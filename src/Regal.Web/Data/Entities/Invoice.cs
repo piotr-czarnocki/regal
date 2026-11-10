@@ -3,6 +3,12 @@ namespace Regal.Web.Data.Entities;
 public enum InvoiceKind
 {
     Vat,
+
+    /// <summary>Not a sale: no WZ, no stock change, left out of the analyses.</summary>
+    Proforma,
+
+    /// <summary>Corrects a VAT invoice; its lines hold differences (SPEC 5.12).</summary>
+    Correction,
 }
 
 public enum InvoiceStatus
@@ -67,6 +73,13 @@ public sealed class Invoice
     /// <summary>UTC.</summary>
     public DateTime IssuedAt { get; set; }
 
+    /// <summary>On a correction: the VAT invoice it corrects. Unique, so an invoice is corrected once.</summary>
+    public int? CorrectsInvoiceId { get; set; }
+
+    public Invoice? CorrectsInvoice { get; set; }
+
+    public string? CorrectionReason { get; set; }
+
     public List<InvoiceLine> Lines { get; set; } = [];
 }
 
@@ -104,6 +117,14 @@ public sealed class InvoiceLine
 
     /// <summary>Per unit, from the WZ movements; zero for services.</summary>
     public decimal UnitCost { get; set; }
+
+    /// <summary>
+    /// On a correction: the line it corrects. Quantity and the values are then differences (after
+    /// minus before, quantity never above zero); NetPrice and DiscountPercent are the values after.
+    /// </summary>
+    public int? CorrectsLineId { get; set; }
+
+    public InvoiceLine? CorrectsLine { get; set; }
 }
 
 /// <summary>Work to do after a transaction commits. Written in that transaction, so it cannot be lost.</summary>

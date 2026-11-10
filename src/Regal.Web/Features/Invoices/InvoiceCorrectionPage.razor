@@ -1,0 +1,170 @@
+@page "/invoices/{Id:int}/correction"
+@inject InvoiceQueries Queries
+@inject InvoiceService Invoices
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
+
+<PageTitle>Korekta faktury – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    @if (_invoice is null && _loaded)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono faktury.</MudAlert>
+    }
+    else if (_invoice is { } invoice)
+    {
+        <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Korekta faktury @(invoice.Number ?? "(bez numeru)")</MudText>
+
+        @if (invoice is not { Kind: InvoiceKind.Vat, Status: InvoiceStatus.Sent, CorrectedBy: null })
+        {
+            <MudAlert Severity="Severity.Warning">
+                Korygować można raz fakturę VAT wysłaną do Fakturowni. <MudLink Href="@InvoiceRoutes.Details(invoice.Id)">Wróć do faktury</MudLink>.
+            </MudAlert>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-3">
+                Podaj stan pozycji po korekcie. Ilość może tylko zmaleć: zwrócony towar wróci na stan, na te same partie. Cena i rabat mogą zmienić się w obie strony.
+            </MudText>
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+            }
+
+            <MudTextField T="string" Value="_reason" ValueChanged="value => Changed(() => _reason = value)" Label="Przyczyna korekty"
+                          MaxLength="InvoiceRules.MaxCorrectionReasonLength" Class="mb-3" />
+
+            @foreach (var row in _rows)
+            {
+                var after = InvoiceRules.Amounts(row.Quantity ?? 0, row.NetPrice ?? 0, row.DiscountPercent, row.Line.VatRate);
+                <MudPaper Outlined="true" Class="pa-3 mb-2" @key="row">
+                    <MudText Typo="Typo.subtitle1">@row.Line.ProductName</MudText>
+                    <MudText Typo="Typo.caption">
+                        Na fakturze: @StockLabels.Quantity(row.Line.Quantity) @row.Line.Unit × @StockLabels.Money(row.Line.NetPrice), rabat @($"{row.Line.DiscountPercent:0.##}%"),
+                        brutto @StockLabels.Money(row.Line.GrossValue)
+                    </MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" sm="3">
+                            <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="row.Quantity" ValueChanged="value => Changed(() => row.Quantity = value)"
+                                             Label="@($"Ilość po korekcie ({row.Line.Unit})")" Min="0" Max="row.Line.Quantity" HideSpinButtons="true" />
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="row.NetPrice" ValueChanged="value => Changed(() => row.NetPrice = value)"
+                                             Label="Cena netto po korekcie (zł)" Min="0" HideSpinButtons="true" />
+                        </MudItem>
+                        <MudItem xs="6" sm="2">
+                            <MudNumericField T="decimal" Culture="CultureInfo.CurrentCulture" Value="row.DiscountPercent" ValueChanged="value => Changed(() => row.DiscountPercent = value)"
+                                             Label="Rabat (%)" Min="0" Max="100" HideSpinButtons="true" />
+                        </MudItem>
+                        <MudItem xs="6" sm="4" Class="d-flex flex-column justify-center">
+                            <MudText Typo="Typo.body2">Brutto po korekcie: <strong>@StockLabels.Money(after.Gross)</strong></MudText>
+                            <MudText Typo="Typo.body2">Zmiana: @StockLabels.Money(after.Gross - row.Line.GrossValue)</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+
+            <div class="d-flex justify-end align-center gap-3 mt-4">
+                <MudText>Zmiana brutto: <strong>@StockLabels.Money(TotalChange)</strong></MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CorrectAsync" Disabled="_busy">Wystaw korektę</MudButton>
+            </div>
+        }
+    }
+</MudContainer>
+
+@code {
+    private sealed class Row(InvoiceLineRow line)
+    {
+        public InvoiceLineRow Line { get; } = line;
+        public decimal? Quantity { get; set; } = line.Quantity;
+        public decimal? NetPrice { get; set; } = line.NetPrice;
+        public decimal DiscountPercent { get; set; } = line.DiscountPercent;
+    }
+
+    // Kept across attempts: a lost reply and a second click cannot create two corrections.
+    private readonly Guid _requestId = Guid.NewGuid();
+    private InvoiceDetails? _invoice;
+    private List<Row> _rows = [];
+    private string? _reason;
+    private string? _error;
+    private bool _loaded;
+    private bool _busy;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private decimal TotalChange => _rows.Sum(row =>
+        InvoiceRules.Amounts(row.Quantity ?? 0, row.NetPrice ?? 0, row.DiscountPercent, row.Line.VatRate).Gross - row.Line.GrossValue);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _invoice = await Queries.GetDetailsAsync(Id);
+        _rows = _invoice?.Lines.Select(line => new Row(line)).ToList() ?? [];
+        _loaded = true;
+    }
+
+    private void Changed(Action apply)
+    {
+        apply();
+        _error = null;
+    }
+
+    private async Task CorrectAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var done = false;
+        try
+        {
+            var draft = new CorrectionDraft
+            {
+                RequestId = _requestId,
+                InvoiceId = Id,
+                Reason = _reason,
+                Lines = _rows.Select(row => new CorrectionDraftLine
+                {
+                    LineId = row.Line.LineId,
+                    Quantity = row.Quantity ?? 0,
+                    NetPrice = row.NetPrice ?? 0,
+                    DiscountPercent = row.DiscountPercent,
+                }).ToList(),
+            };
+            _error = InvoiceRules.ValidateCorrection(draft);
+            if (_error is not null)
+            {
+                return;
+            }
+
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Wystawić korektę?",
+                "Korekta trafi do Fakturowni, a zwrócony towar wróci na stan. Korekty nie można anulować ani skorygować.",
+                yesText: "Wystaw korektę",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Invoices.CorrectAsync(draft);
+            if (result.IsSuccess)
+            {
+                done = true;
+                Navigation.NavigateTo(InvoiceRoutes.Details(result.Id!.Value));
+            }
+            else
+            {
+                _error = result.Error;
+            }
+        }
+        finally
+        {
+            _busy = done;
+        }
+    }
+}
