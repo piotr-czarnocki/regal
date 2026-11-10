@@ -87,6 +87,45 @@ public sealed class FakeFakturownia : IFakturowniaClient
         return remote;
     }
 
+    private readonly ConcurrentDictionary<long, RemotePayment> _payments = new();
+
+    public ConcurrentQueue<Exception> PaymentErrors { get; } = new();
+
+    public ConcurrentQueue<Exception> EmailErrors { get; } = new();
+
+    /// <summary>Every email request that succeeded, in order.</summary>
+    public ConcurrentQueue<(long FakturowniaId, string Email)> Emails { get; } = new();
+
+    public int PaymentCalls => Volatile.Read(ref _paymentCalls);
+
+    private int _paymentCalls;
+
+    /// <summary>What the next lookups of this invoice report; unknown invoices are "issued" and unpaid.</summary>
+    public void SetPayment(long fakturowniaId, string status, decimal paid, DateOnly? paidDate = null) =>
+        _payments[fakturowniaId] = new RemotePayment(status, paid, paidDate);
+
+    public Task<RemotePayment> GetPaymentAsync(long fakturowniaId, CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _paymentCalls);
+        if (PaymentErrors.TryDequeue(out var error))
+        {
+            throw error;
+        }
+
+        return Task.FromResult(_payments.GetValueOrDefault(fakturowniaId, new RemotePayment("issued", 0m, null)));
+    }
+
+    public Task SendByEmailAsync(long fakturowniaId, string email, CancellationToken cancellationToken)
+    {
+        if (EmailErrors.TryDequeue(out var error))
+        {
+            throw error;
+        }
+
+        Emails.Enqueue((fakturowniaId, email));
+        return Task.CompletedTask;
+    }
+
     private RemoteInvoice NewRemote()
     {
         var id = Interlocked.Increment(ref _lastId);

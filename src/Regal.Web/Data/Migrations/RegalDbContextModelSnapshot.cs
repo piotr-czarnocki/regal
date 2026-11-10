@@ -273,6 +273,13 @@ namespace Regal.Web.Data.Migrations
                     b.Property<int?>("CorrectsInvoiceId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("EmailedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailedTo")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
                     b.Property<string>("ExternalOrderId")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -304,10 +311,25 @@ namespace Regal.Web.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<decimal?>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly?>("PaidDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("PaymentCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("PaymentDays")
                         .HasColumnType("integer");
 
                     b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PaymentStatus")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -350,6 +372,8 @@ namespace Regal.Web.Data.Migrations
                     b.HasIndex("StockDocumentId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("PaymentStatus", "PaymentCheckedAt");
 
                     b.HasIndex("Status", "IssueDate");
 

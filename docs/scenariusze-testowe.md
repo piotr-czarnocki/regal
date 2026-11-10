@@ -211,6 +211,16 @@ Scenariusze F1–F5 nie wymagają Fakturowni: bez konfiguracji faktura czeka w k
 | 6 | Na koncie testowym Fakturowni | Korekta powiązana z fakturą, ilość przed 4, po 1 |
 | 7 | „Sprzedaż i marża” | Sprzedaż Mleka liczy 1 szt. |
 
+## F10. Wysyłka mailem i płatność (poziom 2)
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Wysłana faktura dla kontrahenta z adresem e-mail | Blok „Płatność i wysyłka do nabywcy”: „Płatność nieznana”, termin, adres z kartoteki |
+| 2 | Wpisz `a@b.pl, c@d.pl`, „Wyślij mailem” | Komunikat „Podaj poprawny adres e-mail.” |
+| 3 | Własny adres, „Wyślij mailem” | Komunikat o wysyłce, informacja „wysłano … na …”; mail z PDF w skrzynce |
+| 4 | W Fakturowni oznacz fakturę jako opłaconą, w Regale „Sprawdź płatność” | „Opłacona”, kwota i data zapłaty |
+| 5 | Druga faktura z terminem 0 dni, nieopłacona, następnego dnia | Na liście czerwone „Nieopłacona”; na pulpicie karta „Należności po terminie” |
+
 # Scenariusze testów ręcznych: analizy i generator
 
 **Dane:** baza po scenariuszach powyżej oraz po uruchomieniu generatora (README, sekcja „Przykładowe dane”).

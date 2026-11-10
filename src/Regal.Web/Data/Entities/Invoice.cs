@@ -11,6 +11,15 @@ public enum InvoiceKind
     Correction,
 }
 
+/// <summary>As last read from Fakturownia; Unknown until the first check.</summary>
+public enum InvoicePaymentStatus
+{
+    Unknown,
+    Unpaid,
+    Partial,
+    Paid,
+}
+
 public enum InvoiceStatus
 {
     ToSend,
@@ -72,6 +81,20 @@ public sealed class Invoice
 
     /// <summary>UTC.</summary>
     public DateTime IssuedAt { get; set; }
+
+    public InvoicePaymentStatus PaymentStatus { get; set; }
+
+    public decimal? PaidAmount { get; set; }
+
+    public DateOnly? PaidDate { get; set; }
+
+    /// <summary>UTC. When the payment state was last read from Fakturownia.</summary>
+    public DateTime? PaymentCheckedAt { get; set; }
+
+    /// <summary>UTC. When Fakturownia was last asked to email the invoice.</summary>
+    public DateTime? EmailedAt { get; set; }
+
+    public string? EmailedTo { get; set; }
 
     /// <summary>On a correction: the VAT invoice it corrects. Unique, so an invoice is corrected once.</summary>
     public int? CorrectsInvoiceId { get; set; }

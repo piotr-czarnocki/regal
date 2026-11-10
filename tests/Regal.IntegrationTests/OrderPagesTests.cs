@@ -26,6 +26,7 @@ public sealed class OrderPagesTests : InvoiceTestBase
         _context.Services.AddScoped(_ => Documents);
         _context.Services.AddScoped(_ => Stock);
         _context.Services.AddScoped(_ => Contractors);
+        _context.Services.AddScoped(_ => new InvoicePaymentService(Postgres.DbContextFactory, new FixedUser(UserId), Fakturownia, Clock));
         _context.Render<MudPopoverProvider>();
         _dialogs = _context.Render<MudDialogProvider>();
     }

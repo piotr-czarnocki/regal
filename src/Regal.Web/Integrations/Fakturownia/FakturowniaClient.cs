@@ -58,6 +58,46 @@ public sealed class FakturowniaClient(HttpClient http, IOptions<FakturowniaOptio
         return ParseOrThrow(body, ToRemote)!;
     }
 
+    public async Task<RemotePayment> GetPaymentAsync(long fakturowniaId, CancellationToken cancellationToken)
+    {
+        using var request = NewRequest(HttpMethod.Get, string.Create(CultureInfo.InvariantCulture, $"invoices/{fakturowniaId}.json"));
+        var body = await SendAsync(request, cancellationToken);
+
+        return ParseOrThrow(body, invoice => new RemotePayment(
+            invoice.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String ? status.GetString() : null,
+            ReadAmount(invoice, "paid"),
+            invoice.TryGetProperty("paid_date", out var date) && date.ValueKind == JsonValueKind.String
+                && DateOnly.TryParseExact(date.GetString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var paidDate)
+                ? paidDate
+                : null));
+    }
+
+    public async Task SendByEmailAsync(long fakturowniaId, string email, CancellationToken cancellationToken)
+    {
+        // Parameters as documented; the address is escaped, the token still goes only in the header.
+        using var request = NewRequest(
+            HttpMethod.Post,
+            string.Create(CultureInfo.InvariantCulture, $"invoices/{fakturowniaId}/send_by_email.json?email_to={Uri.EscapeDataString(email)}&email_pdf=true"));
+        await SendAsync(request, cancellationToken);
+    }
+
+    /// <summary>The documentation shows "paid": "0,00", so a decimal comma is accepted as well as a point.</summary>
+    private static decimal? ReadAmount(JsonElement invoice, string name)
+    {
+        if (!invoice.TryGetProperty(name, out var value))
+        {
+            return null;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number => value.GetDecimal(),
+            JsonValueKind.String when decimal.TryParse(
+                value.GetString()?.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) => parsed,
+            _ => null,
+        };
+    }
+
     private HttpRequestMessage NewRequest(HttpMethod method, string path)
     {
         if (!IsConfigured)

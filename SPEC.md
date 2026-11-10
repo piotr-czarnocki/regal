@@ -40,7 +40,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 
 1. Zamówienia klientów (ZK) z rezerwacją towaru, bez wygasania. **Gotowe** (punkt 5.11).
 2. Proforma i faktura korygująca przez Fakturownię. **Gotowe** (punkt 5.12).
-3. Wysyłka faktury mailem, status płatności z Fakturowni.
+3. Wysyłka faktury mailem, status płatności z Fakturowni. **Gotowe** (punkt 5.13).
 4. Inwentaryzacja ze skanowaniem.
 5. Pobieranie danych firmy po NIP-ie.
 6. Analizy klientów, prosta prognoza zamówień i porównanie okresów.
@@ -238,6 +238,15 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Korekty nie można anulować, bo zwrotu towaru nie da się cofnąć dokumentem tego samego rodzaju. Odrzuconą przez Fakturownię korektę można ponowić. To znane uproszczenie.
 - Wystawienie korekty blokuje najpierw wiersz korygowanej faktury, potem produkty (przez korektę WZ), więc dwie korekty tej samej faktury idą po kolei.
 
+### 5.13. Wysyłka faktury mailem i status płatności (poziom 2)
+
+- Fakturę, która jest już w Fakturowni (każdego rodzaju), można wysłać nabywcy mailem: Regał prosi Fakturownię o wysłanie (`POST invoices/{id}/send_by_email.json`, `email_to`, `email_pdf=true`). Wysyła więc Fakturownia, z jej szablonem; Regał nie ma własnego serwera poczty.
+- Domyślny adres to adres nabywcy z kartoteki, ostatnio użyty adres albo wpisany ręcznie. Przyjmowany jest jeden zwykły adres (bez nazwy i bez listy). Regał zapisuje, kiedy i na jaki adres wysłał, a w dzienniku działań powstaje wpis.
+- Status płatności pochodzi z Fakturowni (`GET invoices/{id}.json`: `status`, `paid`, `paid_date`): `paid` to opłacona, `partial` albo kwota zapłacona większa od zera to częściowo opłacona, pozostałe to nieopłacona. Kwota może przyjść z przecinkiem dziesiętnym.
+- Status odświeża przycisk „Sprawdź płatność” oraz proces w tle: co 10 minut najwyżej 20 nieopłaconych faktur sprawdzonych najdawniej, każda nie częściej niż co 6 godzin, z ostatnich 365 dni. Opłaconych nie sprawdza się ponownie. Gdy Fakturownia nie odpowiada, przebieg kończy się i wraca za 10 minut.
+- Należności po terminie: nieopłacone lub częściowo opłacone faktury VAT, których termin płatności (data wystawienia + dni) minął; pulpit pokazuje ich liczbę i kwotę do zapłaty.
+- Rola bazy aplikacji może zmieniać w `Invoices` także kolumny płatności i wysyłki, ale nadal nie kwoty ani pozycje.
+
 ## 6. Technologie
 
 | Obszar | Wybór |
@@ -296,7 +305,7 @@ Zasady:
 | `Stock` | `WarehouseId`, `BatchId` (klucz złożony), `Quantity` z `CHECK (Quantity >= 0)` |
 | `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `ContractorId`, `UserId`, `ReversesDocumentId` (unikalny indeks częściowy: jedna korekta na dokument), `CreatedAt` (UTC), `DocumentDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny klucz idempotencji) |
 | `StockMovements` | `Id`, `DocumentId`, `BatchId`, `QuantityChange`, `UnitCost` |
-| `Invoices` | `Id`, `Kind` (VAT, proforma, korekta), `CorrectsInvoiceId` (korygowana faktura, unikalny), `CorrectionReason`, `Status`, `ExternalOrderId` (oid, unikalny), `FakturowniaId`, `Number`, `PdfUrl`, `ContractorId`, `StockDocumentId`, `UserId`, sumy netto, VAT i brutto, `RemoteGrossTotal`, `PaymentDays`, `PaymentMethod`, `IssueDate` (Europe/Warsaw), `IssuedAt` (UTC) |
+| `Invoices` | `Id`, `Kind` (VAT, proforma, korekta), `PaymentStatus`, `PaidAmount`, `PaidDate`, `PaymentCheckedAt`, `EmailedAt`, `EmailedTo`, `CorrectsInvoiceId` (korygowana faktura, unikalny), `CorrectionReason`, `Status`, `ExternalOrderId` (oid, unikalny), `FakturowniaId`, `Number`, `PdfUrl`, `ContractorId`, `StockDocumentId`, `UserId`, sumy netto, VAT i brutto, `RemoteGrossTotal`, `PaymentDays`, `PaymentMethod`, `IssueDate` (Europe/Warsaw), `IssuedAt` (UTC) |
 | `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, `CorrectsLineId` (w korekcie: pozycja korygowana; ilość i wartości są wtedy różnicami), kopia nazwy i jednostki, ilość, cena netto, rabat %, stawka VAT, wartości netto, VAT i brutto, koszt jednostkowy |
 | `OutboxMessages` | `Id`, `Type`, `InvoiceId`, `Payload` (pełne żądanie z chwili wystawienia), `Attempts`, `NextAttemptAt` (puste: nic do zrobienia), `LockedUntil` (dzierżawa), `LastError` |
 | `DocumentCounters` | `Type`, `Year` (klucz złożony), `LastNumber` |
@@ -312,7 +321,7 @@ Kluczowe reguły:
 - **Wydanie:** warunkowy `UPDATE "Stock" ... WHERE "Quantity" >= @ilosc`; zero zmienionych wierszy oznacza brak towaru. Razem z `CHECK` to ostatnia bariera.
 - **Numeracja:** licznik zwiększany w tej samej transakcji co dokument (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`), więc wycofanie nie zostawia luki. Blokada wiersza licznika sprawia, że dokumenty tego samego typu zapisują się po kolei od chwili pobrania numeru.
 - **Transakcja wywołującego:** przyjęcie i wydanie można wykonać w cudzej otwartej transakcji; błąd cofa tylko dokument (savepoint). Faktura w etapie 3 tworzy WZ w ten sposób, raz na transakcję i zanim zablokuje inne produkty.
-- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches`, `InvoiceLines` i `AuditLog`. Nie zmienia też `CustomerOrderLines`. W `Invoices` może zmieniać tylko kolumny `Status`, `FakturowniaId`, `Number`, `PdfUrl` i `RemoteGrossTotal`, a w `CustomerOrders` tylko `Status` i `InvoiceId`. Z `Invoices`, `CustomerOrders` i `OutboxMessages` nie może niczego usuwać. Migracje wykonuje osobna rola.
+- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches`, `InvoiceLines` i `AuditLog`. Nie zmienia też `CustomerOrderLines`. W `Invoices` może zmieniać tylko kolumny `Status`, `FakturowniaId`, `Number`, `PdfUrl`, `RemoteGrossTotal` oraz kolumny płatności i wysyłki mailem, a w `CustomerOrders` tylko `Status` i `InvoiceId`. Z `Invoices`, `CustomerOrders` i `OutboxMessages` nie może niczego usuwać. Migracje wykonuje osobna rola.
 - **Indeksy pod analizy:** pomiary na roku danych (136 962 ruchy) pokazały, że istniejące indeksy wystarczają: analizy roczne czytają prawie całe tabele, a pulpit korzysta z indeksu na dacie wystawienia. Wolny był raport zalegających przez kształt zapytania, który poprawiono (`docs/analiza-dynamiczna.md`, punkt 5).
 
 ## 9. Bezpieczeństwo
@@ -393,6 +402,7 @@ Testy jednostkowe i integracyjne powstają razem z każdą funkcją. Poziom 2 za
 - Potwierdzić prefiks wewnętrznego EAN-13 w zasadach GS1.
 - Sprawdzić w przeglądarce i na telefonie ekrany magazynu według `docs/scenariusze-testowe.md`, w tym czytnik USB.
 - Uruchomić skrypt k6 (`tests/performance/k6/pages.js`) według README i dopisać jego wynik obok pomiaru z `Regal.LoadHost`.
+- Na koncie testowym Fakturowni potwierdzić wysyłkę mailem i odczyt płatności (scenariusz F10).
 - Na koncie testowym Fakturowni potwierdzić format proformy i korekty (scenariusze F8 i F9), zwłaszcza czy pozycja korekty ma mieć różnicę, czy stan po korekcie.
 - Na koncie testowym Fakturowni potwierdzić: nagłówek `Authorization: Bearer` przy wyszukiwaniu po `oid`, odrzucanie duplikatu przy `oid_unique=yes`, nazwy pól odpowiedzi (`token`, `price_gross`) i zgodność sum (scenariusz F6).
 

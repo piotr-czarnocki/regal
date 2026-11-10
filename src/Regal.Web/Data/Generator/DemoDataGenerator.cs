@@ -87,6 +87,12 @@ public sealed class DemoDataGenerator(
 
         public Task<RemoteInvoice> CreateAsync(string requestJson, CancellationToken cancellationToken) =>
             throw new FakturowniaUnavailableException("Generator nie łączy się z Fakturownią.");
+
+        public Task<RemotePayment> GetPaymentAsync(long fakturowniaId, CancellationToken cancellationToken) =>
+            throw new FakturowniaUnavailableException("Generator nie łączy się z Fakturownią.");
+
+        public Task SendByEmailAsync(long fakturowniaId, string email, CancellationToken cancellationToken) =>
+            throw new FakturowniaUnavailableException("Generator nie łączy się z Fakturownią.");
     }
 
     private sealed record GeneratedProduct(int Id, string Unit, bool IsService, bool HasExpiry, bool Produced, decimal Cost, double Popularity, int SupplierIndex);
