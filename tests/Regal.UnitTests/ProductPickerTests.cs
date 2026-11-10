@@ -258,6 +258,28 @@ public sealed class ProductPickerTests : IAsyncLifetime
     }
 
     [Fact]
+    public void The_settled_count_changes_only_after_the_focus_is_back_in_the_field()
+    {
+        var focus = _context.JSInterop.SetupVoid(call => call.Identifier.Contains("focus", StringComparison.OrdinalIgnoreCase));
+        _lookup = _ => Task.FromResult<ProductPick?>(Mleko);
+        var picker = Render();
+        string Settled() => picker.Find(".product-picker").GetAttribute("data-settled")!;
+        var before = Settled();
+
+        Type(picker, "A1");
+        PressEnter(picker);
+        picker.WaitForAssertion(() => Assert.Equal([Mleko], _picked));
+        picker.WaitForAssertion(() => Assert.True(JsCalls("focus") > 0));
+
+        // Product added, focus call still on its way: a browser test must keep waiting.
+        Assert.Equal(before, Settled());
+
+        focus.SetVoidResult();
+
+        picker.WaitForAssertion(() => Assert.NotEqual(before, Settled()));
+    }
+
+    [Fact]
     public void A_failed_scan_followed_at_once_by_a_good_one_keeps_both_outcomes()
     {
         var first = new TaskCompletionSource<ProductPick?>();

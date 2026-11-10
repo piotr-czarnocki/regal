@@ -1,6 +1,8 @@
 @implements IDisposable
 
-<div class="d-flex align-start gap-1">
+@* data-settled counts the times the picker finished adding and gave the focus back.
+   Browser tests wait for it before typing elsewhere (tests/Regal.E2ETests/Ui.cs). *@
+<div class="d-flex align-start gap-1 product-picker" data-settled="@_settled">
     <MudTextField @ref="_field" T="string" Value="_text" ValueChanged="OnTextChanged" Immediate="true" OnKeyDown="OnKeyDownAsync"
                   Label="Dodaj produkt: nazwa, SKU lub EAN" HelperText="Zeskanuj kod albo wpisz go i naciśnij Enter." Variant="Variant.Outlined"
                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.QrCodeScanner" autocomplete="off" Class="flex-grow-1" />
@@ -37,6 +39,12 @@
     private IReadOnlyList<ProductPick> _results = [];
     private bool _resolving;
     private bool _selectTextAfterRender;
+
+    // Raised after the focus call has completed, with no await before the handler ends, so the
+    // first render showing the new value comes after the browser has moved the focus back.
+    // Without it a browser test could type into the next field while the focus call was still
+    // on its way and see its text land in this field (docs/przygody.md).
+    private int _settled;
 
     [Parameter, EditorRequired]
     public Func<string, CancellationToken, Task<IReadOnlyList<ProductPick>>> Search { get; set; } = null!;
@@ -135,6 +143,8 @@
                 await _field!.FocusAsync();
             }
             while (_scans.Count > 0); // a scan can arrive during the focus call, while this loop still owns the queue
+
+            _settled++;
         }
         finally
         {
@@ -202,6 +212,7 @@
         await EmptyFieldAsync();
         await Picked.InvokeAsync(product);
         await _field!.FocusAsync();
+        _settled++;
     }
 
     private async Task EmptyFieldAsync()
