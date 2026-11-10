@@ -95,7 +95,7 @@ Generator tworzy około roku wymyślonej działalności: produkty, kontrahentów
 dotnet run --project tools/Regal.DataGenerator -- --environment Development
 ```
 
-Do testów wydajności można zwiększyć skalę, np. `--products 10000 --invoices-per-day 120`. Pozostałe parametry: `--customers`, `--suppliers`, `--days`, `--seed`, `--prefix`.
+Pozostałe parametry: `--products`, `--customers`, `--suppliers`, `--days`, `--invoices-per-day`, `--seed`, `--prefix`. Przed zapisem generator wypisuje bazę docelową; sprawdź ją. Duży zestaw do testów wydajności generuj w osobnej bazie (niżej), nie w deweloperskiej.
 
 ### Testy
 
@@ -103,7 +103,44 @@ Do testów wydajności można zwiększyć skalę, np. `--products 10000 --invoic
 dotnet test Regal.slnx
 ```
 
-Testy integracyjne same uruchamiają PostgreSQL przez Testcontainers, więc Docker musi być włączony.
+Testy integracyjne i testy w przeglądarce same uruchamiają PostgreSQL przez Testcontainers, więc Docker musi być włączony. Testy w przeglądarce za pierwszym razem potrzebują Chromium: `pwsh tests/Regal.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium` (po zbudowaniu).
+
+### Testy wydajności
+
+Wymagają osobnej, jednorazowej bazy z rokiem danych. Kontener słucha tylko na `127.0.0.1` i nie ma haseł (`trust`), więc nie używaj go do niczego innego:
+
+```powershell
+docker run -d --name regal-perf -p 127.0.0.1:55432:5432 -e POSTGRES_DB=regal -e POSTGRES_USER=regal_owner `
+  -e POSTGRES_HOST_AUTH_METHOD=trust -e REGAL_APP_PASSWORD=not-used-with-trust `
+  -v "${PWD}/docker/postgres/init:/docker-entrypoint-initdb.d:ro" postgres:18.6
+dotnet ef database update --project src/Regal.Web --connection "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_owner"
+$env:ConnectionStrings__Regal = "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_app"
+dotnet run --project tools/Regal.DataGenerator -c Release -- --environment Testing --products 10000 --customers 400 --suppliers 20 --invoices-per-day 100 --seed 2026 --prefix PERF
+```
+
+Generowanie trwa około godziny. Potem:
+
+```powershell
+$env:REGAL_PERF_CONNECTION = "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_app"
+dotnet run -c Release --project tests/performance/Regal.Benchmarks -- --filter *        # zapytania analiz
+dotnet run -c Release --project tests/performance/Regal.Benchmarks -- --sql             # ich SQL do EXPLAIN
+dotnet run -c Release --project tests/performance/Regal.LoadHost -- --measure 20 120    # 20 użytkowników, 120 s
+```
+
+Ten sam test obciążenia w k6: uruchom `dotnet run -c Release --project tests/performance/Regal.LoadHost`, a w drugim oknie `k6 run -e BASE_URL=<adres> -e USER_ID=<id> tests/performance/k6/pages.js` z wartościami, które wypisze host. Wyniki i ich omówienie są w [docs/analiza-dynamiczna.md](docs/analiza-dynamiczna.md).
+
+### Dokumentacja
+
+| Plik | Treść |
+|---|---|
+| [SPEC.md](SPEC.md) | Specyfikacja i decyzje |
+| [docs/funkcjonalnosci.md](docs/funkcjonalnosci.md) | Opis funkcjonalności |
+| [docs/narzedzia.md](docs/narzedzia.md) | Narzędzia i technologie, uzasadnienie wyboru |
+| [docs/analiza-dynamiczna.md](docs/analiza-dynamiczna.md) | Testy, pokrycie, wydajność, debugowanie |
+| [docs/scenariusze-testowe.md](docs/scenariusze-testowe.md) | Scenariusze testów ręcznych |
+| [docs/przygody.md](docs/przygody.md) | Napotkane problemy |
+| [docs/wklad.md](docs/wklad.md) | Wkład autora i czego się nauczył |
+| [docs/prezentacja/](docs/prezentacja/) | Konspekt slajdów i scenariusz pokazu |
 
 ### Licencja
 
@@ -202,7 +239,7 @@ The generator creates about a year of made-up trade: products, contractors, stoc
 dotnet run --project tools/Regal.DataGenerator -- --environment Development
 ```
 
-For performance tests, raise the scale, e.g. `--products 10000 --invoices-per-day 120`. Other options: `--customers`, `--suppliers`, `--days`, `--seed`, `--prefix`.
+Other options: `--products`, `--customers`, `--suppliers`, `--days`, `--invoices-per-day`, `--seed`, `--prefix`. Before writing, the generator prints the target database; check it. Generate the large performance data set in a separate database (below), not in the development one.
 
 ### Tests
 
@@ -210,7 +247,35 @@ For performance tests, raise the scale, e.g. `--products 10000 --invoices-per-da
 dotnet test Regal.slnx
 ```
 
-Integration tests start PostgreSQL through Testcontainers, so Docker must be running.
+Integration and browser tests start PostgreSQL through Testcontainers, so Docker must be running. Browser tests need Chromium the first time: `pwsh tests/Regal.E2ETests/bin/Debug/net10.0/playwright.ps1 install chromium` (after a build).
+
+### Performance tests
+
+They need a separate, throwaway database with a year of data. The container listens only on `127.0.0.1` and has no passwords (`trust`), so do not use it for anything else:
+
+```powershell
+docker run -d --name regal-perf -p 127.0.0.1:55432:5432 -e POSTGRES_DB=regal -e POSTGRES_USER=regal_owner `
+  -e POSTGRES_HOST_AUTH_METHOD=trust -e REGAL_APP_PASSWORD=not-used-with-trust `
+  -v "${PWD}/docker/postgres/init:/docker-entrypoint-initdb.d:ro" postgres:18.6
+dotnet ef database update --project src/Regal.Web --connection "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_owner"
+$env:ConnectionStrings__Regal = "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_app"
+dotnet run --project tools/Regal.DataGenerator -c Release -- --environment Testing --products 10000 --customers 400 --suppliers 20 --invoices-per-day 100 --seed 2026 --prefix PERF
+```
+
+Generating takes about an hour. Then:
+
+```powershell
+$env:REGAL_PERF_CONNECTION = "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_app"
+dotnet run -c Release --project tests/performance/Regal.Benchmarks -- --filter *        # analysis queries
+dotnet run -c Release --project tests/performance/Regal.Benchmarks -- --sql             # their SQL, for EXPLAIN
+dotnet run -c Release --project tests/performance/Regal.LoadHost -- --measure 20 120    # 20 users, 120 s
+```
+
+The same load test in k6: start `dotnet run -c Release --project tests/performance/Regal.LoadHost`, and in a second window run `k6 run -e BASE_URL=<address> -e USER_ID=<id> tests/performance/k6/pages.js` with the values the host prints. Results and their discussion are in [docs/analiza-dynamiczna.md](docs/analiza-dynamiczna.md) (in Polish).
+
+### Documentation (in Polish)
+
+[SPEC.md](SPEC.md) (specification), [features](docs/funkcjonalnosci.md), [tools](docs/narzedzia.md), [dynamic analysis](docs/analiza-dynamiczna.md), [test scenarios](docs/scenariusze-testowe.md), [problems met](docs/przygody.md), [contribution](docs/wklad.md), [presentation](docs/prezentacja/).
 
 ### License
 
