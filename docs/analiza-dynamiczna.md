@@ -19,7 +19,7 @@ Regał to Blazor Web App w trybie Interactive Server: pierwsze wczytanie strony 
 | Rodzaj | Projekt | Liczba | Co uruchamia | Czego nie obejmuje |
 |---|---|---|---|---|
 | Jednostkowe | `tests/Regal.UnitTests` | 260 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
-| Integracyjne | `tests/Regal.IntegrationTests` | 217 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
+| Integracyjne | `tests/Regal.IntegrationTests` | 234 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
 | Funkcjonalne | `tests/Regal.E2ETests` | 13 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
 | Wydajności: zapytania | `tests/performance/Regal.Benchmarks` | 7 zapytań | Zapytania analiz z serwisu na bazie z rokiem wygenerowanych danych | Renderowania stron |
 | Wydajności: HTTP | `tests/performance/k6`, `Regal.LoadHost --measure` | 8 stron | Pierwsze wczytanie stron (pełny HTML z serwera) przez 20 równoczesnych użytkowników | Zdarzeń SignalR po wczytaniu (kliknięcia, filtry) |
@@ -114,8 +114,10 @@ Interpretacja:
 | `OrderPagesTests` | 5 | Ekrany zamówień i faktura wypełniona z zamówienia |
 | `CorrectionTests` | 17 | Proforma bez WZ i poza sprzedażą; korekta: zwrot na te same partie, różnice w pozycjach, sprzedaż i marża po korekcie, pakiet, tylko wysłana faktura VAT i raz, walidacja, idempotencja, dwa testy współbieżności, ograniczenie w bazie |
 | `PaymentTests` | 16 | Płatności: odczyt statusu, kwoty i daty, mapowanie statusów, przebieg w tle (kolejność, odstęp, przerwanie przy awarii, odmowa), wysyłka mailem z zapisem i dziennikiem, odrzucanie adresów, należności po terminie, uprawnienia kolumn |
+| `StocktakeTests` | 14 | Inwentaryzacja: skan liczy sztuki, partie na arkuszu, RW niedoborów i PW nadwyżek na tych samych partiach, kilka RW dla jednego produktu, różnica od stanu przy zatwierdzeniu, warunki zatwierdzenia, odmowa nadwyżki na przeterminowanej partii, walidacja, zamknięcie w serwisie i wyzwalaczem w bazie, anulowanie, współbieżność i kolejność blokad |
+| `StocktakePagesTests` | 3 | Ekrany inwentaryzacji: skanowanie, liczenie i zatwierdzenie z potwierdzeniem |
 
-Wynik: 217 z 217 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
+Wynik: 234 z 234 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
 
 ### Eksperyment 1: czy testy współbieżności wykrywają brak blokady
 
@@ -218,6 +220,25 @@ Drugi test powstał w trakcie eksperymentu, bo pierwszy nie potrafił się nie u
 
 - Unikalny indeks chroni dane, ale nie użytkownika: bez blokady druga osoba dostałaby stronę błędu zamiast komunikatu „Faktura ma już korektę”.
 - Test współbieżności musi pokrywać ścieżkę, na której dane zabezpieczenie jest jedyne. Przy zwrocie towaru inna blokada maskowała brak tej, którą sprawdzano.
+
+### Eksperyment 5: inwentaryzacja i kolejność blokad
+
+**Cel.** Zatwierdzenie arkusza spisu (`SPEC.md` 5.14) księguje w jednej transakcji kilka dokumentów (PW nadwyżek, potem RW niedoborów). Każdy dokument blokuje swoje produkty, więc bez blokady wszystkich produktów arkusza z góry transakcja mogłaby brać blokady nie rosnąco: najpierw produkt z nadwyżką, potem produkt z niedoborem. Zatwierdzenie blokuje więc wszystkie produkty arkusza na początku. Eksperyment sprawdza, czy testy to wykrywają.
+
+**Metoda.** W `StocktakeService.ApproveCoreAsync` zamieniono `ProductLocks.LockAsync` na zwykły odczyt produktów i uruchamiano testy po 5 razy.
+
+| Test | Bez blokady z góry | Wyjaśnienie |
+|---|---|---|
+| `Parallel_approvals_and_issues_keep_stock_consistent` | 5 z 5 przechodzi | Bez blokady „stan oczekiwany” to stan z chwili odczytu, a RW i tak blokuje produkt przed zmianą stanu, więc liczby się zgadzają. Test nie sprawdzał tego, przed czym blokada chroni |
+| Losowy wyścig 8 zatwierdzeń z 8 dokumentami WZ tych samych produktów | 5 z 5 przechodzi | Okno między blokadą produktu z nadwyżką a produktu z niedoborem trwa milisekundy. Dwa zatwierdzenia między sobą i tak idą po kolei przez licznik numerów INW |
+| `Approval_locks_all_its_products_before_posting_so_it_cannot_deadlock_with_an_issue` | 5 z 5 pada: `40P01: deadlock detected` | Test sam blokuje produkt X, uruchamia zatwierdzenie (nadwyżka na Y, niedobór na X), a potem prosi o Y. Bez blokady z góry zatwierdzenie trzyma Y i czeka na X; z nią czeka na X, zanim dotknie Y |
+
+Z blokadą trzeci test przeszedł 3 na 3 razy. Losowy wyścig zastąpiono testem deterministycznym. Plik przywrócono z kopii; `cmp` nie wykazał różnic.
+
+**Wnioski:**
+
+- Nie każdą blokadę da się sprawdzić losowym wyścigiem. Gdy okno jest wąskie, trzeba ustawić kolejność zdarzeń w teście: samemu wziąć jedną blokadę i poczekać, aż druga strona utknie.
+- Zgodność liczb to nie to samo co brak zakleszczeń. Pierwszy test pilnuje wyniku, trzeci kolejności blokad.
 
 ## 4. Testy funkcjonalne
 

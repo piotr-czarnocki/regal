@@ -41,7 +41,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 1. Zamówienia klientów (ZK) z rezerwacją towaru, bez wygasania. **Gotowe** (punkt 5.11).
 2. Proforma i faktura korygująca przez Fakturownię. **Gotowe** (punkt 5.12).
 3. Wysyłka faktury mailem, status płatności z Fakturowni. **Gotowe** (punkt 5.13).
-4. Inwentaryzacja ze skanowaniem.
+4. Inwentaryzacja ze skanowaniem. **Gotowe** (punkt 5.14).
 5. Pobieranie danych firmy po NIP-ie.
 6. Analizy klientów, prosta prognoza zamówień i porównanie okresów.
 7. Eksport analiz do Excela (.xlsx).
@@ -247,6 +247,18 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Należności po terminie: nieopłacone lub częściowo opłacone faktury VAT, których termin płatności (data wystawienia + dni) minął; pulpit pokazuje ich liczbę i kwotę do zapłaty.
 - Rola bazy aplikacji może zmieniać w `Invoices` także kolumny płatności i wysyłki, ale nadal nie kwoty ani pozycje.
 
+### 5.14. Inwentaryzacja ze skanowaniem (poziom 2)
+
+- Spis prowadzi się na arkuszu, który jest wersją roboczą zapisywaną po każdej zmianie (przerwane połączenie telefonu niczego nie gubi). Arkusz można anulować, dopóki nie jest zatwierdzony.
+- Zeskanowanie albo wybranie towaru dodaje na arkusz wszystkie jego partie ze stanem większym od zera. Gdy towar ma jedną partię, kolejne skany dodają po jednej sztuce do policzonej ilości; przy kilku partiach ilość wpisuje się przy partii. Pozycję można usunąć.
+- Arkusz obejmuje tylko to, co na nim jest: towary spoza arkusza zostają bez zmian (spis częściowy, np. jednego regału).
+- Zatwierdzenie wymaga policzenia każdej pozycji (zero jest dozwolone). Stan oczekiwany to stan partii w chwili zatwierdzenia, odczytany pod blokadą wszystkich produktów arkusza; w czasie liczenia nie należy wydawać ani przyjmować tych towarów. Arkusz zapisuje stan oczekiwany przy każdej pozycji.
+- Różnice księguje się w tej samej transakcji: niedobór to RW z partii, której dotyczy (powód „Niedobór inwentaryzacyjny INW/…”), nadwyżka to PW do tej samej partii po bieżącej cenie średniej. Produkt może wystąpić na RW raz, więc niedobory jednego produktu na kilku partiach dają kilka dokumentów RW. Dokumenty mają do 200 pozycji, a powstałe dokumenty wskazują swój arkusz.
+- Nadwyżki nie da się przyjąć na przeterminowaną partię ani przy cenie średniej 0; zatwierdzenie jest wtedy odrzucane z wyjaśnieniem, a takie pozycje załatwia się ręcznie.
+- Numeracja `INW/{numer}/{rok}` nadawana przy zatwierdzeniu, bez luk. Arkusz bez różnic też dostaje numer.
+- Zatwierdzenie blokuje najpierw wiersz arkusza, potem wszystkie produkty rosnąco, a dopiero potem księguje dokumenty, więc kilka dokumentów w jednej transakcji nie łamie kolejności blokad. Zmiany pozycji też blokują wiersz arkusza.
+- Zatwierdzonego ani anulowanego arkusza nie można zmienić; pilnuje tego serwis i wyzwalacz w bazie.
+
 ## 6. Technologie
 
 | Obszar | Wybór |
@@ -303,7 +315,7 @@ Zasady:
 | `Contractors` | `Id`, `Name`, `Nip`, `Address`, `Email`, `Phone`, `IsActive` |
 | `Batches` | `Id`, `ProductId`, `Number` (unikalne razem), `ExpiryDate` |
 | `Stock` | `WarehouseId`, `BatchId` (klucz złożony), `Quantity` z `CHECK (Quantity >= 0)` |
-| `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `ContractorId`, `UserId`, `ReversesDocumentId` (unikalny indeks częściowy: jedna korekta na dokument), `CreatedAt` (UTC), `DocumentDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny klucz idempotencji) |
+| `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `StocktakeId` (dokumenty różnic inwentaryzacji), `ContractorId`, `UserId`, `ReversesDocumentId` (unikalny indeks częściowy: jedna korekta na dokument), `CreatedAt` (UTC), `DocumentDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny klucz idempotencji) |
 | `StockMovements` | `Id`, `DocumentId`, `BatchId`, `QuantityChange`, `UnitCost` |
 | `Invoices` | `Id`, `Kind` (VAT, proforma, korekta), `PaymentStatus`, `PaidAmount`, `PaidDate`, `PaymentCheckedAt`, `EmailedAt`, `EmailedTo`, `CorrectsInvoiceId` (korygowana faktura, unikalny), `CorrectionReason`, `Status`, `ExternalOrderId` (oid, unikalny), `FakturowniaId`, `Number`, `PdfUrl`, `ContractorId`, `StockDocumentId`, `UserId`, sumy netto, VAT i brutto, `RemoteGrossTotal`, `PaymentDays`, `PaymentMethod`, `IssueDate` (Europe/Warsaw), `IssuedAt` (UTC) |
 | `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, `CorrectsLineId` (w korekcie: pozycja korygowana; ilość i wartości są wtedy różnicami), kopia nazwy i jednostki, ilość, cena netto, rabat %, stawka VAT, wartości netto, VAT i brutto, koszt jednostkowy |
@@ -312,6 +324,9 @@ Zasady:
 | `CustomerOrders` | `Id`, `Number` (unikalny), `Status`, `ContractorId`, `UserId`, `CreatedAt` (UTC), `OrderDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny), `InvoiceId` (faktura, która je zrealizowała) |
 | `CustomerOrderLines` | `Id`, `OrderId`, `ProductId` (unikalne razem), `Quantity` z `CHECK (Quantity > 0)` |
 | `OrderCounters` | `Year` (klucz), `LastNumber` |
+| `Stocktakes` | `Id`, `Number` (nadawany przy zatwierdzeniu, unikalny), `Status`, `UserId`, `CreatedAt`, `ApprovedAt`, `Notes` |
+| `StocktakeLines` | `Id`, `StocktakeId`, `BatchId` (unikalne razem), `Counted` (`CHECK >= 0`), `Expected` (stan przy zatwierdzeniu) |
+| `StocktakeCounters` | `Year` (klucz), `LastNumber` |
 | `AuditLog` | `Id`, `UserId`, `Action`, `EntityType`, `EntityId`, `Details`, `CreatedAt` |
 
 Kluczowe reguły:
