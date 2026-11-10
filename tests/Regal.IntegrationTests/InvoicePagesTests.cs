@@ -1,4 +1,5 @@
 using Bunit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -102,6 +103,50 @@ public sealed class InvoicePagesTests : InvoiceTestBase
         page.WaitForAssertion(() => Assert.Contains("Do wysłania", page.Markup));
         await DrainAsync();
         Assert.Equal(InvoiceStatus.Sent, (await InvoiceAsync(id)).Status);
+    }
+
+    [Fact]
+    public async Task A_correction_from_the_page_returns_goods_and_links_both_invoices()
+    {
+        var goods = await StockedGoodsAsync(10);
+        var id = await IssueOkAsync(Draft(Item(goods, 4, netPrice: 20m)));
+        await DrainAsync();
+
+        var details = _context.Render<InvoiceDetailsPage>(parameters => parameters.Add(x => x.Id, id));
+        details.WaitForAssertion(() => Assert.Contains(details.FindAll("a"), a => a.TextContent.Contains("Korekta") && a.GetAttribute("href") == InvoiceRoutes.Correction(id)));
+
+        var page = _context.Render<InvoiceCorrectionPage>(parameters => parameters.Add(x => x.Id, id));
+        page.WaitForAssertion(() => Assert.Contains("Ilość po korekcie", page.Markup));
+        page.FindComponents<MudTextField<string>>().Single(f => f.Instance.Label == "Przyczyna korekty").Find("input").Change("Zwrot 3 szt.");
+        page.FindComponents<MudNumericField<decimal?>>().Single(f => f.Instance.Label!.StartsWith("Ilość po korekcie")).Find("input").Change("1");
+        page.WaitForAssertion(() => Assert.Contains(StockLabelsMoney(-73.80m), page.Markup));
+        ClickButton(page, "Wystaw korektę");
+        _dialogs.WaitForAssertion(() => Assert.Contains("Korekty nie można anulować", _dialogs.Markup));
+        _dialogs.FindAll("button").Single(b => b.TextContent.Trim() == "Wystaw korektę").Click();
+
+        var correction = await WaitForCorrectionAsync(id);
+        Assert.Equal(9m, await StockOfAsync(goods));
+
+        var corrected = _context.Render<InvoiceDetailsPage>(parameters => parameters.Add(x => x.Id, correction.Id));
+        corrected.WaitForAssertion(() => Assert.Contains("Przyczyna: Zwrot 3 szt.", corrected.Markup));
+        Assert.Contains("było 4, jest 1", corrected.Markup);
+        Assert.DoesNotContain(corrected.FindAll("button"), b => b.TextContent.Contains("Anuluj fakturę"));
+    }
+
+    private async Task<Invoice> WaitForCorrectionAsync(int invoiceId)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            await using var db = Postgres.CreateAppDbContext();
+            if (await db.Invoices.AsNoTracking().SingleOrDefaultAsync(i => i.CorrectsInvoiceId == invoiceId) is { } correction)
+            {
+                return correction;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new Xunit.Sdk.XunitException("No correction was created.");
     }
 
     [Fact]

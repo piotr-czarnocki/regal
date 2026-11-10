@@ -266,6 +266,13 @@ namespace Regal.Web.Data.Migrations
                     b.Property<int>("ContractorId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CorrectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("CorrectsInvoiceId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ExternalOrderId")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -332,6 +339,9 @@ namespace Regal.Web.Data.Migrations
 
                     b.HasIndex("ContractorId");
 
+                    b.HasIndex("CorrectsInvoiceId")
+                        .IsUnique();
+
                     b.HasIndex("ExternalOrderId")
                         .IsUnique();
 
@@ -353,6 +363,9 @@ namespace Regal.Web.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CorrectsLineId")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("DiscountPercent")
                         .HasPrecision(5, 2)
@@ -405,6 +418,8 @@ namespace Regal.Web.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CorrectsLineId");
+
                     b.HasIndex("InvoiceId");
 
                     b.HasIndex("ProductId");
@@ -413,7 +428,7 @@ namespace Regal.Web.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_InvoiceLines_Discount_Range", "\"DiscountPercent\" BETWEEN 0 AND 100");
 
-                            t.HasCheckConstraint("CK_InvoiceLines_Quantity_Positive", "\"Quantity\" > 0");
+                            t.HasCheckConstraint("CK_InvoiceLines_Quantity_Positive", "(\"CorrectsLineId\" IS NULL AND \"Quantity\" > 0) OR (\"CorrectsLineId\" IS NOT NULL AND \"Quantity\" <= 0)");
                         });
                 });
 
@@ -795,6 +810,11 @@ namespace Regal.Web.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Regal.Web.Data.Entities.Invoice", "CorrectsInvoice")
+                        .WithMany()
+                        .HasForeignKey("CorrectsInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Regal.Web.Data.Entities.StockDocument", "StockDocument")
                         .WithMany()
                         .HasForeignKey("StockDocumentId")
@@ -808,6 +828,8 @@ namespace Regal.Web.Data.Migrations
 
                     b.Navigation("Contractor");
 
+                    b.Navigation("CorrectsInvoice");
+
                     b.Navigation("StockDocument");
 
                     b.Navigation("User");
@@ -815,6 +837,11 @@ namespace Regal.Web.Data.Migrations
 
             modelBuilder.Entity("Regal.Web.Data.Entities.InvoiceLine", b =>
                 {
+                    b.HasOne("Regal.Web.Data.Entities.InvoiceLine", "CorrectsLine")
+                        .WithMany()
+                        .HasForeignKey("CorrectsLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Regal.Web.Data.Entities.Invoice", "Invoice")
                         .WithMany("Lines")
                         .HasForeignKey("InvoiceId")
@@ -826,6 +853,8 @@ namespace Regal.Web.Data.Migrations
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CorrectsLine");
 
                     b.Navigation("Invoice");
 

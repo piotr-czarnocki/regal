@@ -85,6 +85,8 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 - Fakturę z błędem wysyłki można ponowić ręcznie albo anulować. Anulowanie jest możliwe tylko wtedy, gdy Fakturownia potwierdzi, że faktury u niej nie ma, i cofa WZ dokumentem odwrotnym.
 - Regał ostrzega, gdy suma brutto policzona przez Fakturownię różni się od jego własnej.
 - Bez skonfigurowanej Fakturowni faktury czekają w kolejce, a reszta aplikacji działa normalnie.
+- **Proforma (poziom 2):** w formularzu można wybrać rodzaj „Proforma”. Trafia do Fakturowni tak samo jak faktura, ale nie wydaje towaru i nie liczy się do sprzedaży.
+- **Faktura korygująca (poziom 2):** wysłaną fakturę VAT można raz skorygować przyciskiem „Korekta”: podaje się przyczynę oraz ilość, cenę i rabat po korekcie dla każdej pozycji. Ilość może tylko zmaleć; zwrócony towar wraca na stan, na te same partie i po kosztach z wydania. Korekta zapisuje różnice, więc analizy pokazują sprzedaż i marżę po korekcie. Korekty nie można anulować.
 
 ## 5a. Zamówienia klientów (poziom 2)
 
@@ -121,4 +123,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a); nie powstały m.in. proformy i faktury korygujące, wysyłka faktur mailem, inwentaryzacja, eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a) oraz proformy i faktury korygujące (punkt 5); nie powstały m.in. wysyłka faktur mailem, inwentaryzacja, eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).

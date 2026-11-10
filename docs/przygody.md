@@ -203,3 +203,34 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** w teście w przeglądarce pole ilości faktury utworzonej z zamówienia miało wartość „8,000” zamiast „8”.
 - **Przyczyna:** PostgreSQL zwraca kolumnę `numeric(18,3)` z trzema miejscami po przecinku, a `decimal` w .NET pamięta tę skalę (8.000 to nie to samo co 8 przy wyświetlaniu).
 - **Rozwiązanie:** ilości z zamówienia są normalizowane przy odczycie (dzielenie przez `1.000…0m` usuwa zbędne zera).
+
+## Poziom 2: proforma i faktura korygująca (10.11.2026)
+
+### Pozycja korekty nie mieściła się w ograniczeniu bazy
+
+- **Problem:** pozycje faktur mają w bazie `CHECK (Quantity > 0)`, a pozycja korekty zapisuje różnicę ilości, która jest ujemna albo zerowa (korekta samej ceny).
+- **Rozwiązanie:** pozycja korekty ma powiązanie z pozycją faktury (`CorrectsLineId`), a ograniczenie wymaga ilości dodatniej od zwykłych pozycji i niedodatniej od pozycji korekty. Gwarancja dla zwykłych faktur została, a korekta nie może w bazie dodać ilości. Sprawdza to test, który próbuje zapisać taką pozycję z pominięciem serwisu.
+
+### Test blokady przechodził bez blokady
+
+- **Objaw:** test równoległych korekt jednej faktury przechodził także po usunięciu `FOR UPDATE` na korygowanej fakturze.
+- **Przyczyna:** korekta ze zwrotem towaru przechodzi przez korektę WZ, a ta blokuje wiersze produktów. To ta blokada ustawiała korekty w kolejce.
+- **Rozwiązanie:** drugi test, dla korekty samej ceny, gdzie żaden produkt nie jest blokowany. Bez `FOR UPDATE` pada 5 na 5 razy z błędem unikalnego indeksu (opis w `analiza-dynamiczna.md`, eksperyment 4).
+
+### Nowy test raz przechodził, raz nie
+
+- **Objaw:** test równoległych korekt ceny przechodził osobno, a w pełnym zestawie czasem nie.
+- **Przyczyna:** raport TRX pokazał komunikat „Korekta niczego nie zmienia” zamiast „ma już korektę”. Szkice miały ceny 15–20 zł, a faktura 20 zł, więc jeden szkic nic nie zmieniał. Gdy to on pierwszy dostał blokadę, zwracał inny komunikat. Błąd był w danych testu, a od kolejności wątków zależało tylko, czy wyjdzie na jaw.
+- **Rozwiązanie:** ceny 10–15 zł.
+
+### Ostrzeżenie analizatora ukryte przez kompilację przyrostową
+
+- **Objaw:** po pełnej przebudowie (`--no-incremental`) pojawiło się ostrzeżenie `MUD0012` w teście stron zamówień, choć wcześniejsze kompilacje pokazywały 0 ostrzeżeń.
+- **Przyczyna:** kompilacja przyrostowa nie budowała ponownie projektu testów, więc nie uruchamiała analizatora MudBlazor, który zabrania czytania parametru `Value` komponentu z zewnątrz.
+- **Rozwiązanie:** test czyta wartość z pola `input`, jak inne testy. Przed scaleniem sprawdzam teraz liczbę ostrzeżeń po pełnej przebudowie.
+
+### Docker Desktop przestał działać w trakcie testów
+
+- **Objaw:** wszystkie 200 testów integracyjnych padło w 1 ms z `DockerApiException: … InternalServerError`.
+- **Przyczyna:** Docker Desktop zgłaszał „Docker Desktop is unable to start”, a dystrybucja WSL `docker-desktop` była zatrzymana.
+- **Rozwiązanie:** `docker desktop restart`. Wolumeny zostały nienaruszone, a baza deweloperska wystartowała sama. Wniosek: gdy padają wszystkie testy naraz i w 1 ms, przyczyną jest środowisko, a nie kod.
