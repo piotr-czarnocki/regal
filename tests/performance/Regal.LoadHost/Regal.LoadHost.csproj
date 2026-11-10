@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <!-- The web SDK turns on server GC for Regal.Web; a console host would run it with workstation GC,
+         whose pauses took 30% of the time under load (docs/analiza-dynamiczna.md, point 5). -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>

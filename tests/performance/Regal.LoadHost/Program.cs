@@ -9,6 +9,11 @@ using Regal.TestHost;
 //       keeps the application running for k6 (tests/performance/k6/pages.js); stop with Ctrl+C
 //   dotnet run -c Release --project tests/performance/Regal.LoadHost -- --measure [users] [seconds]
 //       measures the same pages itself: 20 users for 120 s by default, as the k6 script does
+// WebApplicationFactory finds the web project through MvcTestingAppManifest.json in the current
+// directory. Test runners start in the output folder; `dotnet run` starts in the caller's folder,
+// where the factory guessed <solution>/Regal.Web and failed, so move to the output folder first.
+Environment.CurrentDirectory = AppContext.BaseDirectory;
+
 var connectionString = Environment.GetEnvironmentVariable("REGAL_PERF_CONNECTION")
     ?? throw new InvalidOperationException("Set REGAL_PERF_CONNECTION to the performance database.");
 var measure = args.Contains("--measure");
