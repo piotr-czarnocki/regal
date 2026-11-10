@@ -1,0 +1,166 @@
+@inject IDialogService Dialogs
+
+@* Deliberately not a <form>: without one, Enter in a field has nothing to submit. *@
+<div>
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+    }
+
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="12" md="6">
+            <MudAutocomplete T="ContractorListItem" Value="_contractor" ValueChanged="OnContractorChanged" SearchFunc="SearchContractorsAsync"
+                             ToStringFunc="ContractorText"
+                             Label="Nabywca" DebounceInterval="300" ResetValueOnEmptyText="true" CoerceText="true" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField T="string" Value="_notes" ValueChanged="value => Changed(() => _notes = value)" Label="Uwagi" MaxLength="OrderRules.MaxNotesLength" />
+        </MudItem>
+        <MudItem xs="12">
+            <ProductPicker Search="SearchProducts" FindByCode="FindByCode" Picked="AddProduct" />
+        </MudItem>
+    </MudGrid>
+
+    @foreach (var line in _lines)
+    {
+        <MudPaper Outlined="true" Class="pa-3 mb-2" @key="line">
+            <div class="d-flex align-center gap-2">
+                <MudText Typo="Typo.subtitle1" Class="flex-grow-1">
+                    @line.Product.Name
+                    @if (line.Product.Kind == ProductKind.Service)
+                    {
+                        <MudChip T="string" Size="Size.Small">usługa, bez rezerwacji</MudChip>
+                    }
+                </MudText>
+                <MudNumericField T="decimal?" Culture="CultureInfo.CurrentCulture" Value="line.Quantity" ValueChanged="value => Changed(() => line.Quantity = value)"
+                                 Label="@($"Ilość ({line.Product.Unit})")" Min="0" HideSpinButtons="true" Style="max-width: 10rem" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Usuń pozycję" Size="Size.Small" OnClick="() => Changed(() => _lines.Remove(line))" />
+            </div>
+        </MudPaper>
+    }
+
+    <div class="d-flex justify-end mt-4">
+        <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+                   Disabled="@(_lines.Count == 0 || _contractor is null || _busy)">Zapisz zamówienie</MudButton>
+    </div>
+</div>
+
+@code {
+    private sealed class Line(ProductPick product)
+    {
+        public ProductPick Product { get; } = product;
+        public decimal? Quantity { get; set; } = 1;
+    }
+
+    // Kept across attempts: if a reply is lost, saving again cannot create a second order.
+    private readonly Guid _requestId = Guid.NewGuid();
+    private readonly List<Line> _lines = [];
+    private ContractorListItem? _contractor;
+    private string? _notes;
+    private string? _error;
+    private bool _busy;
+
+    [Parameter, EditorRequired]
+    public Func<string, CancellationToken, Task<IReadOnlyList<ProductPick>>> SearchProducts { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<string, CancellationToken, Task<ProductPick?>> FindByCode { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<string?, CancellationToken, Task<IReadOnlyList<ContractorListItem>>> SearchContractors { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public Func<OrderDraft, Task<SaveResult>> Create { get; set; } = null!;
+
+    /// <summary>Receives the id of the saved order.</summary>
+    [Parameter, EditorRequired]
+    public EventCallback<int> Created { get; set; }
+
+    private static string? ContractorText(ContractorListItem? contractor) =>
+        contractor is null ? null : contractor.Nip is null ? contractor.Name : $"{contractor.Name} (NIP {contractor.Nip})";
+
+    private void Changed(Action apply)
+    {
+        apply();
+        _error = null;
+    }
+
+    private void OnContractorChanged(ContractorListItem? contractor) => Changed(() => _contractor = contractor);
+
+    private async Task<IEnumerable<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
+        await SearchContractors(term, cancellationToken);
+
+    /// <summary>A product already on the order gets one more unit, so scanning twice means two pieces.</summary>
+    private void AddProduct(ProductPick product)
+    {
+        var existing = _lines.FirstOrDefault(line => line.Product.Id == product.Id);
+        Changed(() =>
+        {
+            if (existing is null)
+            {
+                _lines.Add(new Line(product));
+            }
+            else
+            {
+                existing.Quantity = (existing.Quantity ?? 0) + 1;
+            }
+        });
+    }
+
+    private OrderDraft BuildDraft() => new()
+    {
+        RequestId = _requestId,
+        ContractorId = _contractor?.Id,
+        Notes = _notes,
+        Lines = _lines.Select(line => new OrderDraftLine { ProductId = line.Product.Id, Quantity = line.Quantity ?? 0 }).ToList(),
+    };
+
+    private async Task SaveAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var saved = false;
+        try
+        {
+            var draft = BuildDraft();
+            _error = OrderRules.Validate(draft)
+                ?? _lines.Select(line => StockDraftValidator.ValidateQuantity(line.Quantity ?? 0, line.Product.Unit) is { } error ? $"{line.Product.Name}: {error}" : null)
+                    .FirstOrDefault(error => error is not null);
+            if (_error is not null)
+            {
+                return;
+            }
+
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Zapisać zamówienie?",
+                "Towar z zamówienia zostanie zarezerwowany dla nabywcy do czasu wystawienia faktury albo anulowania zamówienia.",
+                yesText: "Zapisz",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Create(draft);
+            if (result.IsSuccess)
+            {
+                saved = true;
+                await Created.InvokeAsync(result.Id!.Value);
+            }
+            else
+            {
+                _error = result.Error;
+            }
+        }
+        finally
+        {
+            // Stays set after success, so nothing can save again on the way to the next page.
+            _busy = saved;
+        }
+    }
+}

@@ -1,0 +1,24 @@
+@page "/orders/new"
+@inject CustomerOrderService Orders
+@inject StockService Stock
+@inject ContractorService Contractors
+@inject NavigationManager Navigation
+
+<PageTitle>Nowe zamówienie – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Nowe zamówienie</MudText>
+
+    <OrderEditor SearchProducts="(term, token) => Stock.SearchSellableAsync(term, MaxSuggestions, token)"
+                 FindByCode="(code, token) => Stock.FindSellableByCodeAsync(code, token)"
+                 SearchContractors="SearchContractorsAsync"
+                 Create="draft => Orders.CreateAsync(draft)"
+                 Created="id => Navigation.NavigateTo(OrderRoutes.Details(id))" />
+</MudContainer>
+
+@code {
+    private const int MaxSuggestions = 10;
+
+    private async Task<IReadOnlyList<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
+        (await Contractors.SearchAsync(term, includeInactive: false, 0, MaxSuggestions, cancellationToken)).Items;
+}

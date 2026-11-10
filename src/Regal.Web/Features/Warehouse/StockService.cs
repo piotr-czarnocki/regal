@@ -17,7 +17,8 @@ public sealed record StockListItem(
     decimal Quantity,
     decimal AverageCost,
     bool IsActive,
-    bool HasExpiredBatch)
+    bool HasExpiredBatch,
+    decimal Reserved = 0)
 {
     public decimal Value => Quantity * AverageCost;
 }
@@ -104,6 +105,10 @@ public sealed class StockService(
                 db.Stock.Any(s =>
                     s.WarehouseId == MainWarehouse.Id && s.Quantity > 0 && s.Batch!.ProductId == row.Product.Id && s.Batch.ExpiryDate < today)))
             .ToListAsync(cancellationToken);
+
+        // Open customer orders: shown next to the quantity, so a refused WZ can be understood.
+        var reserved = await Reservations.ReservedAsync(db, items.Select(i => i.ProductId), exceptOrderId: null, cancellationToken);
+        items = items.Select(i => i with { Reserved = reserved.GetValueOrDefault(i.ProductId) }).ToList();
 
         return new PagedResult<StockListItem>(items, total);
     }

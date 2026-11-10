@@ -3,6 +3,7 @@
 @inject StockDocumentService Documents
 @inject StockService Stock
 @inject ContractorService Contractors
+@inject CustomerOrderService Orders
 @inject NavigationManager Navigation
 
 <PageTitle>Nowa faktura – Regał</PageTitle>
@@ -10,16 +11,58 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
     <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Nowa faktura</MudText>
 
-    <InvoiceEditor SearchProducts="(term, token) => Stock.SearchSellableAsync(term, MaxSuggestions, token)"
-                   FindByCode="(code, token) => Stock.FindSellableByCodeAsync(code, token)"
-                   SearchContractors="SearchContractorsAsync"
-                   PreviewIssue="draft => Documents.PreviewIssueAsync(draft)"
-                   Issue="draft => Invoices.IssueAsync(draft)"
-                   Issued="id => Navigation.NavigateTo(InvoiceRoutes.Details(id))" />
+    @if (OrderId is not null && _order is null)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono zamówienia.</MudAlert>
+    }
+    else if (_order is { Status: not CustomerOrderStatus.Open } closed)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Zamówienie <MudLink Href="@OrderRoutes.Details(closed.Id)">@closed.Number</MudLink> jest @OrderRules.StatusLabel(closed.Status), więc nie można z niego wystawić faktury.
+        </MudAlert>
+    }
+    else if (_loaded)
+    {
+        @if (_order is { } order)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                Faktura do zamówienia <MudLink Href="@OrderRoutes.Details(order.Id)">@order.Number</MudLink>. Wystawienie zrealizuje zamówienie w całości.
+            </MudAlert>
+        }
+
+        <InvoiceEditor SearchProducts="(term, token) => Stock.SearchSellableAsync(term, MaxSuggestions, token)"
+                       FindByCode="(code, token) => Stock.FindSellableByCodeAsync(code, token)"
+                       SearchContractors="SearchContractorsAsync"
+                       PreviewIssue="draft => Documents.PreviewIssueAsync(draft)"
+                       Issue="draft => Invoices.IssueAsync(draft)"
+                       Issued="id => Navigation.NavigateTo(InvoiceRoutes.Details(id))"
+                       OrderId="_order?.Id"
+                       InitialContractor="_order?.Contractor"
+                       InitialLines="_initialLines" />
+    }
 </MudContainer>
 
 @code {
     private const int MaxSuggestions = 10;
+
+    private OrderDetails? _order;
+    private IReadOnlyList<(ProductPick Product, decimal Quantity)> _initialLines = [];
+    private bool _loaded;
+
+    /// <summary>Set when the invoice is issued from a customer order.</summary>
+    [SupplyParameterFromQuery(Name = "order")]
+    public int? OrderId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (OrderId is { } orderId && await Orders.GetForInvoiceAsync(orderId) is { } fromOrder)
+        {
+            _order = fromOrder.Order;
+            _initialLines = fromOrder.Order.Lines.Zip(fromOrder.Products, (line, product) => (product, line.Quantity)).ToList();
+        }
+
+        _loaded = true;
+    }
 
     private async Task<IReadOnlyList<ContractorListItem>> SearchContractorsAsync(string? term, CancellationToken cancellationToken) =>
         (await Contractors.SearchAsync(term, includeInactive: false, 0, MaxSuggestions, cancellationToken)).Items;

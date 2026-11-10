@@ -56,7 +56,13 @@
             </MudTd>
             <MudTd DataLabel="SKU">@context.Sku</MudTd>
             <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
-            <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+            <MudTd DataLabel="Ilość">
+                @StockLabels.Quantity(context.Quantity) @context.Unit
+                @if (context.Reserved > 0)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">zarezerwowano @StockLabels.Quantity(context.Reserved)</MudChip>
+                }
+            </MudTd>
             <MudTd DataLabel="Cena średnia">@StockLabels.Cost(context.AverageCost)</MudTd>
             <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
         </RowTemplate>

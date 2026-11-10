@@ -203,18 +203,23 @@ public sealed class WarehousePagesTests : WarehouseTestBase
         var ean = (await Products.GetForEditAsync(bogdan))!.Ean!;
         var page = _context.Render<NewStockDocumentPage>();
 
+        // Line names, not the whole markup: MudBlazor's random element ids (e.g. a popover GUID)
+        // sometimes contained "1212", and a DoesNotContain on the markup then failed by chance.
         Scan(page, "1");
         page.WaitForAssertion(() => Assert.Equal(["1"], Quantities(page)));
-        Assert.Contains("BOGDAN", page.Markup);
-        Assert.DoesNotContain("1212", page.Markup);
+        Assert.Equal(["BOGDAN"], LineNames(page));
 
         Scan(page, "10");
         page.WaitForAssertion(() => Assert.Equal(["1", "1"], Quantities(page)));
-        Assert.Contains("1212", page.Markup);
+        Assert.Equal(["BOGDAN", "1212"], LineNames(page));
 
         Scan(page, ean);
         page.WaitForAssertion(() => Assert.Equal(["2", "1"], Quantities(page)));
+        Assert.Equal(["BOGDAN", "1212"], LineNames(page));
     }
+
+    private static IReadOnlyList<string> LineNames(IRenderedComponent<NewStockDocumentPage> page) =>
+        page.FindAll(".mud-paper .mud-typography-subtitle1.flex-grow-1").Select(element => element.TextContent.Trim()).ToList();
 
     [Fact]
     public async Task Exact_sku_ignores_letter_case_and_surrounding_spaces_and_a_second_scan_adds_one()

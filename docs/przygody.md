@@ -188,3 +188,18 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Problem:** najprościej byłoby wstawić wiersze bezpośrednio do tabel, ale wtedy stany, średnie, partie i numeracja mogłyby być niespójne z regułami aplikacji, a testy wydajności mierzyłyby nierealne dane.
 - **Rozwiązanie:** generator korzysta z tych samych serwisów co ekrany, z zegarem przesuwanym dzień po dniu. Kosztem jest czas: rok z 4 fakturami dziennie trwa kilkadziesiąt sekund, a duży zestaw do testów wydajności kilkanaście minut.
 - **Uwaga:** faktury z generatora nie mogą trafić do Fakturowni, więc od razu dostają numer `DEMO` i nie mają zadania wysyłki. Generator ma własny klient Fakturowni, który zawsze odmawia połączenia.
+
+## Poziom 2: zamówienia klientów (10.11.2026)
+
+### Test kodów „1” i „10” padał raz na kilkanaście przebiegów
+
+- **Objaw:** `Overlapping_codes_1_and_10_and_a_full_ean_each_add_their_own_product` raz nie przeszedł, a w kolejnych 9 przebiegach był zielony. Padał szybko, w 73 ms.
+- **Przyczyna:** test sprawdzał `Assert.DoesNotContain("1212", page.Markup)`, czyli szukał nazwy drugiego produktu w całym HTML strony. Tymczasowy test wypisujący atrybuty `id` pokazał, że MudBlazor nadaje elementom losowe identyfikatory, m.in. GUID w `popover-38d3a56b-…`. Taki identyfikator czasem zawiera „1212”.
+- **Rozwiązanie:** test porównuje dokładną listę nazw pozycji dokumentu (`["BOGDAN"]`, potem `["BOGDAN", "1212"]`). To mocniejsze sprawdzenie niż brak tekstu w całym HTML i nie zależy od losowych identyfikatorów. Pozostałe takie asercje w testach szukają polskich słów albo unikalnych nazw, których w identyfikatorach być nie może.
+- **Wniosek:** asercja „czegoś nie ma na stronie” musi dotyczyć konkretnego miejsca, a nie całego dokumentu.
+
+### Faktura z zamówienia pokazywała ilość „8,000”
+
+- **Objaw:** w teście w przeglądarce pole ilości faktury utworzonej z zamówienia miało wartość „8,000” zamiast „8”.
+- **Przyczyna:** PostgreSQL zwraca kolumnę `numeric(18,3)` z trzema miejscami po przecinku, a `decimal` w .NET pamięta tę skalę (8.000 to nie to samo co 8 przy wyświetlaniu).
+- **Rozwiązanie:** ilości z zamówienia są normalizowane przy odczycie (dzielenie przez `1.000…0m` usuwa zbędne zera).

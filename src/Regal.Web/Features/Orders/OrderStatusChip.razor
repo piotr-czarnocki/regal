@@ -1,0 +1,13 @@
+<MudChip T="string" Size="Size.Small" Color="ColorOf(Status)">@OrderRules.StatusLabel(Status)</MudChip>
+
+@code {
+    [Parameter, EditorRequired]
+    public CustomerOrderStatus Status { get; set; }
+
+    private static Color ColorOf(CustomerOrderStatus status) => status switch
+    {
+        CustomerOrderStatus.Open => Color.Info,
+        CustomerOrderStatus.Completed => Color.Success,
+        _ => Color.Default,
+    };
+}

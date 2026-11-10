@@ -121,6 +121,25 @@ public sealed class InvoiceService(
     {
         var productIds = draft.Lines.Select(line => line.ProductId).ToArray();
 
+        // The order row is locked before any product, as cancelling an order locks only that row,
+        // so the two cannot wait for each other in a cycle (SPEC 5.11).
+        CustomerOrder? order = null;
+        if (draft.OrderId is { } orderId)
+        {
+            order = await LockOrderAsync(db, orderId, cancellationToken);
+
+            // A repeated send of an invoice that already completed this order.
+            if (await FindByOidAsync(db, oid, cancellationToken) is { } sentId)
+            {
+                return SaveResult.Ok(sentId);
+            }
+
+            if (CheckOrder(order, draft) is { } orderError)
+            {
+                return SaveResult.Fail(orderError);
+            }
+        }
+
         // Kind never changes once a product exists, so it can be read before any lock is taken.
         var goodsIds = await db.Products.AsNoTracking()
             .Where(p => productIds.Contains(p.Id) && p.Kind == ProductKind.Goods)
@@ -183,9 +202,33 @@ public sealed class InvoiceService(
             NextAttemptAt = now.UtcDateTime,
         });
         AuditTrail.AddInvoice(db, AuditActions.InvoiceIssued, invoice.Id, userId, $"oid={oid}", timeProvider);
+
+        if (order is not null)
+        {
+            // The whole order is done, even if the invoice changed its quantities.
+            order.Status = CustomerOrderStatus.Completed;
+            order.InvoiceId = invoice.Id;
+            AuditTrail.AddOrder(db, AuditActions.OrderCompleted, order.Id, userId, $"number={order.Number};invoice={invoice.Id}", timeProvider);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return SaveResult.Ok(invoice.Id);
     }
+
+    private static async Task<CustomerOrder?> LockOrderAsync(RegalDbContext db, int orderId, CancellationToken cancellationToken) =>
+        (await db.CustomerOrders
+            .FromSql($"""SELECT * FROM "CustomerOrders" WHERE "Id" = {orderId} FOR UPDATE""")
+            .ToListAsync(cancellationToken))
+        .SingleOrDefault();
+
+    private static string? CheckOrder(CustomerOrder? order, InvoiceDraft draft) => order switch
+    {
+        null => "Nie znaleziono zamówienia.",
+        { Status: CustomerOrderStatus.Completed } => $"Zamówienie {order.Number} jest już zrealizowane.",
+        { Status: CustomerOrderStatus.Cancelled } => $"Zamówienie {order.Number} zostało anulowane.",
+        _ when order.ContractorId != draft.ContractorId => $"Faktura do zamówienia {order.Number} musi mieć tego samego nabywcę.",
+        _ => null,
+    };
 
     private static InvoiceLine NewLine(InvoiceDraftLine line, Product product, Dictionary<int, decimal> costs)
     {
