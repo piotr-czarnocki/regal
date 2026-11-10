@@ -155,20 +155,38 @@ public sealed class AnalyticsService(
             products = products.Where(p => p.CategoryId == category);
         }
 
-        var rows = await products
-            .Select(p => new
-            {
-                p.Id,
-                p.Name,
-                CategoryName = p.Category!.Name,
-                p.Unit,
-                p.AverageCost,
-                Quantity = db.Stock.Where(s => s.WarehouseId == Data.Entities.Warehouse.MainWarehouseId && s.Batch!.ProductId == p.Id).Sum(s => s.Quantity),
-                LastSale = db.InvoiceLines
-                    .Where(l => l.ProductId == p.Id && l.Invoice!.Status != InvoiceStatus.Cancelled)
-                    .Max(l => (DateOnly?)l.Invoice!.IssueDate),
-            })
-            .Where(r => r.Quantity > 0 && (r.LastSale == null || r.LastSale < since))
+        // Stock and last sale are each aggregated once for all products and joined, rather than
+        // computed per product: as correlated subqueries EF repeated them in the filter and the
+        // ordering, which took 590 ms over 10 000 products (docs/analiza-dynamiczna.md, point 5).
+        var stock = db.Stock
+            .Where(s => s.WarehouseId == Data.Entities.Warehouse.MainWarehouseId)
+            .GroupBy(s => s.Batch!.ProductId)
+            .Select(g => new { ProductId = g.Key, Quantity = g.Sum(s => s.Quantity) })
+            .Where(s => s.Quantity > 0);
+        // An explicit join: with the navigation inside Max, EF turned the maximum back into a subquery.
+        var lastSales =
+            from l in db.InvoiceLines
+            join i in db.Invoices on l.InvoiceId equals i.Id
+            where i.Status != InvoiceStatus.Cancelled
+            group i.IssueDate by l.ProductId into g
+            select new { ProductId = g.Key, LastSale = g.Max() };
+
+        var rows = await (
+                from p in products
+                join s in stock on p.Id equals s.ProductId
+                join sale in lastSales on p.Id equals sale.ProductId into sales
+                from sale in sales.DefaultIfEmpty()
+                select new
+                {
+                    p.Id,
+                    p.Name,
+                    CategoryName = p.Category!.Name,
+                    p.Unit,
+                    p.AverageCost,
+                    s.Quantity,
+                    LastSale = (DateOnly?)sale.LastSale,
+                })
+            .Where(r => r.LastSale == null || r.LastSale < since)
             .OrderByDescending(r => r.Quantity * r.AverageCost).ThenBy(r => r.Id)
             .Take(Math.Clamp(take, 1, MaxRows))
             .ToListAsync(cancellationToken);
