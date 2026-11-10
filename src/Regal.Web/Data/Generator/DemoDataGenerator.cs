@@ -26,6 +26,12 @@ public sealed class GeneratorOptions
 
     /// <summary>Starts every generated SKU; a second run needs a different one.</summary>
     public string SkuPrefix { get; set; } = "DEMO";
+
+    /// <summary>
+    /// Expired batches read and written off at a time. Tests lower it to reach the
+    /// "more than one page a week" case without a catalog of thousands of products.
+    /// </summary>
+    public int WriteOffPageSize { get; set; } = StockDraftValidator.MaxLines;
 }
 
 public sealed record GeneratorReport(int Products, int Contractors, int StockDocuments, int Invoices, int CancelledInvoices, long Movements);
@@ -313,33 +319,55 @@ public sealed class DemoDataGenerator(
         }
 
         var today = WarehouseTime.DateOf(_clock.Now);
-        await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var prefix = options.SkuPrefix + "-";
-        var expired = await db.Stock.AsNoTracking()
-            .Where(s => s.Quantity > 0 && s.Batch!.ExpiryDate < today && s.Batch.Product!.Sku.StartsWith(prefix))
-            .Select(s => new { s.BatchId, s.Batch!.ProductId, s.Quantity })
-            .Take(StockDraftValidator.MaxLines)
-            .ToListAsync(cancellationToken);
-
         var posted = 0;
-        foreach (var batch in expired.GroupBy(b => b.ProductId).Select(g => g.First()))
-        {
-            var draft = new StockDocumentDraft
-            {
-                RequestId = Guid.NewGuid(),
-                Type = StockDocumentType.RW,
-                Notes = "Przeterminowany towar",
-                Lines = [new StockDocumentLine { ProductId = batch.ProductId, Quantity = batch.Quantity, BatchId = batch.BatchId }],
-            };
 
-            if ((await documents.PostAsync(draft, cancellationToken)).IsSuccess)
+        // Page by page until nothing expired is left. A product may appear on a document once,
+        // so a product's second expired batch waits for the next document.
+        while (true)
+        {
+            await using var db = await factory.CreateDbContextAsync(cancellationToken);
+            var expired = await db.Stock.AsNoTracking()
+                .Where(s => s.Quantity > 0 && s.Batch!.ExpiryDate < today && s.Batch.Product!.Sku.StartsWith(prefix))
+                .OrderBy(s => s.BatchId)
+                .Select(s => new { s.BatchId, s.Batch!.ProductId, s.Quantity })
+                .Take(options.WriteOffPageSize)
+                .ToListAsync(cancellationToken);
+
+            var progress = false;
+            var pending = expired;
+            while (pending.Count > 0)
             {
-                posted++;
-                _stock[batch.ProductId] = Math.Max(0, _stock.GetValueOrDefault(batch.ProductId) - batch.Quantity);
+                var lines = pending.GroupBy(b => b.ProductId).Select(g => g.First()).Take(StockDraftValidator.MaxLines).ToList();
+                pending = pending.Except(lines).ToList();
+
+                var draft = new StockDocumentDraft
+                {
+                    RequestId = Guid.NewGuid(),
+                    Type = StockDocumentType.RW,
+                    Notes = "Przeterminowany towar",
+                    Lines = lines.Select(b => new StockDocumentLine { ProductId = b.ProductId, Quantity = b.Quantity, BatchId = b.BatchId }).ToList(),
+                };
+
+                if ((await documents.PostAsync(draft, cancellationToken)).IsSuccess)
+                {
+                    posted++;
+                    progress = true;
+                    foreach (var batch in lines)
+                    {
+                        _stock[batch.ProductId] = Math.Max(0, _stock.GetValueOrDefault(batch.ProductId) - batch.Quantity);
+                    }
+                }
+
+                _clock.Now = _clock.Now.AddMinutes(1);
+            }
+
+            // A refused document would be read again forever; leave it for next week.
+            if (!progress || expired.Count < options.WriteOffPageSize)
+            {
+                return posted;
             }
         }
-
-        return posted;
     }
 
     private async Task<(bool Issued, bool Cancelled)> SellAsync(

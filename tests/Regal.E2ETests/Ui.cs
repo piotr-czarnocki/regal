@@ -22,11 +22,19 @@ public static class Ui
         await field.PressAsync("Tab");
     }
 
-    /// <summary>Types into an autocomplete and picks the suggestion with this text.</summary>
+    /// <summary>
+    /// Types into an autocomplete and picks the suggestion with this text. Returns once the list has
+    /// closed and the field shows the choice, so the next step does not type while the
+    /// autocomplete is still moving the focus around.
+    /// </summary>
     public static async Task ChooseAsync(this IPage page, string label, string text)
     {
-        await page.Field(label).FillAsync(text);
+        var field = page.Field(label);
+        await field.FillAsync(text);
         await page.Locator(OpenPopover).GetByText(text).First.ClickAsync();
+        await Assertions.Expect(page.Locator(OpenPopover)).ToHaveCountAsync(0);
+        // Starts with: an invoice buyer is shown with its NIP after the name.
+        await Assertions.Expect(field).ToHaveValueAsync(new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(text)));
     }
 
     /// <summary>Opens a select and picks the item whose text starts like this.</summary>
@@ -36,13 +44,25 @@ public static class Ui
         await page.Locator(OpenPopover).GetByText(itemText).First.ClickAsync();
     }
 
-    /// <summary>Types a code into the product field and confirms it with Enter, as a USB scanner does.</summary>
+    /// <summary>
+    /// Types a code into the product field and confirms it with Enter, as a USB scanner does.
+    /// Returns once the picker has finished and moved the focus back to its field, as a person
+    /// sees the cursor return. Typing earlier raced the focus call: under load the text meant
+    /// for the quantity landed in the product field (docs/przygody.md).
+    /// </summary>
     public static async Task ScanAsync(this IPage page, string code)
     {
+        var picker = page.Locator(".product-picker");
+        var settled = await picker.GetAttributeAsync("data-settled");
         var field = page.Field("Dodaj produkt: nazwa, SKU lub EAN");
+
         await field.FillAsync(code);
+        await Assertions.Expect(field).ToHaveValueAsync(code);
         await field.PressAsync("Enter");
+
+        await Assertions.Expect(picker).Not.ToHaveAttributeAsync("data-settled", settled!);
         await Assertions.Expect(field).ToHaveValueAsync(string.Empty);
+        await Assertions.Expect(field).ToBeFocusedAsync();
     }
 
     public static async Task ApproveAsync(this IPage page, string button, string confirm)

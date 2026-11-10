@@ -1,6 +1,6 @@
 # Regał – specyfikacja
 
-**Wersja:** 0.3 (9.11.2026), zakres ustalony w wywiadzie, reguły magazynu doprecyzowane w etapie „Magazyn”.
+**Wersja:** 0.4 (10.11.2026), zakres ustalony w wywiadzie, reguły magazynu doprecyzowane w etapie „Magazyn”, wyniki wydajności z etapu „Analiza i oddanie”.
 **Autor:** Piotr Czarnocki, projekt indywidualny.
 **Termin oddania:** połowa grudnia 2026; dokładną datę należy tu wpisać.
 **Budżet czasu:** do 10 h tygodniowo, około 50 h łącznie.
@@ -275,7 +275,7 @@ Kluczowe reguły:
 - **Numeracja:** licznik zwiększany w tej samej transakcji co dokument (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`), więc wycofanie nie zostawia luki. Blokada wiersza licznika sprawia, że dokumenty tego samego typu zapisują się po kolei od chwili pobrania numeru.
 - **Transakcja wywołującego:** przyjęcie i wydanie można wykonać w cudzej otwartej transakcji; błąd cofa tylko dokument (savepoint). Faktura w etapie 3 tworzy WZ w ten sposób, raz na transakcję i zanim zablokuje inne produkty.
 - **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches`, `InvoiceLines` i `AuditLog`. W `Invoices` może zmieniać tylko kolumny `Status`, `FakturowniaId`, `Number`, `PdfUrl` i `RemoteGrossTotal`. Z `Invoices` i `OutboxMessages` nie może niczego usuwać. Migracje wykonuje osobna rola.
-- **Indeksy pod analizy:** dobierane na podstawie pomiarów w etapie analizy wydajności, z porównaniem przed i po.
+- **Indeksy pod analizy:** pomiary na roku danych (136 962 ruchy) pokazały, że istniejące indeksy wystarczają: analizy roczne czytają prawie całe tabele, a pulpit korzysta z indeksu na dacie wystawienia. Wolny był raport zalegających przez kształt zapytania, który poprawiono (`docs/analiza-dynamiczna.md`, punkt 5).
 
 ## 9. Bezpieczeństwo
 
@@ -304,7 +304,7 @@ Zakres według sylabusa „Dynamiczna analiza oprogramowania”, punkty 2–7. W
 
 Interactive Server działa przez stałe połączenie, więc zwykły test HTTP nie obejmuje kliknięć w interfejsie. Dokumentacja jasno określa, co mierzy każdy test.
 
-**Wstępne cele wydajności (do korekty po pierwszym pomiarze):**
+**Cele wydajności** (potwierdzone pomiarem 10.11.2026: ABC 44 ms, raport sprzedaży ok. 150 ms, p95 286 ms, 0 błędów):
 
 - 95% odpowiedzi HTTP poniżej 500 ms przy 20 równoczesnych użytkownikach.
 - Analiza ABC i raport sprzedaży poniżej 1 s dla 100 000 ruchów.
@@ -354,6 +354,7 @@ Testy jednostkowe i integracyjne powstają razem z każdą funkcją. Poziom 2 za
 - Utworzyć klienta OAuth w Google Cloud w tygodniu 1.
 - Potwierdzić prefiks wewnętrznego EAN-13 w zasadach GS1.
 - Sprawdzić w przeglądarce i na telefonie ekrany magazynu według `docs/scenariusze-testowe.md`, w tym czytnik USB.
+- Uruchomić skrypt k6 (`tests/performance/k6/pages.js`) według README i dopisać jego wynik obok pomiaru z `Regal.LoadHost`.
 - Na koncie testowym Fakturowni potwierdzić: nagłówek `Authorization: Bearer` przy wyszukiwaniu po `oid`, odrzucanie duplikatu przy `oid_unique=yes`, nazwy pól odpowiedzi (`token`, `price_gross`) i zgodność sum (scenariusz F6).
 
 Rozstrzygnięte w etapie „Magazyn”: wycena PW bez podanego kosztu (punkt 5.5).

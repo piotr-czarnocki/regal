@@ -133,6 +133,23 @@ public sealed class AnalyticsTests(PostgresFixture postgres) : InvoiceTestBase(p
     }
 
     [Fact]
+    public async Task Slow_moving_ignores_cancelled_sales_and_lists_the_most_valuable_stock_first()
+    {
+        var cheap = await StockedGoodsAsync(quantity: 10, cost: 1m);
+        var valuable = await StockedGoodsAsync(quantity: 10, cost: 9m);
+        await IssueOkAsync(Draft(Item(valuable, 1)));
+        Clock.Advance(TimeSpan.FromDays(100));
+        var cancelled = await IssueOkAsync(Draft(Item(valuable, 1)));
+        Assert.True((await Invoices.CancelAsync(cancelled, Guid.NewGuid())).IsSuccess);
+
+        var rows = await Analytics.GetSlowMovingAsync(90, CategoryId);
+
+        // The cancelled sale today does not count, so the last sale is the one 100 days ago.
+        Assert.Equal([valuable, cheap], rows.Select(r => r.ProductId));
+        Assert.Equal((9m, 81m, Today.AddDays(-100)), (rows[0].Quantity, rows[0].Value, rows[0].LastSale));
+    }
+
+    [Fact]
     public async Task Expiring_batches_include_expired_ones_and_skip_later_or_empty_ones()
     {
         var product = await NewGoodsAsync(hasExpiry: true);

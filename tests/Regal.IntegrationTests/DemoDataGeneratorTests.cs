@@ -71,6 +71,40 @@ public sealed class DemoDataGeneratorTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Weekly_write_off_clears_all_expired_goods_even_in_a_large_catalog()
+    {
+        // More expiring batches in one week than one page of the write-off. An earlier version
+        // wrote off a single page (200 batches) a week, so in a catalog of 10 000 products
+        // expired stock piled up and most sales of it were refused. A page of 5 shows the
+        // same case on a small catalog.
+        var prefix = Prefix();
+        var options = new GeneratorOptions
+        {
+            WriteOffPageSize = 5,
+            Products = 300,
+            Customers = 4,
+            Suppliers = 2,
+            Days = 60,
+            InvoicesPerDay = 2,
+            Seed = 11,
+            SkuPrefix = prefix,
+        };
+
+        await new DemoDataGenerator(postgres.DbContextFactory, options, Clock()).RunAsync();
+
+        // The simulation ends on Sunday 8.11.2026, so the last write-off ran on Monday 2.11.2026.
+        var lastWriteOff = new DateOnly(2026, 11, 2);
+        await using var db = postgres.CreateAppDbContext();
+        var left = await db.Stock.CountAsync(s =>
+            s.Quantity > 0 && s.Batch!.ExpiryDate < lastWriteOff && s.Batch.Product!.Sku.StartsWith(prefix + "-"));
+        var writtenOff = await db.StockDocuments.CountAsync(d =>
+            d.Type == StockDocumentType.RW && d.Movements.Any(m => m.Batch!.Product!.Sku.StartsWith(prefix + "-")));
+
+        Assert.Equal(0, left);
+        Assert.True(writtenOff > 0);
+    }
+
+    [Fact]
     public async Task Same_seed_gives_the_same_trade()
     {
         var first = await new DemoDataGenerator(postgres.DbContextFactory, Small(Prefix(), seed: 3), Clock()).RunAsync();

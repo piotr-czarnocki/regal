@@ -8,6 +8,10 @@
     <Project Path="tests/Regal.UnitTests/Regal.UnitTests.csproj" />
     <Project Path="tests/Regal.TestHost/Regal.TestHost.csproj" />
   </Folder>
+  <Folder Name="/tests/performance/">
+    <Project Path="tests/performance/Regal.Benchmarks/Regal.Benchmarks.csproj" />
+    <Project Path="tests/performance/Regal.LoadHost/Regal.LoadHost.csproj" />
+  </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Regal.DataGenerator/Regal.DataGenerator.csproj" />
   </Folder>
