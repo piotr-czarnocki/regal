@@ -128,6 +128,32 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Rozwiązanie:** konfiguracja generatora jest budowana ręcznie w kolejności: wiersz poleceń, zmienne środowiskowe, User Secrets. Przed zapisem generator wypisuje bazę docelową (host, port, nazwa, użytkownik, bez hasła). Danych w bazie deweloperskiej nie da się usunąć rolą aplikacji, bo dokumenty są niezmienne; sprzątanie wymaga roli właściciela albo wyczyszczenia bazy deweloperskiej.
 - **Wniosek:** narzędzie, które pisze do bazy, powinno pokazać, dokąd pisze, zanim cokolwiek zrobi. Kolejność źródeł konfiguracji trzeba ustalać jawnie, a nie zakładać.
 
+### Testy w przeglądarce raz przechodziły, raz nie
+
+- **Objaw:** w pełnym zestawie testów (wszystkie projekty naraz) w 2 z 4 przebiegów padały 1–2 testy przeglądarkowe: przyjęcie towaru i wydanie FEFO. Uruchomione osobno przechodziły zawsze.
+- **Ślad:** raport TRX pokazał `Timeout 15000ms exceeded … waiting for GetByLabel("Ilość (szt)")`, a zrzut ekranu z testu FEFO: „7” w polu produktu i ilość nadal 1. Tekst przeznaczony dla pola ilości trafił do pola produktu.
+- **Przyczyna:** po dodaniu pozycji pole produktu przywraca sobie fokus wywołaniem JavaScript z serwera. Nowa pozycja renderuje się wcześniej, a wywołanie fokusu przychodzi osobno. Gdy komputer był obciążony testami integracyjnymi, test zdążył zacząć wpisywanie w pole ilości, zanim fokus wrócił do pola produktu. Playwright ustawia fokus i wstawia tekst w dwóch krokach, więc tekst wylądował tam, gdzie akurat był fokus. W teście przyjęcia podobnie: kod wpisywany zaraz po wyborze dostawcy trafiał do pola dostawcy, które jeszcze kończyło wybór.
+- **Rozwiązanie:** pole produktu ma licznik `data-settled`, zwiększany dopiero po zakończeniu wywołania fokusu, i test czeka na jego zmianę. Wybór z listy podpowiedzi czeka, aż lista się zamknie, a pole pokaże wybraną wartość. Nowy test bUnit sprawdza, że licznik nie zmienia się, dopóki fokus nie wrócił; z licznikiem przesuniętym przed wywołanie fokusu ten test pada.
+- **Wniosek:** test przeglądarkowy musi czekać na stan, który widzi człowiek (tu: kursor wrócił do pola), a nie tylko na pojawienie się elementu. Ten sam wyścig może dotknąć użytkownika telefonu przy dużych opóźnieniach tunelu: kto kliknie w ilość, zanim kursor wróci do pola produktu, może zobaczyć, że fokus mu „uciekł”.
+
+### Raport zalegających zatykał wszystkie strony pod obciążeniem
+
+- **Objaw:** przy 20 użytkownikach p95 wszystkich stron wynosił 1905 ms, a pulpit miał medianę 1,7 s. W benchmarku raport zalegających trwał 586 ms, czyli mieścił się w celu „poniżej 1 s”.
+- **Przyczyna:** stan i data ostatniej sprzedaży były w LINQ właściwościami każdego produktu. EF Core zrobił z nich podzapytania skorelowane i powtórzył je w filtrze i sortowaniu, więc baza wykonywała je dziesiątki tysięcy razy (830 tysięcy odczytów stron). Pod obciążeniem równoczesne kopie zajmowały procesory bazy.
+- **Rozwiązanie:** dwa zestawienia `GROUP BY` złączone z produktami. Za pierwszym razem EF nadal robił podzapytanie, bo w `Max` była nawigacja; pomogło jawne złączenie. Zapytanie trwa 37 ms, a p95 stron 286 ms. Wynik porównałem wiersz po wierszu ze starym.
+
+### Test obciążenia mierzył odśmiecacz zamiast aplikacji
+
+- **Objaw:** strona ABC miała p95 1,5 s, choć jej zapytanie trwa 44 ms, a dwa przebiegi tego samego testu różniły się o 130 ms.
+- **Przyczyna:** `dotnet-counters` pokazał, że przerwy GC zajmują 30% czasu. Host testu obciążenia jest aplikacją konsolową, więc działał z Workstation GC, a prawdziwa aplikacja (SDK webowe) ma Server GC.
+- **Rozwiązanie:** `ServerGarbageCollection=true` w projekcie hosta. Przerwy GC zajmują teraz 1,5% czasu.
+
+### Host testu obciążenia nie startował przez `dotnet run`
+
+- **Objaw:** `DirectoryNotFoundException: C:\Users\piotr\projekty\regal\Regal.Web\`, choć projekt jest w `src/Regal.Web`, a testy integracyjne z tym samym hostem działały.
+- **Przyczyna:** `WebApplicationFactory` szuka pliku `MvcTestingAppManifest.json` w bieżącym katalogu. Runner testów startuje w katalogu wyjściowym, gdzie ten plik jest, a `dotnet run` w katalogu repozytorium. Bez pliku fabryka zgaduje `<katalog rozwiązania>/<nazwa projektu>`.
+- **Rozwiązanie:** host przed startem przechodzi do `AppContext.BaseDirectory`. Przyczynę ustaliłem z kodu źródłowego `WebApplicationFactory`, bo komunikat błędu wskazywał tylko na zły katalog.
+
 ### Przeterminowany towar zalegał w dużym zestawie danych
 
 - **Objaw:** generator miał dać około 100 faktur dziennie, a dał 12 206 faktur w roku, czyli około 33 dziennie, i 54 640 ruchów zamiast ponad 100 000. Nie zgłosił żadnego błędu.

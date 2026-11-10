@@ -43,6 +43,7 @@ Wersje pochodzą z plików projektu (`global.json`, `*.csproj`, `docker-compose.
 | BenchmarkDotNet | 0.15.8 | Pomiar czasu zapytań analiz |
 | k6 | — | Test obciążenia HTTP (skrypt w `tests/performance/k6`) |
 | `EXPLAIN (ANALYZE, BUFFERS)` w PostgreSQL | 18.6 | Plany zapytań |
+| dotnet-counters, dotnet-trace | 10.0.750501 | Liczniki środowiska .NET (GC, pula wątków) i ślady wykonania pod obciążeniem |
 
 ### Porównanie z alternatywami
 
@@ -57,7 +58,8 @@ Wersje pochodzą z plików projektu (`global.json`, `*.csproj`, `docker-compose.
 | Mikrobenchmarki | BenchmarkDotNet | `Stopwatch` w pętli | Rozgrzewka, wiele iteracji, odchylenie standardowe i statystyka; ręczny pomiar myli pierwsze wywołanie (kompilacja zapytania, zimna pamięć podręczna) z typowym. |
 | Plany zapytań | `EXPLAIN (ANALYZE, BUFFERS)` | pg_stat_statements, auto_explain | Wystarcza do kilku zapytań analiz i pokazuje rzeczywiste czasy i odczyty stron. Pozostałe są lepsze do długotrwałej obserwacji produkcji, której tu nie ma. |
 | Pokrycie | coverlet | dotCover, Visual Studio Enterprise | Darmowy, działa z `dotnet test` i w CI, format Cobertura. |
-| Debugowanie | Debugger Visual Studio/VS Code, logi `ILogger`, `dotnet-trace` | — | Opis użycia na prawdziwych błędach w `analiza-dynamiczna.md`. |
+| Diagnostyka pod obciążeniem | dotnet-counters, dotnet-trace | PerfView, Visual Studio Profiler | Narzędzia z wiersza poleceń, podłączane do działającego procesu bez restartu i bez Visual Studio. `dotnet-counters` od razu pokazał 30% czasu w przerwach GC; `dotnet-trace report topN` wystarczył do odczytania śladu bez PerfView. |
+| Debugowanie | Testy odtwarzające błąd, logi `ILogger` (np. SQL z EF Core), zapytania do bazy | Debugger krok po kroku | Opis użycia na prawdziwych błędach w `analiza-dynamiczna.md`. Przy błędach w Blazorze test bUnit odtwarzał problem szybciej niż klikanie w przeglądarce pod debuggerem. |
 
 ## Infrastruktura i proces
 

@@ -18,8 +18,8 @@ Regał to Blazor Web App w trybie Interactive Server: pierwsze wczytanie strony 
 
 | Rodzaj | Projekt | Liczba | Co uruchamia | Czego nie obejmuje |
 |---|---|---|---|---|
-| Jednostkowe | `tests/Regal.UnitTests` | 226 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
-| Integracyjne | `tests/Regal.IntegrationTests` | 149 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
+| Jednostkowe | `tests/Regal.UnitTests` | 227 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
+| Integracyjne | `tests/Regal.IntegrationTests` | 150 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
 | Funkcjonalne | `tests/Regal.E2ETests` | 12 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
 | Wydajności: zapytania | `tests/performance/Regal.Benchmarks` | 7 zapytań | Zapytania analiz z serwisu na bazie z rokiem wygenerowanych danych | Renderowania stron |
 | Wydajności: HTTP | `tests/performance/k6`, `Regal.LoadHost --measure` | 8 stron | Pierwsze wczytanie stron (pełny HTML z serwera) przez 20 równoczesnych użytkowników | Zdarzeń SignalR po wczytaniu (kliknięcia, filtry) |
@@ -37,7 +37,7 @@ Testy nigdy nie łączą się z prawdziwą Fakturownią ani z Google: klient Fak
 | `StockDraftValidatorTests` | 37 | Reguły dokumentu: kontrahent dla typu, 1–200 pozycji, ilość > 0 i do 3 miejsc, liczby całkowite dla „szt”, powtórzone produkty i partie, data ważności, powód RW |
 | `InvoiceRulesTests` | 27 | Kwoty pozycji z rabatem, VAT od wartości po rabacie z zaokrągleniem połowa w górę, terminy i sposoby płatności, `oid`, odstępy ponowień 1, 2, 4… ≤ 60 min |
 | `Ean13Tests` | 22 | Cyfra kontrolna, prefiks wewnętrzny `040`, 12 cyfr jako EAN-13 z wiodącym zerem |
-| `ProductPickerTests` (bUnit) | 21 | Pole produktu: Enter szuka EAN, potem SKU, potem fragmentu; kolejka skanów; szybkie skany podczas ustawiania fokusu |
+| `ProductPickerTests` (bUnit) | 22 | Pole produktu: Enter szuka EAN, potem SKU, potem fragmentu; kolejka skanów; szybkie skany podczas ustawiania fokusu; sygnał zakończenia obsługi dla testów w przeglądarce |
 | `StockDocumentEditorTests` (bUnit) | 16 | Formularz dokumentu: pola zależne od typu, przecinek dziesiętny w polskiej kulturze, Enter nie zatwierdza dokumentu |
 | `FakturowniaClientTests` | 15 | Nagłówek `Authorization: Bearer`, token nigdy w adresie, `oid_unique`, klasyfikacja błędów (5xx/429/408/sieć → przejściowy, 4xx → odmowa), dokładne dopasowanie `oid` |
 | `BatchAllocatorTests` | 15 | FEFO: najkrótsza ważność, partie bez daty na końcu, remis według wieku partii, kilka partii na pozycję, przeterminowane dla WZ i RW |
@@ -55,7 +55,7 @@ Dane testowe pochodzą z obliczeń ręcznych zapisanych w testach (np. średnia 
 
 ### Wynik
 
-226 z 226 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
+227 z 227 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
 
 ### Pokrycie kodu
 
@@ -103,13 +103,13 @@ Interpretacja:
 | `WarehousePagesTests` | 16 | Ekrany magazynu: listy, szczegóły, korekta, oznaczenia „nieaktywny” i „przeterminowana” |
 | `CatalogTests` | 15 | Produkty, kategorie, kontrahenci: unikalność, dezaktywacja z dokumentami, blokada zmiany „ma datę ważności” |
 | `WarehouseSecurityTests` | 10 | Uprawnienia bazy: brak `UPDATE`/`DELETE` na dokumentach, ruchach, partiach, pozycjach faktur i dzienniku |
-| `AnalyticsTests` | 10 | Sprzedaż i marża, filtry, ABC, zalegające, partie z bliską datą, anulowane faktury pominięte |
+| `AnalyticsTests` | 11 | Sprzedaż i marża, filtry, ABC, zalegające (także z anulowaną nowszą sprzedażą), partie z bliską datą, anulowane faktury pominięte |
 | `DemoDataGeneratorTests` | 9 | Generator: reguły aplikacji zachowane, faktury nigdy nie trafiają do wysyłki, ten sam seed daje te same dane, odmowa w środowisku produkcyjnym, spisanie wszystkich przeterminowanych partii |
 | `WarehouseConcurrencyTests` | 8 | Równoczesne przyjęcia i wydania, numeracja, idempotencja, korekty, dezaktywacja w trakcie przyjęcia, brak zakleszczeń |
 | `AuthServiceTests` | 7 | Logowanie: lista adresów, rola, wpis w dzienniku |
 | `InvoicePagesTests` | 6 | Ekrany faktur |
 
-Wynik: 149 z 149 testów przechodzi lokalnie w około 60 s (z uruchomieniem kontenera) i w CI.
+Wynik: 150 z 150 testów przechodzi lokalnie w około 75 s (z uruchomieniem kontenera) i w CI.
 
 ### Eksperyment 1: czy testy współbieżności wykrywają brak blokady
 
@@ -201,11 +201,150 @@ Scenariusze odpowiadają scenariuszom ręcznym z [`scenariusze-testowe.md`](scen
 
 Testy funkcjonalne znalazły błąd, którego nie widziały 300 innych testów: cena „2,50” wpisana w pole zapisywała się jako 250 (punkt 6, błąd 1). Pierwszy zestaw danych S1 był czerwony, dopóki pola liczbowe nie dostały polskiej kultury.
 
+**Niestabilność i jej usunięcie.** Przy pełnym zestawie uruchomionym naraz (testy integracyjne i przeglądarkowe równolegle) w 2 z 4 przebiegów padały 1–2 testy przeglądarkowe, a osobno zawsze przechodziły. Raport TRX i zrzuty ekranu pokazały wyścig z przywracaniem fokusu do pola produktu: tekst dla pola ilości trafiał do pola produktu (opis w `przygody.md`). Pole produktu ma teraz licznik `data-settled`, zwiększany dopiero po powrocie fokusu, a metody pomocnicze testów czekają na niego i na zamknięcie listy podpowiedzi. Po poprawce pełny zestaw przeszedł 4 razy z rzędu, za każdym razem 389 z 389 testów.
+
 Ręcznie, bez automatyzacji, pozostają scenariusze wymagające prawdziwych usług i urządzeń: logowanie Google, skanowanie aparatem telefonu przez tunel, czytnik USB oraz F6 i F7 na koncie testowym Fakturowni.
 
 ## 5. Testy wydajności
 
-*Sekcja w przygotowaniu: wyniki pomiarów na bazie z rokiem wygenerowanych danych.*
+### Kryteria
+
+Z punktu 10 `SPEC.md`:
+
+1. Analiza ABC i raport sprzedaży poniżej 1 s dla 100 000 ruchów magazynowych.
+2. 95% odpowiedzi HTTP poniżej 500 ms przy 20 równoczesnych użytkownikach.
+3. 0% błędów podczas testu.
+
+### Środowisko i dane
+
+- Laptop: Intel Core i5-13420H (8 rdzeni, 12 wątków), Windows 11 25H2, .NET 10.0.14, aplikacja w konfiguracji Release.
+- PostgreSQL 18.6 w Docker Desktop (12 procesorów, 8 GB pamięci dla maszyny wirtualnej), ustawienia domyślne (`shared_buffers` 128 MB, `work_mem` 4 MB). Osobna, jednorazowa baza na porcie 55432.
+- Aplikacja, baza i generator obciążenia działają na tym samym komputerze, więc wyniki są ostrożne: na serwerze z osobną bazą byłyby lepsze.
+- Dane z generatora (`--products 10000 --customers 400 --suppliers 20 --days 365 --invoices-per-day 100 --seed 2026 --prefix PERF`), wytworzone przez prawdziwe serwisy aplikacji w 33 minuty:
+
+| Tabela | Wierszy |
+|---|---:|
+| `StockMovements` (ruchy magazynowe) | **136 962** |
+| `InvoiceLines` | 67 793 |
+| `Batches` i `Stock` | po 41 247 |
+| `StockDocuments` | 31 177 (WZ 27 488, PZ 3290, PW 219, RW 180) |
+| `Invoices` | 27 459 (286 anulowanych), od 9.11.2025 do 8.11.2026 |
+| `Products` | 10 000 (9543 towary, 457 usług) |
+| `Contractors` | 420 |
+
+Baza zajmuje 97 MB. Pierwsze generowanie ujawniło błąd generatora, który dawał tylko 54 640 ruchów (punkt 6, błąd 3). Liczby powyżej pochodzą z danych wygenerowanych po poprawce.
+
+### Pomiar zapytań (BenchmarkDotNet)
+
+`tests/performance/Regal.Benchmarks` wywołuje metody `AnalyticsService` tak jak strony, dla okresu jednego roku: 2 iteracje rozgrzewające i 10 mierzonych, `MemoryDiagnoser`. Przed pomiarem wykonano `ANALYZE`, czyli odświeżono statystyki planisty.
+
+| Zapytanie | Przed | Po | Przydział pamięci |
+|---|---:|---:|---:|
+| Podsumowanie (sprzedaż, koszt, liczba faktur) | 33,5 ms | 34,1 ms | 70 KB |
+| Sprzedaż w czasie | 21,4 ms | 21,7 ms | 173 KB |
+| Sprzedaż według produktów (50 pierwszych) | 62,4 ms | 62,8 ms | 95 KB |
+| Sprzedaż według kategorii | 30,9 ms | 31,1 ms | 61 KB |
+| **Analiza ABC** (7488 produktów) | **44,2 ms** | **44,3 ms** | 3,3 MB |
+| **Zalegające** (90 dni, 200 pierwszych) | **586,3 ms** | **37,3 ms** | 186 → 204 KB |
+| Partie z bliską datą ważności | 26,8 ms | 27,2 ms | 155 KB |
+
+Odchylenie standardowe każdego pomiaru było poniżej 2% średniej. Kryterium 1 jest spełnione z dużym zapasem już przed optymalizacją: ABC 44 ms, a cały raport sprzedaży (cztery zapytania strony) około 150 ms. Jedynym zapytaniem wyraźnie odstającym był raport towarów zalegających, z którego korzysta też pulpit.
+
+### Plan zapytania i optymalizacja
+
+`EXPLAIN (ANALYZE, BUFFERS)` dla zapytania o zalegające, z SQL-em wygenerowanym przez EF Core (wypisuje go `Regal.Benchmarks -- --sql`):
+
+**Przed:** 700 ms, 830 581 odczytów stron z pamięci podręcznej. Zapytanie LINQ liczyło stan i datę ostatniej sprzedaży jako właściwości każdego produktu. EF Core przetłumaczył je na podzapytania skorelowane i powtórzył je w filtrze, w sortowaniu i w wyniku:
+
+```text
+Seq Scan on "Products" p  (actual time=0.220..367.640 rows=5609 loops=1)
+  Filter: ((Kind = 'Goods') AND ((SubPlan 4) > 0.0) AND (((SubPlan 5) IS NULL) OR ((SubPlan 6) < '2026-08-12')))
+  SubPlan 4  -> Aggregate ... loops=9543     (stan produktu, w filtrze)
+  SubPlan 5  -> Aggregate ... loops=9542     (ostatnia sprzedaż, w filtrze)
+  SubPlan 6  -> Aggregate ... loops=7142     (ostatnia sprzedaż, drugi raz)
+  SubPlan 3  -> Aggregate ... loops=5609     (stan produktu, w kluczu sortowania)
+```
+
+Dla każdego z 9543 towarów baza wykonywała kilka podzapytań z pętlą zagnieżdżoną: łącznie 41 247 odczytów stanu i 65 129 odczytów faktur w samym filtrze.
+
+**Zmiana:** stan na produkt i ostatnia sprzedaż na produkt są liczone raz, jako dwa zestawienia (`GROUP BY`), i łączone z produktami. Przy pierwszej próbie EF Core nadal tworzył podzapytanie dla daty, bo w `Max` była nawigacja `l.Invoice.IssueDate`. Pomogło dopiero jawne złączenie z tabelą faktur (`AnalyticsService.GetSlowMovingAsync`, komentarz w kodzie).
+
+**Po:** 54 ms, 2249 odczytów stron. Plan to złączenia haszujące i jedno sortowanie:
+
+```text
+Limit -> Sort (top-N heapsort)
+  -> Hash Left Join (p.Id = s1.ProductId)  Filter: LastSale IS NULL OR LastSale < '2026-08-12'
+       -> Hash Join (p.Id = s0.ProductId)
+            -> Seq Scan on Products
+            -> HashAggregate (GROUP BY b.ProductId) over Hash Join Stock x Batches
+       -> HashAggregate (GROUP BY ProductId) over Hash Join InvoiceLines x Invoices
+```
+
+**Poprawność:** wynik nowego zapytania porównano wiersz po wierszu z wynikiem starego na tych samych danych, dla 90 i 60 dni (strona i pulpit): oba zestawy po 200 wierszy były identyczne. Wszystkie testy analiz przechodzą. Doszedł test, że anulowana nowsza sprzedaż nie zmienia daty ostatniej sprzedaży, a kolejność idzie według wartości zapasu.
+
+**Indeksy.** `SPEC.md` zakładał dobór indeksów pod analizy na podstawie pomiarów. Pomiary pokazały, że nowe indeksy nie są potrzebne:
+
+- Analizy roczne czytają prawie wszystkie wiersze (67 021 z 67 793 pozycji faktur), więc planista słusznie wybiera odczyt sekwencyjny ze złączeniem haszującym. Indeks nic by tu nie dał.
+- Pulpit liczy bieżący miesiąc i korzysta z istniejącego indeksu `IX_Invoices_IssueDate`. Eksperyment w transakcji wycofanej na końcu: po usunięciu obu indeksów na dacie wystawienia podsumowanie miesiąca trwało 11,0 ms zamiast 7,7 ms. Indeks pomaga, ale przy 27 tysiącach faktur różnica jest niewielka.
+- Problemem raportu zalegających był kształt zapytania, a nie brak indeksu: podzapytania korzystały z indeksów i i tak trwały 700 ms.
+
+ABC grupuje 67 tysięcy wierszy z sortowaniem, które przy `work_mem` 4 MB zapisuje 340 stron na dysk tymczasowy. Przy 44 ms nie warto tego zmieniać.
+
+### Test obciążenia HTTP
+
+**Co mierzy.** Każdy z 20 wirtualnych użytkowników ma własne ciasteczko logowania testowego i po kolei wczytuje 8 stron (pulpit, stany, dokumenty, faktury, produkty, sprzedaż, ABC, zalegające), z przerwą 0,5 s między stronami, przez 120 s. Mierzony jest czas pełnego wczytania strony: serwer wykonuje zapytania i renderuje HTML (prerendering). Odpowiedź jest poprawna, gdy ma status 200 i zawiera przycisk „Wyloguj”. Test nie mierzy zdarzeń po wczytaniu (kliknięć, zmian filtrów), które w trybie Interactive Server idą przez SignalR; ich koszt to te same zapytania z tabeli wyżej, bez renderowania całej strony.
+
+Strony analiz liczą cały rok, a każdy użytkownik otwiera je co kilka sekund. To obciążenie znacznie cięższe niż prawdziwa praca kilku pracowników, którzy głównie wystawiają dokumenty.
+
+**Narzędzia.** Skrypt k6 (`tests/performance/k6/pages.js`) ma kryteria wpisane jako progi: `http_req_duration p(95)<500` i `http_req_failed rate==0`. Ten sam scenariusz mierzy `Regal.LoadHost --measure` w C#. Wyniki niżej pochodzą z `Regal.LoadHost`, bo pobranie k6 na tym komputerze nie było możliwe z sesji, w której powstawały pomiary. Uruchomienie k6 opisuje README.
+
+| Strona | Przed: p50 | Przed: p95 | Po: p50 | Po: p95 | Po: p99 |
+|---|---:|---:|---:|---:|---:|
+| Pulpit `/` | 1659 | 2551 | 141 | 299 | 471 |
+| Stany `/stock` | 12 | 28 | 17 | 52 | 81 |
+| Dokumenty `/stock-documents` | 11 | 29 | 16 | 50 | 76 |
+| Faktury `/invoices` | 11 | 28 | 16 | 33 | 87 |
+| Produkty `/products` | 10 | 21 | 12 | 27 | 68 |
+| Sprzedaż `/analytics/sales` | 310 | 485 | 222 | 371 | 413 |
+| ABC `/analytics/abc` | 112 | 243 | 106 | 493 | 770 |
+| Zalegające `/analytics/slow-moving` | 1486 | 2134 | 78 | 149 | 286 |
+| **Wszystkie** | **46** | **1905** | **57** | **286** | **439** |
+| Żądań w 120 s | | 2318 | | 3689 | |
+| Błędów | | 0 | | 0 | |
+| Kryteria | | **niespełnione** | | **spełnione** | |
+
+Czasy w milisekundach. Oba przebiegi mają tę samą konfigurację (Server GC, opis niżej) i różnią się tylko zapytaniem o zalegające.
+
+**Omówienie:**
+
+- Pod obciążeniem wolne zapytanie kosztowało znacznie więcej niż w pojedynczym pomiarze: 586 ms w benchmarku, a mediana strony 1486 ms. Równoczesne kopie zajmowały procesory bazy i spowalniały wszystkie strony analiz. Po poprawce pulpit przyspieszył 11 razy w medianie, a serwer obsłużył o 59% więcej żądań w tym samym czasie.
+- Po poprawce szybkie strony (stany, faktury) są nieco wolniejsze niż przed, bo w tym samym czasie obsługiwanych jest więcej żądań stron analiz. Wszystkie nadal mieszczą się w 100 ms dla p95.
+- Najwolniejszą stroną po poprawce jest ABC (p95 493 ms). Liczy wszystkie 7488 sprzedanych produktów i przydziela 3,3 MB na żądanie. Jest tuż pod progiem, więc przy większych danych to następny kandydat do optymalizacji, np. przez liczenie klas w SQL funkcjami okna albo pamięć podręczną wyniku na kilka minut.
+
+### Pomiar, który mierzył co innego: Workstation GC w hoście testowym
+
+Pierwszy pomiar „po” dał p95 573 ms, a powtórzony 439 ms. Pierwszy był dodatkowo zakłócony: jedno żądanie zanotowało 1 046 221 ms w 120-sekundowym teście, co wskazuje na zatrzymanie całego komputera, np. uśpienie, więc go odrzucono. Strona ABC miała p95 1187–1542 ms, choć jej zapytanie trwa 44 ms. Wyjaśnienie dał `dotnet-counters` (punkt 6). Tu sam wynik:
+
+| Licznik (średnio na 2 s) | Workstation GC | Server GC |
+|---|---:|---:|
+| Czas przerw GC | 0,60 s (30% czasu) | 0,03 s (1,5%) |
+| Odśmiecania gen0 / gen1 / gen2 | 17,4 / 7,9 / 3,1 | 1,1 / 1,4 / 0,6 |
+| Przydział pamięci | 161 MB | 182 MB |
+| Czas procesora (użytkownika) | 3,2 s | 2,9 s |
+
+`Regal.LoadHost` to aplikacja konsolowa, więc domyślnie działała z Workstation GC. Prawdziwa aplikacja korzysta z SDK `Microsoft.NET.Sdk.Web`, który włącza Server GC (`"System.GC.Server": true` w `Regal.Web.runtimeconfig.json`). Host testowy ma teraz `ServerGarbageCollection=true` w pliku projektu. Bez tego test mierzył przerwy odśmiecania, których działająca aplikacja nie ma.
+
+### Wnioski
+
+| Kryterium | Wynik | Spełnione |
+|---|---|---|
+| ABC i raport sprzedaży < 1 s dla 100 000 ruchów | 44 ms i ok. 150 ms przy 136 962 ruchach | Tak |
+| p95 < 500 ms przy 20 użytkownikach | 286 ms (przed poprawką 1905 ms) | Tak, po optymalizacji |
+| 0% błędów | 0 z 3689 żądań | Tak |
+
+- Benchmark pojedynczego zapytania nie wystarczy: 586 ms mieści się w kryterium 1 s, a pod obciążeniem to samo zapytanie podniosło p95 wszystkich stron do 1,9 s.
+- LINQ, który dobrze czyta się w C#, może dać zły SQL. Bez sprawdzenia planu nie było tego widać, bo testy sprawdzają wynik, a nie sposób jego obliczenia.
+- Środowisko testu musi odpowiadać produkcji także w ustawieniach środowiska uruchomieniowego, nie tylko w kodzie.
 
 ## 6. Debugowanie
 
@@ -238,13 +377,18 @@ Opisane są prawdziwe błędy z tego projektu: objaw, jak go namierzono, przyczy
 - **Przyczyna:** narzędzie dodawało User Secrets projektu webowego po domyślnych źródłach konfiguracji, w tym po zmiennych środowiskowych. Późniejsze źródło wygrywa, więc sekrety nadpisywały jawnie podane połączenie.
 - **Poprawka:** konfiguracja budowana ręcznie w ustalonej kolejności (wiersz poleceń > zmienne środowiskowe > User Secrets), a przed zapisem generator wypisuje bazę docelową, bez hasła. Bazę deweloperską wyczyszczono w porozumieniu z autorem.
 
-### Ślad wykonania (`dotnet-trace`)
+### Błąd 5: skoki czasu odpowiedzi w teście obciążenia (`dotnet-counters`, `dotnet-trace`)
 
-*Opis w przygotowaniu razem z testami wydajności.*
+- **Objaw:** w teście 20 użytkowników strona ABC miała p95 1187–1542 ms, a jej zapytanie w benchmarku trwało stabilnie 44 ms. Dwa przebiegi tego samego testu dały p95 wszystkich stron 573 i 439 ms.
+- **Ślad wykonania:** `dotnet-trace collect -p <pid> --profile dotnet-common,dotnet-sampled-thread-time --duration 00:00:00:25` w trakcie testu, a potem `dotnet-trace report load.nettrace topN`. Wątki puli przez 55% czasu czekały na pracę (`LowLevelLifoSemaphore.WaitForSignal`), kolejka puli była pusta, a własny kod aplikacji (np. `AbcClassifier.Classify`) zajmował poniżej 1% próbek. Procesor aplikacji nie był więc przeciążony. W śladzie widać było natomiast finalizatory i `PollGC`, czyli pracę odśmiecacza.
+- **Liczniki:** `dotnet-counters collect -p <pid> --counters System.Runtime --format csv` przez 30 s pokazał 0,6 s przerw GC na każde 2 s i 3 pełne odśmiecania (gen2) na 2 s.
+- **Przyczyna:** host testu obciążenia był aplikacją konsolową z Workstation GC, a `Regal.Web` działa z Server GC (`runtimeconfig.json`). Wyniki opisywały więc host testowy, a nie aplikację.
+- **Poprawka:** `ServerGarbageCollection=true` w `Regal.LoadHost.csproj`. Przerwy GC spadły do 0,03 s na 2 s, p95 strony ABC do 493 ms, a wszystkich stron do 286 ms. Pomiar „przed” optymalizacją powtórzono z tym samym ustawieniem (punkt 5).
+- **Przy okazji:** `Regal.LoadHost` uruchomiony przez `dotnet run` w ogóle nie startował (`DirectoryNotFoundException: …\regal\Regal.Web\`). W kodzie źródłowym `WebApplicationFactory` znalazłem przyczynę: plik `MvcTestingAppManifest.json` ze ścieżką projektu jest szukany w bieżącym katalogu, a runner testów, w odróżnieniu od `dotnet run`, startuje w katalogu wyjściowym. Host ustawia teraz bieżący katalog na `AppContext.BaseDirectory`.
 
 ### Wnioski z debugowania
 
-- Trzy z czterech błędów nie dawały wyjątku, tylko złe liczby. Dlatego testy sprawdzają wartości (średnią, liczbę żądań, liczbę faktur), a nie tylko brak błędu.
+- Cztery z pięciu błędów nie dawały wyjątku, tylko złe liczby. Dlatego testy sprawdzają wartości (średnią, liczbę żądań, liczbę faktur), a nie tylko brak błędu.
 - W testach komponentów trzeba rozumieć, jak narzędzie wysyła zdarzenia, bo inaczej szuka się błędu w aplikacji, który jest w teście.
 - Narzędzie, które pisze do bazy, powinno najpierw pokazać, dokąd pisze.
 
@@ -256,4 +400,4 @@ Porównanie wybranych narzędzi z alternatywami i uzasadnienie wyboru jest w [`n
 - **Testcontainers z PostgreSQL**, a nie baza w pamięci, bo testowane mechanizmy (`FOR UPDATE`, `SKIP LOCKED`, uprawnienia, `CHECK`) istnieją tylko w prawdziwej bazie. Eksperymenty z punktu 3 pokazują, że te testy potrafią się nie udać.
 - **Playwright**, bo automatycznie czeka na elementy. Ma to znaczenie w Blazorze, gdzie strona staje się interaktywna chwilę po wczytaniu.
 - **BenchmarkDotNet i `EXPLAIN (ANALYZE, BUFFERS)`** dla zapytań; **k6** i równoważny pomiar w C# dla HTTP.
-- **coverlet** dla pokrycia; **debugger, logi i `dotnet-trace`** do debugowania.
+- **coverlet** dla pokrycia; do debugowania **testy odtwarzające błąd, logi (SQL z EF Core), zapytania do bazy, `dotnet-counters` i `dotnet-trace`**.

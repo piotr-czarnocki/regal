@@ -50,8 +50,8 @@ Około 15 minut: 10 slajdów i pokaz na żywo według [`pokaz-na-zywo.md`](pokaz
 
 | Rodzaj | Liczba | Narzędzie |
 |---|---:|---|
-| Jednostkowe | 226 | xUnit, bUnit |
-| Integracyjne | 149 | Testcontainers, PostgreSQL 18 |
+| Jednostkowe | 227 | xUnit, bUnit |
+| Integracyjne | 150 | Testcontainers, PostgreSQL 18 |
 | Funkcjonalne | 12 | Playwright |
 | Wydajności | 7 zapytań, 8 stron | BenchmarkDotNet, k6 |
 
@@ -68,10 +68,13 @@ Około 15 minut: 10 slajdów i pokaz na żywo według [`pokaz-na-zywo.md`](pokaz
 
 ## 9. Wydajność i błędy
 
-- Rok danych: 10 000 produktów, ponad 100 000 ruchów magazynowych
-- Analizy ABC i sprzedaży: *(wyniki z `analiza-dynamiczna.md`, punkt 5)*
-- 20 użytkowników: *(p95 z pomiaru)*
-- Prawdziwe błędy: „2,50 → 250” (znalazł Playwright), zgubione skany (bUnit), generator z 3 razy mniejszą sprzedażą (dane), generator piszący do złej bazy
+- Rok danych: 10 000 produktów, 27 459 faktur, 136 962 ruchy magazynowe
+- ABC 44 ms, raport sprzedaży ok. 150 ms (cel < 1 s)
+- 20 użytkowników: p95 **1905 ms → 286 ms** (cel < 500 ms), 0 błędów
+- Przyczyna: raport zalegających, LINQ → podzapytania skorelowane powtórzone 4 razy (700 ms, 830 tys. odczytów stron) → dwa zestawienia `GROUP BY` (54 ms, 2 tys.); wynik identyczny wiersz po wierszu
+- Prawdziwe błędy: „2,50 → 250” (znalazł Playwright), zgubione skany (bUnit), generator z 3 razy mniejszą sprzedażą (dane), Workstation GC w hoście testów (`dotnet-counters`)
+
+*Notatka:* benchmark 586 ms mieścił się w celu 1 s, a pod obciążeniem ten sam raport zepsuł wszystkie strony. Indeksy nie były potrzebne, bo problemem był kształt zapytania.
 
 ## 10. Czego się nauczyłem
 

@@ -118,7 +118,7 @@ $env:ConnectionStrings__Regal = "Host=127.0.0.1;Port=55432;Database=regal;Userna
 dotnet run --project tools/Regal.DataGenerator -c Release -- --environment Testing --products 10000 --customers 400 --suppliers 20 --invoices-per-day 100 --seed 2026 --prefix PERF
 ```
 
-Generowanie trwa około godziny. Potem:
+Generowanie trwa około pół godziny. Potem:
 
 ```powershell
 $env:REGAL_PERF_CONNECTION = "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_app"
@@ -262,7 +262,7 @@ $env:ConnectionStrings__Regal = "Host=127.0.0.1;Port=55432;Database=regal;Userna
 dotnet run --project tools/Regal.DataGenerator -c Release -- --environment Testing --products 10000 --customers 400 --suppliers 20 --invoices-per-day 100 --seed 2026 --prefix PERF
 ```
 
-Generating takes about an hour. Then:
+Generating takes about half an hour. Then:
 
 ```powershell
 $env:REGAL_PERF_CONNECTION = "Host=127.0.0.1;Port=55432;Database=regal;Username=regal_app"
