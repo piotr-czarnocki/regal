@@ -11,7 +11,8 @@
         <MudItem xs="12" md="6">
             <MudAutocomplete T="ContractorListItem" Value="_contractor" ValueChanged="OnContractorChanged" SearchFunc="SearchContractorsAsync"
                              ToStringFunc="ContractorText"
-                             Label="Nabywca" DebounceInterval="300" ResetValueOnEmptyText="true" CoerceText="true" Clearable="true" />
+                             Label="Nabywca" DebounceInterval="300" ResetValueOnEmptyText="true" CoerceText="true" Clearable="@(OrderId is null)"
+                             ReadOnly="@(OrderId is not null)" HelperText="@(OrderId is null ? null : "Nabywca z zamówienia")" />
         </MudItem>
         <MudItem xs="6" md="3">
             <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" Value="_paymentDays" ValueChanged="value => Changed(() => _paymentDays = value)" Label="Termin płatności (dni)"
@@ -132,6 +133,14 @@
     [Parameter]
     public ContractorListItem? InitialContractor { get; set; }
 
+    /// <summary>The customer order this invoice completes; its buyer cannot be changed.</summary>
+    [Parameter]
+    public int? OrderId { get; set; }
+
+    /// <summary>Lines to start with, e.g. from a customer order, at catalog prices.</summary>
+    [Parameter]
+    public IReadOnlyList<(ProductPick Product, decimal Quantity)> InitialLines { get; set; } = [];
+
     [Parameter, EditorRequired]
     public Func<string, CancellationToken, Task<IReadOnlyList<ProductPick>>> SearchProducts { get; set; } = null!;
 
@@ -153,7 +162,11 @@
 
     private bool CanIssue => !_busy && _preview is not null && _preview.All(row => row.Error is null);
 
-    protected override void OnInitialized() => _contractor = InitialContractor;
+    protected override void OnInitialized()
+    {
+        _contractor = InitialContractor;
+        _lines.AddRange(InitialLines.Select(initial => new Line(initial.Product) { Quantity = initial.Quantity }));
+    }
 
     private static string? ContractorText(ContractorListItem? contractor) =>
         contractor is null ? null : contractor.Nip is null ? contractor.Name : $"{contractor.Name} (NIP {contractor.Nip})";
@@ -196,6 +209,7 @@
         ContractorId = _contractor?.Id,
         PaymentDays = _paymentDays,
         PaymentMethod = _paymentMethod,
+        OrderId = OrderId,
         Lines = _lines.Select(line => new InvoiceDraftLine
         {
             ProductId = line.Product.Id,
@@ -269,7 +283,9 @@
         {
             var confirmed = await Dialogs.ShowMessageBoxAsync(
                 "Wystawić fakturę?",
-                "Faktura trafi do Fakturowni, a towar zostanie wydany dokumentem WZ. Wystawionej faktury nie można zmienić.",
+                OrderId is null
+                    ? "Faktura trafi do Fakturowni, a towar zostanie wydany dokumentem WZ. Wystawionej faktury nie można zmienić."
+                    : "Faktura trafi do Fakturowni, towar zostanie wydany dokumentem WZ, a zamówienie zostanie zrealizowane w całości. Wystawionej faktury nie można zmienić.",
                 yesText: "Wystaw",
                 cancelText: "Wróć");
             if (confirmed != true)

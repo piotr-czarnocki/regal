@@ -137,6 +137,7 @@ public sealed class StockDocumentService(
         var productIds = draft.Lines.Select(line => line.ProductId).Distinct().ToArray();
         var products = await db.Products.AsNoTracking().Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, cancellationToken);
         var available = await LoadAvailabilityAsync(db, productIds, cancellationToken);
+        var reserved = await LoadReservedForSaleAsync(db, draft, productIds, cancellationToken);
         var today = WarehouseTime.DateOf(timeProvider.GetUtcNow());
 
         return draft.Lines.Select(line =>
@@ -146,8 +147,10 @@ public sealed class StockDocumentService(
                 return new IssuePreviewLine(line.ProductId, string.Empty, [], "Nie znaleziono produktu.");
             }
 
-            var error = StockDraftValidator.ValidateQuantity(line.Quantity, product.Unit);
-            var plan = error is null ? PlanIssue(draft.Type, line, available[line.ProductId].ToList(), today) : AllocationPlan.Fail(error);
+            var batches = available[line.ProductId].ToList();
+            var error = StockDraftValidator.ValidateQuantity(line.Quantity, product.Unit)
+                ?? CheckReservation(reserved, line, product, batches, today);
+            var plan = error is null ? PlanIssue(draft.Type, line, batches, today) : AllocationPlan.Fail(error);
             return new IssuePreviewLine(product.Id, product.Name, plan.Allocations, plan.Error);
         }).ToList();
     }
@@ -362,13 +365,16 @@ public sealed class StockDocumentService(
     {
         var today = WarehouseTime.DateOf(now);
         var available = await LoadAvailabilityAsync(db, products.Keys, cancellationToken);
+        var reserved = await LoadReservedForSaleAsync(db, draft, products.Keys, cancellationToken);
         var movements = new List<StockMovement>();
 
         foreach (var line in draft.Lines)
         {
             var product = products[line.ProductId];
-            var error = StockDraftValidator.ValidateQuantity(line.Quantity, product.Unit);
-            var plan = error is null ? PlanIssue(draft.Type, line, available[line.ProductId].ToList(), today) : AllocationPlan.Fail(error);
+            var batches = available[line.ProductId].ToList();
+            var error = StockDraftValidator.ValidateQuantity(line.Quantity, product.Unit)
+                ?? CheckReservation(reserved, line, product, batches, today);
+            var plan = error is null ? PlanIssue(draft.Type, line, batches, today) : AllocationPlan.Fail(error);
             if (plan.Error is not null)
             {
                 return SaveResult.Fail($"{product.Name}: {plan.Error}");
@@ -506,6 +512,28 @@ public sealed class StockDocumentService(
         }
 
         return averages;
+    }
+
+    /// <summary>
+    /// Only a WZ is a sale, so only a WZ respects reservations. An RW records a loss and a correction
+    /// a mistake; both happened whatever was promised (SPEC 5.11). Null when nothing is checked.
+    /// </summary>
+    private static async Task<Dictionary<int, decimal>?> LoadReservedForSaleAsync(
+        RegalDbContext db, StockDocumentDraft draft, IEnumerable<int> productIds, CancellationToken cancellationToken) =>
+        draft.Type == StockDocumentType.WZ
+            ? await Reservations.ReservedAsync(db, productIds, draft.OrderId, cancellationToken)
+            : null;
+
+    private static string? CheckReservation(
+        Dictionary<int, decimal>? reserved, StockDocumentLine line, Product product, List<BatchAvailability> batches, DateOnly today)
+    {
+        if (reserved is null || !reserved.TryGetValue(line.ProductId, out var quantity))
+        {
+            return null;
+        }
+
+        var unexpired = batches.Where(b => !BatchAllocator.IsExpired(b.ExpiryDate, today)).Sum(b => b.Quantity);
+        return Reservations.CheckSale(line.Quantity, unexpired, quantity, product.Unit);
     }
 
     private static AllocationPlan PlanIssue(StockDocumentType type, StockDocumentLine line, List<BatchAvailability> batches, DateOnly today) =>

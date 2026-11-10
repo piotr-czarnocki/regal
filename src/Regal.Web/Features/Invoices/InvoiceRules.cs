@@ -17,6 +17,9 @@ public sealed class InvoiceDraft
 
     public string PaymentMethod { get; set; } = InvoicePaymentMethods.Default;
 
+    /// <summary>The customer order this invoice completes; it uses that order's reservation.</summary>
+    public int? OrderId { get; set; }
+
     public List<InvoiceDraftLine> Lines { get; set; } = [];
 }
 
@@ -168,6 +171,7 @@ public static class InvoicePayload
         RequestId = draft.RequestId,
         Type = StockDocumentType.WZ,
         ContractorId = draft.ContractorId,
+        OrderId = draft.OrderId,
         Lines = draft.Lines
             .Where(line => goodsIds.Contains(line.ProductId))
             .Select(line => new StockDocumentLine { ProductId = line.ProductId, Quantity = line.Quantity })

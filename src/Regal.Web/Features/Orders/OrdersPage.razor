@@ -1,0 +1,70 @@
+@page "/orders"
+@inject CustomerOrderService Orders
+
+<PageTitle>Zamówienia – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Zamówienia klientów</MudText>
+
+    <MudGrid Spacing="2" Class="mb-2">
+        <MudItem xs="12" sm="6" md="5">
+            <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: numer, nabywca" Immediate="true" DebounceInterval="300"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="CustomerOrderStatus?" Value="_status" ValueChanged="OnStatusChanged" Label="Status">
+                <MudSelectItem T="CustomerOrderStatus?" Value="null">Wszystkie</MudSelectItem>
+                @foreach (var status in Enum.GetValues<CustomerOrderStatus>())
+                {
+                    <MudSelectItem T="CustomerOrderStatus?" Value="status">@OrderRules.StatusLabel(status)</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="4" Class="d-flex align-center justify-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@OrderRoutes.New">Nowe zamówienie</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <MudTable @ref="_table" T="OrderListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+        <HeaderContent>
+            <MudTh>Numer</MudTh>
+            <MudTh>Data</MudTh>
+            <MudTh>Nabywca</MudTh>
+            <MudTh>Pozycje</MudTh>
+            <MudTh>Status</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Numer"><MudLink Href="@OrderRoutes.Details(context.Id)">@context.Number</MudLink></MudTd>
+            <MudTd DataLabel="Data">@StockLabels.Date(context.OrderDate)</MudTd>
+            <MudTd DataLabel="Nabywca">@context.ContractorName</MudTd>
+            <MudTd DataLabel="Pozycje">@context.LineCount</MudTd>
+            <MudTd DataLabel="Status"><OrderStatusChip Status="context.Status" /></MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak zamówień.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private MudTable<OrderListItem>? _table;
+    private string? _search;
+    private CustomerOrderStatus? _status;
+
+    private async Task<TableData<OrderListItem>> LoadAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await Orders.SearchAsync(new OrderFilter(_status, _search), state.Page, state.PageSize, cancellationToken);
+        return new TableData<OrderListItem> { Items = result.Items, TotalItems = result.TotalCount };
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return _table!.ReloadServerData();
+    }
+
+    private Task OnStatusChanged(CustomerOrderStatus? value)
+    {
+        _status = value;
+        return _table!.ReloadServerData();
+    }
+}

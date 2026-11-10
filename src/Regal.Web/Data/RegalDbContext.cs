@@ -36,8 +36,47 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
+
+    public DbSet<CustomerOrderLine> CustomerOrderLines => Set<CustomerOrderLine>();
+
+    public DbSet<OrderCounter> OrderCounters => Set<OrderCounter>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CustomerOrder>(order =>
+        {
+            order.ToTable("CustomerOrders");
+            order.Property(o => o.Number).HasMaxLength(30);
+            order.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
+            order.Property(o => o.Notes).HasMaxLength(500);
+            order.HasIndex(o => o.Number).IsUnique();
+            order.HasIndex(o => o.RequestId).IsUnique();
+            order.HasIndex(o => o.InvoiceId).IsUnique();
+            order.HasIndex(o => new { o.Status, o.CreatedAt });
+            order.HasOne(o => o.Contractor).WithMany().HasForeignKey(o => o.ContractorId).OnDelete(DeleteBehavior.Restrict);
+            order.HasOne(o => o.User).WithMany().HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Restrict);
+            order.HasOne(o => o.Invoice).WithMany().HasForeignKey(o => o.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CustomerOrderLine>(line =>
+        {
+            line.ToTable("CustomerOrderLines", table =>
+                table.HasCheckConstraint("CK_CustomerOrderLines_Quantity_Positive", "\"Quantity\" > 0"));
+            line.Property(l => l.Quantity).HasPrecision(18, 3);
+            line.HasIndex(l => new { l.OrderId, l.ProductId }).IsUnique();
+            line.HasIndex(l => l.ProductId);
+            line.HasOne(l => l.Order).WithMany(o => o.Lines).HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.Restrict);
+            line.HasOne(l => l.Product).WithMany().HasForeignKey(l => l.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<OrderCounter>(counter =>
+        {
+            counter.ToTable("OrderCounters");
+            counter.HasKey(c => c.Year);
+            counter.Property(c => c.Year).ValueGeneratedNever();
+        });
+
         modelBuilder.Entity<Invoice>(invoice =>
         {
             invoice.ToTable("Invoices");

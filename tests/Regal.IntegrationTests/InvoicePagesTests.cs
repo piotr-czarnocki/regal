@@ -26,6 +26,7 @@ public sealed class InvoicePagesTests : InvoiceTestBase
         _context.Services.AddScoped(_ => Documents);
         _context.Services.AddScoped(_ => Stock);
         _context.Services.AddScoped(_ => Contractors);
+        _context.Services.AddScoped(_ => new Regal.Web.Features.Orders.CustomerOrderService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         _context.Render<MudPopoverProvider>();
         _dialogs = _context.Render<MudDialogProvider>();
     }

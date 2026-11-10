@@ -1,0 +1,141 @@
+@page "/orders/{Id:int}"
+@inject CustomerOrderService Orders
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_order?.Number ?? "Zamówienie") – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono zamówienia.</MudAlert>
+    }
+    else if (_order is { } order)
+    {
+        <div class="d-flex flex-wrap align-center gap-2 mb-2">
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@order.Number</MudText>
+            <OrderStatusChip Status="order.Status" />
+            @if (order.Status == CustomerOrderStatus.Open)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@OrderRoutes.Invoice(order.Id)">Wystaw fakturę</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="CancelAsync" Disabled="_working">Anuluj zamówienie</MudButton>
+            }
+        </div>
+
+        @if (order.Lines.Any(l => l.Missing > 0))
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                Części towaru nie ma już na stanie (np. po spisaniu strat). Faktura z tego zamówienia wyda tylko to, co jest dostępne.
+            </MudAlert>
+        }
+
+        @if (order.InvoiceId is { } invoiceId)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-3">
+                Zrealizowane fakturą <MudLink Href="@InvoiceRoutes.Details(invoiceId)">@(order.InvoiceNumber ?? "(numer po wysłaniu)")</MudLink>.
+            </MudAlert>
+        }
+
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">Nabywca</MudText>
+                <MudText>@order.Contractor.Name @(order.Contractor.Nip is null ? null : $"(NIP {order.Contractor.Nip})")</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.body2">Data</MudText>
+                <MudText>@StockLabels.Date(order.OrderDate)</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.body2">Przyjął</MudText>
+                <MudText>@order.UserEmail</MudText>
+            </MudItem>
+            @if (order.Notes is not null)
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.body2">Uwagi</MudText>
+                    <MudText>@order.Notes</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudTable T="OrderLineRow" Items="order.Lines" Dense="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Produkt</MudTh>
+                <MudTh>Zamówiono</MudTh>
+                @if (order.Status == CustomerOrderStatus.Open)
+                {
+                    <MudTh>Dostępne dla zamówienia</MudTh>
+                }
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Produkt">@context.ProductName</MudTd>
+                <MudTd DataLabel="Zamówiono">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                @if (order.Status == CustomerOrderStatus.Open)
+                {
+                    <MudTd DataLabel="Dostępne dla zamówienia">
+                        @if (context.Available is { } available)
+                        {
+                            @($"{StockLabels.Quantity(available)} {context.Unit}")
+                            @if (context.Missing > 0)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Warning">brakuje @StockLabels.Quantity(context.Missing)</MudChip>
+                            }
+                        }
+                        else
+                        {
+                            <span>usługa</span>
+                        }
+                    </MudTd>
+                }
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
+
+@code {
+    private OrderDetails? _order;
+    private bool _notFound;
+    private bool _working;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _order = await Orders.GetDetailsAsync(Id);
+        _notFound = _order is null;
+    }
+
+    private async Task CancelAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Anulować zamówienie?",
+                "Rezerwacja towaru zostanie zwolniona. Anulowanego zamówienia nie można przywrócić.",
+                yesText: "Anuluj zamówienie",
+                cancelText: "Wróć");
+            if (confirmed != true)
+            {
+                return;
+            }
+
+            var result = await Orders.CancelAsync(Id);
+            Snackbar.Add(result.IsSuccess ? "Zamówienie zostało anulowane." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Error);
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+}

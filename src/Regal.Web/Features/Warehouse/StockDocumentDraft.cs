@@ -13,6 +13,12 @@ public sealed class StockDocumentDraft
 
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// A WZ for an invoice issued from this customer order: the order's own reservation counts as
+    /// available to it. Set only by the invoice service, never from a stock document form.
+    /// </summary>
+    public int? OrderId { get; set; }
+
     public List<StockDocumentLine> Lines { get; set; } = [];
 }
 

@@ -147,6 +147,97 @@ namespace Regal.Web.Data.Migrations
                     b.ToTable("Contractors", (string)null);
                 });
 
+            modelBuilder.Entity("Regal.Web.Data.Entities.CustomerOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ContractorId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("InvoiceId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateOnly>("OrderDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractorId");
+
+                    b.HasIndex("InvoiceId")
+                        .IsUnique();
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("CustomerOrders", (string)null);
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.CustomerOrderLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("OrderId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerOrderLines", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CustomerOrderLines_Quantity_Positive", "\"Quantity\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("Regal.Web.Data.Entities.DocumentCounter", b =>
                 {
                     b.Property<string>("Type")
@@ -324,6 +415,19 @@ namespace Regal.Web.Data.Migrations
 
                             t.HasCheckConstraint("CK_InvoiceLines_Quantity_Positive", "\"Quantity\" > 0");
                         });
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.OrderCounter", b =>
+                {
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Year");
+
+                    b.ToTable("OrderCounters", (string)null);
                 });
 
             modelBuilder.Entity("Regal.Web.Data.Entities.OutboxMessage", b =>
@@ -638,6 +742,51 @@ namespace Regal.Web.Data.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Regal.Web.Data.Entities.CustomerOrder", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.Contractor", "Contractor")
+                        .WithMany()
+                        .HasForeignKey("ContractorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Regal.Web.Data.Entities.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Regal.Web.Data.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contractor");
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.CustomerOrderLine", b =>
+                {
+                    b.HasOne("Regal.Web.Data.Entities.CustomerOrder", "Order")
+                        .WithMany("Lines")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Regal.Web.Data.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Regal.Web.Data.Entities.Invoice", b =>
                 {
                     b.HasOne("Regal.Web.Data.Entities.Contractor", "Contractor")
@@ -766,6 +915,11 @@ namespace Regal.Web.Data.Migrations
                     b.Navigation("Batch");
 
                     b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("Regal.Web.Data.Entities.CustomerOrder", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Regal.Web.Data.Entities.Invoice", b =>
