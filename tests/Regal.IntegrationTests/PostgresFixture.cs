@@ -18,6 +18,11 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public PostgresFixture()
     {
+        // Page tests wait for renders that need the database. bUnit's default of one second was too
+        // short on the CI runner (a pass on this computer failed there); a passing wait ends at once,
+        // so a longer limit costs nothing. Every test of this project shares this fixture.
+        Bunit.BunitContext.DefaultWaitTimeout = TimeSpan.FromSeconds(10);
+
         _container = new PostgreSqlBuilder("postgres:18.6")
             .WithDatabase("regal")
             .WithUsername("regal_owner")

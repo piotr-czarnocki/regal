@@ -254,3 +254,9 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** test strony arkusza czasem kończył się różnicą −4 zamiast −3, tylko w pełnym zestawie testów. Raport TRX: „Check count: 1”, czyli po drugim skanie strona nie przerenderowała się ani razu.
 - **Przyczyna:** bUnit wysyła zdarzenia bez czekania na ich obsługę. Drugi skan trafiał w trwającą obsługę pierwszego (zapis w bazie i odświeżenie arkusza) i ginął w samym teście. To ten sam efekt, który wcześniej dwa razy zmylił przy błędzie z Enterem.
 - **Rozwiązanie:** pomocnicza metoda skanu czeka na zmianę licznika `data-settled` pola produktu, tego samego, na który czekają testy w przeglądarce. Oczekiwanie na operacje na bazie wydłużone do 10 s.
+
+### Test zielony lokalnie, czerwony w CI
+
+- **Objaw:** po scaleniu danych po NIP-ie CI zgłosiło błąd starego testu `Inactive_product_is_not_added_by_ean_or_by_fragment` (strona nowego dokumentu, bUnit): „The assertion did not pass within the timeout period”. Lokalnie przechodził.
+- **Przyczyna:** testy stron czekają na odświeżenie, które wymaga zapytań do bazy, a domyślny limit oczekiwania bUnit to 1 s. Maszyna CI jest wolniejsza, a testów przybyło, więc czasem nie zdążyła.
+- **Rozwiązanie:** domyślny limit 10 s dla całego projektu testów integracyjnych, ustawiany w fiksturze bazy. Udany warunek kończy oczekiwanie od razu, więc zielone testy nie zwalniają. Nie zmieniałem metody skanu, bo część testów celowo skanuje szybko, bez czekania.
