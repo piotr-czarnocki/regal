@@ -32,6 +32,8 @@ Pokaz trwa około 10 minut i przechodzi przez cały obieg towaru: przyjęcie, wy
 | 8:00 | 9. Testy i CI | GitHub → Actions: zielony przebieg; `docs/analiza-dynamiczna.md`: wyniki eksperymentu bez `FOR UPDATE` i pomiarów wydajności | Test współbieżności sprawdzony przez usunięcie blokady: bez niej 5 testów pada |
 | 9:00 | Pytania | | |
 
+**Krok dodatkowy, jeśli zostanie czas (2 min):** zamówienie klienta (poziom 2). „Nowe zamówienie” na 5 szt wody dla Sklepu, „Stany magazynowe” pokazują „zarezerwowano 5”, ręczny WZ na cały stan zostaje odrzucony w podglądzie, a „Wystaw fakturę” w zamówieniu wypełnia fakturę i realizuje zamówienie. Komentarz: rezerwacja to odczyt i zapis rozdzielone w czasie, więc też blokuje wiersze produktów; eksperyment z jej usunięciem jest w `analiza-dynamiczna.md`.
+
 ## Plan awaryjny
 
 | Problem | Co robić |

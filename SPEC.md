@@ -38,7 +38,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 
 ### Poziom 2 – jeśli zostanie czas (w tej kolejności)
 
-1. Zamówienia klientów (ZK) z rezerwacją towaru, bez wygasania.
+1. Zamówienia klientów (ZK) z rezerwacją towaru, bez wygasania. **Gotowe** (punkt 5.11).
 2. Proforma i faktura korygująca przez Fakturownię.
 3. Wysyłka faktury mailem, status płatności z Fakturowni.
 4. Inwentaryzacja ze skanowaniem.
@@ -203,6 +203,23 @@ Ustalenia etapu „Analizy”:
 - Zawiera użytkownika, czas, działanie i identyfikator rekordu, ale nigdy tokenów ani sekretów.
 - Wpisów nie można zmieniać ani usuwać z aplikacji.
 
+### 5.11. Zamówienia klientów (poziom 2)
+
+Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturowany.
+
+- Numeracja `ZK/{numer}/{rok}`, osobna dla każdego roku, bez luk, według czasu Europe/Warsaw.
+- Zamówienie ma nabywcę (aktywny kontrahent, wymagany), od 1 do 200 pozycji i uwagi do 500 znaków. Pozycja to aktywny produkt i ilość; każdy produkt występuje raz, a ilość podlega tym samym regułom co na dokumentach. Cen nie ma: ustala je faktura.
+- Statusy: **otwarte**, **zrealizowane** (wystawiono z niego fakturę) i **anulowane**. Zamówienia nie można edytować ani usunąć. Rezerwacja nie wygasa sama.
+- **Rezerwacja** dotyczy tylko towarów. Zarezerwowana ilość produktu to suma pozycji otwartych zamówień. **Dostępne do sprzedaży** = stan partii, które nie są przeterminowane, minus zarezerwowane.
+- Zamówienie można zapisać tylko wtedy, gdy dla każdego towaru zamówiona ilość nie przekracza dostępnej do sprzedaży. Nie ma zamówień „na brak” ani rezerwacji częściowych.
+- Rezerwację respektują wydania sprzedażowe: WZ wpisany ręcznie i faktura nie mogą zabrać towaru zarezerwowanego dla innych zamówień.
+- RW i korekty dokumentów nie patrzą na rezerwacje, bo opisują to, co fizycznie się stało (strata, pomyłka). Zamówienie może wtedy stracić pokrycie. Szczegóły zamówienia pokazują, ile brakuje.
+- **Faktura z zamówienia:** formularz faktury wypełnia się nabywcą i pozycjami zamówienia; nabywcy nie można zmienić, a ceny, rabaty i ilości tak. Wystawienie w jednej transakcji tworzy WZ (z użyciem rezerwacji tego zamówienia) i oznacza zamówienie jako zrealizowane w całości.
+- **Anulowanie** otwartego zamówienia zwalnia rezerwację. Zrealizowanego zamówienia nie można anulować; jego skutki cofa anulowanie faktury, ale zamówienie zostaje zrealizowane.
+- Ponowne wysłanie tego samego formularza (ten sam `RequestId`) nie tworzy drugiego zamówienia.
+- **Współbieżność:** zapis zamówienia blokuje wiersze `Products` swoich towarów (rosnąco, jak dokumenty), więc rezerwacja i wydanie tego samego produktu idą po kolei. Faktura z zamówienia najpierw blokuje wiersz zamówienia, potem produkty; anulowanie blokuje tylko wiersz zamówienia. Kolejność jest stała, więc nie ma zakleszczeń.
+- Rola bazy aplikacji nie ma `DELETE` na zamówieniach ani `UPDATE`/`DELETE` na pozycjach; w zamówieniu może zmieniać tylko status i powiązaną fakturę.
+
 ## 6. Technologie
 
 | Obszar | Wybór |
@@ -228,7 +245,7 @@ Jedna aplikacja podzielona na moduły, bez mikroserwisów:
 src/Regal.Web/
   Components/        układ i współdzielone komponenty
   Features/
-    Auth/  Products/  Contractors/  Warehouse/  Invoices/  Analytics/  Audit/
+    Auth/  Products/  Contractors/  Warehouse/  Invoices/  Orders/  Analytics/  Audit/
   Integrations/
     Fakturownia/     klient API i proces wysyłki w tle
   Data/              DbContext, encje, migracje, generator danych
@@ -265,6 +282,9 @@ Zasady:
 | `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, kopia nazwy i jednostki, ilość, cena netto, rabat %, stawka VAT, wartości netto, VAT i brutto, koszt jednostkowy |
 | `OutboxMessages` | `Id`, `Type`, `InvoiceId`, `Payload` (pełne żądanie z chwili wystawienia), `Attempts`, `NextAttemptAt` (puste: nic do zrobienia), `LockedUntil` (dzierżawa), `LastError` |
 | `DocumentCounters` | `Type`, `Year` (klucz złożony), `LastNumber` |
+| `CustomerOrders` | `Id`, `Number` (unikalny), `Status`, `ContractorId`, `UserId`, `CreatedAt` (UTC), `OrderDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny), `InvoiceId` (faktura, która je zrealizowała) |
+| `CustomerOrderLines` | `Id`, `OrderId`, `ProductId` (unikalne razem), `Quantity` z `CHECK (Quantity > 0)` |
+| `OrderCounters` | `Year` (klucz), `LastNumber` |
 | `AuditLog` | `Id`, `UserId`, `Action`, `EntityType`, `EntityId`, `Details`, `CreatedAt` |
 
 Kluczowe reguły:
@@ -274,7 +294,7 @@ Kluczowe reguły:
 - **Wydanie:** warunkowy `UPDATE "Stock" ... WHERE "Quantity" >= @ilosc`; zero zmienionych wierszy oznacza brak towaru. Razem z `CHECK` to ostatnia bariera.
 - **Numeracja:** licznik zwiększany w tej samej transakcji co dokument (`INSERT ... ON CONFLICT DO UPDATE ... RETURNING`), więc wycofanie nie zostawia luki. Blokada wiersza licznika sprawia, że dokumenty tego samego typu zapisują się po kolei od chwili pobrania numeru.
 - **Transakcja wywołującego:** przyjęcie i wydanie można wykonać w cudzej otwartej transakcji; błąd cofa tylko dokument (savepoint). Faktura w etapie 3 tworzy WZ w ten sposób, raz na transakcję i zanim zablokuje inne produkty.
-- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches`, `InvoiceLines` i `AuditLog`. W `Invoices` może zmieniać tylko kolumny `Status`, `FakturowniaId`, `Number`, `PdfUrl` i `RemoteGrossTotal`. Z `Invoices` i `OutboxMessages` nie może niczego usuwać. Migracje wykonuje osobna rola.
+- **Niezmienność:** rola bazy używana przez działającą aplikację nie ma `UPDATE` ani `DELETE` na `StockDocuments`, `StockMovements`, `Batches`, `InvoiceLines` i `AuditLog`. Nie zmienia też `CustomerOrderLines`. W `Invoices` może zmieniać tylko kolumny `Status`, `FakturowniaId`, `Number`, `PdfUrl` i `RemoteGrossTotal`, a w `CustomerOrders` tylko `Status` i `InvoiceId`. Z `Invoices`, `CustomerOrders` i `OutboxMessages` nie może niczego usuwać. Migracje wykonuje osobna rola.
 - **Indeksy pod analizy:** pomiary na roku danych (136 962 ruchy) pokazały, że istniejące indeksy wystarczają: analizy roczne czytają prawie całe tabele, a pulpit korzysta z indeksu na dacie wystawienia. Wolny był raport zalegających przez kształt zapytania, który poprawiono (`docs/analiza-dynamiczna.md`, punkt 5).
 
 ## 9. Bezpieczeństwo

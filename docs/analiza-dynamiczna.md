@@ -18,9 +18,9 @@ Regał to Blazor Web App w trybie Interactive Server: pierwsze wczytanie strony 
 
 | Rodzaj | Projekt | Liczba | Co uruchamia | Czego nie obejmuje |
 |---|---|---|---|---|
-| Jednostkowe | `tests/Regal.UnitTests` | 227 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
-| Integracyjne | `tests/Regal.IntegrationTests` | 150 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
-| Funkcjonalne | `tests/Regal.E2ETests` | 12 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
+| Jednostkowe | `tests/Regal.UnitTests` | 240 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
+| Integracyjne | `tests/Regal.IntegrationTests` | 182 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
+| Funkcjonalne | `tests/Regal.E2ETests` | 13 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
 | Wydajności: zapytania | `tests/performance/Regal.Benchmarks` | 7 zapytań | Zapytania analiz z serwisu na bazie z rokiem wygenerowanych danych | Renderowania stron |
 | Wydajności: HTTP | `tests/performance/k6`, `Regal.LoadHost --measure` | 8 stron | Pierwsze wczytanie stron (pełny HTML z serwera) przez 20 równoczesnych użytkowników | Zdarzeń SignalR po wczytaniu (kliknięcia, filtry) |
 
@@ -43,6 +43,7 @@ Testy nigdy nie łączą się z prawdziwą Fakturownią ani z Google: klient Fak
 | `BatchAllocatorTests` | 15 | FEFO: najkrótsza ważność, partie bez daty na końcu, remis według wieku partii, kilka partii na pozycję, przeterminowane dla WZ i RW |
 | `NipTests` | 14 | Suma kontrolna NIP i normalizacja zapisu |
 | `BarcodeScannerTests` (bUnit) | 12 | Okno skanera: odczyt, odrzucenie niedozwolonych znaków, brak aparatu, odmowa dostępu |
+| `OrderRulesTests` | 13 | Zamówienie: nabywca, 1–200 pozycji, produkt raz, uwagi do 500 znaków, numer `ZK/n/rok`, nazwy statusów |
 | `AccessPolicyTests` | 10 | Lista dozwolonych adresów, nieaktywny użytkownik |
 | `AverageCostTests` | 9 | Średnia ważona przy przyjęciu i korekcie, zaokrąglenie do 4 miejsc, przycięcie do zera |
 | `InvoiceEditorTests` (bUnit) | 7 | Formularz faktury: sumy na bieżąco, usługi bez stanu |
@@ -55,11 +56,11 @@ Dane testowe pochodzą z obliczeń ręcznych zapisanych w testach (np. średnia 
 
 ### Wynik
 
-227 z 227 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
+240 z 240 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
 
 ### Pokrycie kodu
 
-Pomiar: `dotnet test --collect:"XPlat Code Coverage"` (coverlet 6.0.4) osobno dla testów jednostkowych i integracyjnych. Raporty Cobertura połączono skryptem, który liczy wiersz jako pokryty, gdy wykonał go którykolwiek zestaw. Pominięto pliki migracji (kod generowany przez EF Core). Testy funkcjonalne nie są wliczone, bo aplikacja działa w nich w osobnym serwerze Kestrel.
+Pomiar: `dotnet test --collect:"XPlat Code Coverage"` (coverlet 6.0.4) osobno dla testów jednostkowych i integracyjnych. Raporty Cobertura połączono skryptem, który liczy wiersz jako pokryty, gdy wykonał go którykolwiek zestaw. Pominięto pliki migracji (kod generowany przez EF Core). Testy funkcjonalne nie są wliczone, bo aplikacja działa w nich w osobnym serwerze Kestrel. Pomiar pochodzi z 10.11.2026, sprzed dodania zamówień klientów (poziom 2), więc nie obejmuje modułu `Features/Orders`.
 
 | Obszar `src/Regal.Web` | Wiersze | Jednostkowe | Integracyjne | Razem |
 |---|---:|---:|---:|---:|
@@ -108,8 +109,10 @@ Interpretacja:
 | `WarehouseConcurrencyTests` | 8 | Równoczesne przyjęcia i wydania, numeracja, idempotencja, korekty, dezaktywacja w trakcie przyjęcia, brak zakleszczeń |
 | `AuthServiceTests` | 7 | Logowanie: lista adresów, rola, wpis w dzienniku |
 | `InvoicePagesTests` | 6 | Ekrany faktur |
+| `OrderTests` | 27 | Zamówienia: rezerwacja, brak przy zapisie, przeterminowane partie, WZ i faktura nie biorą cudzej rezerwacji, RW ją ignoruje, faktura z zamówienia, anulowanie, idempotencja, uprawnienia bazy, trzy testy współbieżności |
+| `OrderPagesTests` | 5 | Ekrany zamówień i faktura wypełniona z zamówienia |
 
-Wynik: 150 z 150 testów przechodzi lokalnie w około 75 s (z uruchomieniem kontenera) i w CI.
+Wynik: 182 z 182 testów przechodzi lokalnie w około 70 s (z uruchomieniem kontenera) i w CI.
 
 ### Eksperyment 1: czy testy współbieżności wykrywają brak blokady
 
@@ -176,6 +179,25 @@ Udawana Fakturownia w testach, jak prawdziwa przy `oid_unique=yes`, odrzuca drug
 - Jeśli zabezpieczeń jest kilka, test efektu końcowego nie mówi, czy działa każde z nich. Trzeba mierzyć to, czemu dane zabezpieczenie zapobiega, tutaj liczbę żądań.
 - Działanie `oid_unique` w prawdziwej Fakturowni nie jest jeszcze potwierdzone (scenariusz F6 na koncie testowym). Do tego czasu duplikatom zapobiegają blokada i wyszukanie, a nie Fakturownia.
 
+### Eksperyment 3: rezerwacje w zamówieniach klientów
+
+**Cel.** Zamówienia (poziom 2, `SPEC.md` 5.11) opierają się na dwóch blokadach: zapis zamówienia blokuje wiersze produktów, tak jak dokumenty, a faktura z zamówienia i anulowanie blokują wiersz zamówienia. Nowe testy przeszły za pierwszym razem, więc trzeba było sprawdzić, czy w ogóle potrafią się nie udać.
+
+**Metoda.** Na próbę usuwano po jednej blokadzie: w `CustomerOrderService` zamiast `ProductLocks.LockAsync` zwykły odczyt produktów, a w drugim kroku `FOR UPDATE` przy wierszu zamówienia (w `InvoiceService` i w anulowaniu). Testy współbieżności uruchamiano odpowiednio 5 i 10 razy.
+
+| Usunięte | Test | Wynik |
+|---|---|---|
+| Blokada produktów przy zapisie zamówienia | `Parallel_orders_never_reserve_more_than_the_stock` | 5 z 5 błędów: 8 zamówień po 3 szt. zamiast 3, czyli 24 szt. zarezerwowane przy stanie 10 |
+| | `Parallel_orders_and_wz_never_promise_goods_that_left` | 5 z 5 błędów: zarezerwowano 10 szt., a na stanie zostały 2 albo 0 |
+| `FOR UPDATE` na wierszu zamówienia | `Cancelling_and_invoicing_one_order_at_the_same_time_leaves_one_outcome` | 10 z 10 błędów: anulowanie i faktura kończyły się obie sukcesem, czyli klient widział anulowane zamówienie, a towar wydano |
+
+**Przywrócenie.** Oba pliki skopiowano z kopii sprzed eksperymentu; porównanie (`cmp`) nie wykazało różnic. Wszystkie 26 testów zamówień przeszły potem 3 razy z rzędu.
+
+**Wnioski:**
+
+- Rezerwacja to odczyt („ile jest wolne”) i zapis („zarezerwuj”) rozdzielone w czasie, więc bez blokady dwa zamówienia widzą ten sam wolny towar. Ten sam błąd, który chroni blokada dokumentów magazynowych, pojawia się w każdym nowym miejscu, które decyduje na podstawie stanu.
+- Stała kolejność blokad (wiersz zamówienia, potem produkty) wystarcza, żeby nowa blokada nie tworzyła zakleszczeń z istniejącymi.
+
 ## 4. Testy funkcjonalne
 
 ### Metoda
@@ -193,11 +215,12 @@ Scenariusze odpowiadają scenariuszom ręcznym z [`scenariusze-testowe.md`](scen
 | `Issue_takes_the_batch_expiring_first_and_shows_it_in_the_preview` | S4 | Dwie partie z różną ważnością, wydanie WZ | Podgląd i dokument schodzą z partii o krótszej ważności |
 | `Enter_adds_lines_and_never_approves_the_document` | S8 | Kody wpisane z Enterem, w tym „1” i „10” | Każdy Enter dodaje pozycję, dokument nie zostaje zatwierdzony |
 | `Stock_page_fits_a_phone_screen` | S10 | Ekran 390 × 844 | Brak przewijania w poziomie |
+| `An_order_reserves_goods_until_its_invoice_takes_them` | Z1 | Stan 10, zamówienie 8, WZ 3, faktura z zamówienia | Ręczny WZ odrzucony w podglądzie („zarezerwowano”), faktura z zamówienia wydaje 8, zamówienie zrealizowane, stan 2 |
 | `Invoice_with_goods_and_a_service_issues_a_wz_and_is_sent_in_the_background` | F1 | Towar z rabatem i usługa | WZ tylko dla towaru, status „wysłana” z numerem z udawanej Fakturowni |
 
 ### Wynik
 
-12 z 12 testów przechodzi lokalnie i w CI, gdzie przeglądarkę instaluje krok `playwright.ps1 install --with-deps chromium`.
+13 z 13 testów przechodzi lokalnie i w CI, gdzie przeglądarkę instaluje krok `playwright.ps1 install --with-deps chromium`.
 
 Testy funkcjonalne znalazły błąd, którego nie widziały 300 innych testów: cena „2,50” wpisana w pole zapisywała się jako 250 (punkt 6, błąd 1). Pierwszy zestaw danych S1 był czerwony, dopóki pola liczbowe nie dostały polskiej kultury.
 

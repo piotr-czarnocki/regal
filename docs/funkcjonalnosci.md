@@ -14,7 +14,8 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 | Kontrahenci | `/contractors` | Odbiorcy i dostawcy |
 | Stany magazynowe | `/stock` | Stan każdego towaru i jego partii; z wiersza historia ruchów (`/stock/{id}/history`) |
 | Dokumenty magazynowe | `/stock-documents` | Lista PZ, PW, WZ, RW z wyszukiwaniem; nowy dokument (`/stock-documents/new`), szczegóły i korekta (`/stock-documents/{id}`) |
-| Faktury | `/invoices` | Lista faktur ze statusem wysyłki; nowa faktura (`/invoices/new`), szczegóły (`/invoices/{id}`) |
+| Zamówienia | `/orders` | Zamówienia klientów ze statusem; nowe zamówienie (`/orders/new`), szczegóły z pokryciem, faktura i anulowanie (`/orders/{id}`) |
+| Faktury | `/invoices` | Lista faktur ze statusem wysyłki; nowa faktura (`/invoices/new`, z zamówienia `/invoices/new?order={id}`), szczegóły (`/invoices/{id}`) |
 | Analizy → Sprzedaż i marża | `/analytics/sales` | Wykres w czasie, tabele według produktów i kategorii |
 | Analizy → ABC | `/analytics/abc` | Podział produktów na klasy A, B, C |
 | Analizy → Zalegające | `/analytics/slow-moving` | Towary na stanie bez sprzedaży od N dni |
@@ -85,6 +86,15 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 - Regał ostrzega, gdy suma brutto policzona przez Fakturownię różni się od jego własnej.
 - Bez skonfigurowanej Fakturowni faktury czekają w kolejce, a reszta aplikacji działa normalnie.
 
+## 5a. Zamówienia klientów (poziom 2)
+
+- Zamówienie (ZK) rezerwuje towar dla nabywcy, zanim zostanie wydany i zafakturowany: nabywca, pozycje (towary i usługi) z ilościami, uwagi. Numeracja `ZK/1/2026` bez luk.
+- Zapis jest możliwy tylko wtedy, gdy towaru wystarcza: liczy się stan partii, które nie są przeterminowane, minus to, co zarezerwowały inne otwarte zamówienia. Usługi niczego nie rezerwują.
+- Zarezerwowanego towaru nie zabierze ręczny WZ ani zwykła faktura; podgląd wydania od razu mówi, ile jest dostępne do sprzedaży i ile zarezerwowano. Ekran stanów pokazuje przy ilości „zarezerwowano X”.
+- RW i korekty nie patrzą na rezerwacje, bo opisują to, co się fizycznie stało. Jeśli po stracie zabraknie towaru, szczegóły zamówienia pokazują, ile brakuje.
+- „Wystaw fakturę” w zamówieniu otwiera formularz faktury z nabywcą (bez możliwości zmiany) i pozycjami po cenach z kartoteki. Wystawienie wydaje towar z użyciem rezerwacji tego zamówienia i oznacza je jako zrealizowane w całości.
+- Otwarte zamówienie można anulować, co zwalnia rezerwację. Zamówień nie da się edytować ani usuwać; zrealizowanego nie da się anulować (cofnięcie sprzedaży to anulowanie faktury).
+
 ## 6. Skanowanie telefonem i czytnikiem
 
 - Przycisk z ikoną aparatu przy polu produktu otwiera podgląd kamery i odczytuje kod EAN-13. Odczytany kod trafia do pola tak, jakby został wpisany.
@@ -111,4 +121,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji nie powstały: faktury korygujące, eksport do Excela, kolejne role użytkowników. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a); nie powstały m.in. proformy i faktury korygujące, wysyłka faktur mailem, inwentaryzacja, eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).

@@ -229,3 +229,42 @@ Scenariusze F1–F5 nie wymagają Fakturowni: bez konfiguracji faktura czeka w k
 | 1 | „Towary zalegające”, 90 dni | Towary ze stanem, bez sprzedaży od 90 dni albo nigdy niesprzedane („nigdy”), od największej wartości |
 | 2 | Zmień liczbę dni na 0 | Lista obejmuje wszystkie towary ze stanem, których nie sprzedano dzisiaj |
 | 3 | Kliknij nazwę produktu | Historia ruchów potwierdza datę ostatniego wydania |
+
+# Scenariusze testów ręcznych: zamówienia klientów (poziom 2)
+
+Reguły opisuje `SPEC.md`, punkt 5.11. Scenariusz Z1 jest zautomatyzowany testem w przeglądarce (`OrderScenarioTests`), a reguły Z2–Z4 sprawdzają testy integracyjne `OrderTests`.
+
+**Dane:** Chleb (szt) ze stanem 10, kontrahent Sklep Pod Lipą.
+
+## Z1. Rezerwacja i faktura z zamówienia
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Nowe zamówienie”, nabywca Sklep Pod Lipą, zeskanuj Chleb, ilość 8, „Zapisz zamówienie”, potwierdź | Szczegóły zamówienia `ZK/n/rok`, status „otwarte”, przy Chlebie „dostępne dla zamówienia: 10 szt” |
+| 2 | „Stany magazynowe”, wyszukaj Chleb | Ilość 10 szt i oznaczenie „zarezerwowano 8” |
+| 3 | Nowy dokument WZ: Chleb, ilość 3, „Pokaż podgląd” | Błąd: dostępne do sprzedaży 2 szt, bo 8 szt zarezerwowano w zamówieniach |
+| 4 | Wróć do zamówienia, „Wystaw fakturę” | Formularz faktury z informacją o zamówieniu, nabywca zablokowany, Chleb 8 szt po cenie z kartoteki |
+| 5 | „Pokaż podgląd”, „Wystaw fakturę”, potwierdź | Faktura z WZ na 8 szt; zamówienie „zrealizowane” z linkiem do faktury; stan 2 szt bez rezerwacji |
+
+## Z2. Brak towaru przy zamówieniu
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Zamówienie na 8 szt Chleba (stan 10) | Zapisane |
+| 2 | Drugie zamówienie na 3 szt | Błąd: można zarezerwować najwyżej 2 szt; brak nowego numeru ZK |
+| 3 | Partia przeterminowana | Nie liczy się do towaru, który można zarezerwować |
+
+## Z3. Strata po rezerwacji
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Zamówienie na 8 szt Chleba (stan 10), potem RW na 6 szt | RW przechodzi, bo strata już się wydarzyła |
+| 2 | Otwórz zamówienie | Ostrzeżenie o braku towaru, przy Chlebie „dostępne 4 szt” i „brakuje 4” |
+
+## Z4. Anulowanie
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Otwarte zamówienie, „Anuluj zamówienie”, potwierdź | Status „anulowane”, brak przycisku „Wystaw fakturę”, rezerwacja zwolniona |
+| 2 | Adres `/invoices/new?order=<id>` anulowanego zamówienia | Komunikat, że z zamówienia nie można wystawić faktury |
+| 3 | Zrealizowane zamówienie | Brak przycisku anulowania; cofnięcie sprzedaży to anulowanie faktury |
