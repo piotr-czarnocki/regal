@@ -16,7 +16,8 @@ Wersje pochodzą z plików projektu (`global.json`, `*.csproj`, `docker-compose.
 | Microsoft.AspNetCore.Authentication.Google | 10.0.14 | Logowanie Google |
 | barcode-detector (ZXing-C++ w WebAssembly) | 3.2.3 | Odczyt EAN-13 z aparatu |
 | ngrok | — | Tunel HTTPS do telefonu |
-| Fakturownia (REST API) | — | Wystawianie faktur VAT |
+| Fakturownia (REST API) | — | Wystawianie faktur VAT, proform i korekt, wysyłka mailem, status płatności |
+| Wykaz podatników VAT MF („biała lista”, REST API) | — | Dane firmy po NIP-ie (poziom 2) |
 
 ### Dlaczego tak
 

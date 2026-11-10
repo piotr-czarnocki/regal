@@ -1,4 +1,5 @@
 @inject ContractorService Contractors
+@inject CompanyLookupService Lookup
 
 <FormDialog Save="SaveAsync" Error="@_loadError">
     <MudGrid Spacing="2">
@@ -6,7 +7,14 @@
             <MudTextField T="string" @bind-Value="_input.Name" Label="Nazwa" MaxLength="200" />
         </MudItem>
         <MudItem xs="12" sm="6">
-            <MudTextField T="string" @bind-Value="_input.Nip" Label="NIP (opcjonalnie)" MaxLength="13" />
+            <div class="d-flex align-start gap-1">
+                <MudTextField T="string" @bind-Value="_input.Nip" Label="NIP (opcjonalnie)" MaxLength="13" Class="flex-grow-1" />
+                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="LookupAsync" Disabled="_looking" Class="mt-3">Pobierz dane</MudButton>
+            </div>
+            @if (_lookupMessage is not null)
+            {
+                <MudText Typo="Typo.caption" Color="@(_lookupFailed ? Color.Error : Color.Success)" role="status">@_lookupMessage</MudText>
+            }
         </MudItem>
         <MudItem xs="12" sm="6">
             <MudTextField T="string" @bind-Value="_input.Phone" Label="Telefon" MaxLength="30" InputType="InputType.Telephone" />
@@ -43,4 +51,38 @@
     }
 
     private Task<SaveResult> SaveAsync() => Contractors.SaveAsync(ContractorId, _input);
+
+    private bool _looking;
+    private bool _lookupFailed;
+    private string? _lookupMessage;
+
+    /// <summary>Fills the name and address from the VAT register; the person can still edit them before saving.</summary>
+    private async Task LookupAsync()
+    {
+        if (_looking)
+        {
+            return;
+        }
+
+        _looking = true;
+        try
+        {
+            var result = await Lookup.FindByNipAsync(_input.Nip);
+            _lookupFailed = result.Company is null;
+            if (result.Company is { } company)
+            {
+                _input.Name = company.Name;
+                _input.Address = company.Address ?? _input.Address;
+                _lookupMessage = $"Dane z białej listy VAT (status: {company.VatStatus ?? "brak"}). Sprawdź je przed zapisem.";
+            }
+            else
+            {
+                _lookupMessage = result.Error;
+            }
+        }
+        finally
+        {
+            _looking = false;
+        }
+    }
 }
