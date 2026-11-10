@@ -18,8 +18,8 @@ Regał to Blazor Web App w trybie Interactive Server: pierwsze wczytanie strony 
 
 | Rodzaj | Projekt | Liczba | Co uruchamia | Czego nie obejmuje |
 |---|---|---|---|---|
-| Jednostkowe | `tests/Regal.UnitTests` | 255 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
-| Integracyjne | `tests/Regal.IntegrationTests` | 200 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
+| Jednostkowe | `tests/Regal.UnitTests` | 260 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
+| Integracyjne | `tests/Regal.IntegrationTests` | 217 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
 | Funkcjonalne | `tests/Regal.E2ETests` | 13 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
 | Wydajności: zapytania | `tests/performance/Regal.Benchmarks` | 7 zapytań | Zapytania analiz z serwisu na bazie z rokiem wygenerowanych danych | Renderowania stron |
 | Wydajności: HTTP | `tests/performance/k6`, `Regal.LoadHost --measure` | 8 stron | Pierwsze wczytanie stron (pełny HTML z serwera) przez 20 równoczesnych użytkowników | Zdarzeń SignalR po wczytaniu (kliknięcia, filtry) |
@@ -39,7 +39,7 @@ Testy nigdy nie łączą się z prawdziwą Fakturownią ani z Google: klient Fak
 | `Ean13Tests` | 22 | Cyfra kontrolna, prefiks wewnętrzny `040`, 12 cyfr jako EAN-13 z wiodącym zerem |
 | `ProductPickerTests` (bUnit) | 22 | Pole produktu: Enter szuka EAN, potem SKU, potem fragmentu; kolejka skanów; szybkie skany podczas ustawiania fokusu; sygnał zakończenia obsługi dla testów w przeglądarce |
 | `StockDocumentEditorTests` (bUnit) | 16 | Formularz dokumentu: pola zależne od typu, przecinek dziesiętny w polskiej kulturze, Enter nie zatwierdza dokumentu |
-| `FakturowniaClientTests` | 15 | Nagłówek `Authorization: Bearer`, token nigdy w adresie, `oid_unique`, klasyfikacja błędów (5xx/429/408/sieć → przejściowy, 4xx → odmowa), dokładne dopasowanie `oid` |
+| `FakturowniaClientTests` | 20 | Odczyt płatności z przecinkiem lub kropką, wysyłka mailem z zakodowanym adresem; Nagłówek `Authorization: Bearer`, token nigdy w adresie, `oid_unique`, klasyfikacja błędów (5xx/429/408/sieć → przejściowy, 4xx → odmowa), dokładne dopasowanie `oid` |
 | `BatchAllocatorTests` | 15 | FEFO: najkrótsza ważność, partie bez daty na końcu, remis według wieku partii, kilka partii na pozycję, przeterminowane dla WZ i RW |
 | `NipTests` | 14 | Suma kontrolna NIP i normalizacja zapisu |
 | `BarcodeScannerTests` (bUnit) | 12 | Okno skanera: odczyt, odrzucenie niedozwolonych znaków, brak aparatu, odmowa dostępu |
@@ -57,7 +57,7 @@ Dane testowe pochodzą z obliczeń ręcznych zapisanych w testach (np. średnia 
 
 ### Wynik
 
-255 z 255 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
+260 z 260 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
 
 ### Pokrycie kodu
 
@@ -109,12 +109,13 @@ Interpretacja:
 | `DemoDataGeneratorTests` | 9 | Generator: reguły aplikacji zachowane, faktury nigdy nie trafiają do wysyłki, ten sam seed daje te same dane, odmowa w środowisku produkcyjnym, spisanie wszystkich przeterminowanych partii |
 | `WarehouseConcurrencyTests` | 8 | Równoczesne przyjęcia i wydania, numeracja, idempotencja, korekty, dezaktywacja w trakcie przyjęcia, brak zakleszczeń |
 | `AuthServiceTests` | 7 | Logowanie: lista adresów, rola, wpis w dzienniku |
-| `InvoicePagesTests` | 7 | Ekrany faktur, w tym korekta wystawiona z formularza |
+| `InvoicePagesTests` | 8 | Ekrany faktur, w tym korekta wystawiona z formularza oraz sprawdzenie płatności i wysyłka mailem |
 | `OrderTests` | 27 | Zamówienia: rezerwacja, brak przy zapisie, przeterminowane partie, WZ i faktura nie biorą cudzej rezerwacji, RW ją ignoruje, faktura z zamówienia, anulowanie, idempotencja, uprawnienia bazy, trzy testy współbieżności |
 | `OrderPagesTests` | 5 | Ekrany zamówień i faktura wypełniona z zamówienia |
 | `CorrectionTests` | 17 | Proforma bez WZ i poza sprzedażą; korekta: zwrot na te same partie, różnice w pozycjach, sprzedaż i marża po korekcie, pakiet, tylko wysłana faktura VAT i raz, walidacja, idempotencja, dwa testy współbieżności, ograniczenie w bazie |
+| `PaymentTests` | 16 | Płatności: odczyt statusu, kwoty i daty, mapowanie statusów, przebieg w tle (kolejność, odstęp, przerwanie przy awarii, odmowa), wysyłka mailem z zapisem i dziennikiem, odrzucanie adresów, należności po terminie, uprawnienia kolumn |
 
-Wynik: 200 z 200 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
+Wynik: 217 z 217 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
 
 ### Eksperyment 1: czy testy współbieżności wykrywają brak blokady
 
