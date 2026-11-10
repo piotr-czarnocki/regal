@@ -18,8 +18,8 @@ Regał to Blazor Web App w trybie Interactive Server: pierwsze wczytanie strony 
 
 | Rodzaj | Projekt | Liczba | Co uruchamia | Czego nie obejmuje |
 |---|---|---|---|---|
-| Jednostkowe | `tests/Regal.UnitTests` | 240 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
-| Integracyjne | `tests/Regal.IntegrationTests` | 182 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
+| Jednostkowe | `tests/Regal.UnitTests` | 255 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
+| Integracyjne | `tests/Regal.IntegrationTests` | 200 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
 | Funkcjonalne | `tests/Regal.E2ETests` | 13 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
 | Wydajności: zapytania | `tests/performance/Regal.Benchmarks` | 7 zapytań | Zapytania analiz z serwisu na bazie z rokiem wygenerowanych danych | Renderowania stron |
 | Wydajności: HTTP | `tests/performance/k6`, `Regal.LoadHost --measure` | 8 stron | Pierwsze wczytanie stron (pełny HTML z serwera) przez 20 równoczesnych użytkowników | Zdarzeń SignalR po wczytaniu (kliknięcia, filtry) |
@@ -44,6 +44,7 @@ Testy nigdy nie łączą się z prawdziwą Fakturownią ani z Google: klient Fak
 | `NipTests` | 14 | Suma kontrolna NIP i normalizacja zapisu |
 | `BarcodeScannerTests` (bUnit) | 12 | Okno skanera: odczyt, odrzucenie niedozwolonych znaków, brak aparatu, odmowa dostępu |
 | `OrderRulesTests` | 13 | Zamówienie: nabywca, 1–200 pozycji, produkt raz, uwagi do 500 znaków, numer `ZK/n/rok`, nazwy statusów |
+| `CorrectionRulesTests` | 15 | Korekta: przyczyna, ilość nieujemna, cena i rabat, pozycja raz; proforma nie z zamówienia; rodzaj i stany „przed/po” w pakiecie dla Fakturowni |
 | `AccessPolicyTests` | 10 | Lista dozwolonych adresów, nieaktywny użytkownik |
 | `AverageCostTests` | 9 | Średnia ważona przy przyjęciu i korekcie, zaokrąglenie do 4 miejsc, przycięcie do zera |
 | `InvoiceEditorTests` (bUnit) | 7 | Formularz faktury: sumy na bieżąco, usługi bez stanu |
@@ -56,7 +57,7 @@ Dane testowe pochodzą z obliczeń ręcznych zapisanych w testach (np. średnia 
 
 ### Wynik
 
-240 z 240 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
+255 z 255 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
 
 ### Pokrycie kodu
 
@@ -108,11 +109,12 @@ Interpretacja:
 | `DemoDataGeneratorTests` | 9 | Generator: reguły aplikacji zachowane, faktury nigdy nie trafiają do wysyłki, ten sam seed daje te same dane, odmowa w środowisku produkcyjnym, spisanie wszystkich przeterminowanych partii |
 | `WarehouseConcurrencyTests` | 8 | Równoczesne przyjęcia i wydania, numeracja, idempotencja, korekty, dezaktywacja w trakcie przyjęcia, brak zakleszczeń |
 | `AuthServiceTests` | 7 | Logowanie: lista adresów, rola, wpis w dzienniku |
-| `InvoicePagesTests` | 6 | Ekrany faktur |
+| `InvoicePagesTests` | 7 | Ekrany faktur, w tym korekta wystawiona z formularza |
 | `OrderTests` | 27 | Zamówienia: rezerwacja, brak przy zapisie, przeterminowane partie, WZ i faktura nie biorą cudzej rezerwacji, RW ją ignoruje, faktura z zamówienia, anulowanie, idempotencja, uprawnienia bazy, trzy testy współbieżności |
 | `OrderPagesTests` | 5 | Ekrany zamówień i faktura wypełniona z zamówienia |
+| `CorrectionTests` | 17 | Proforma bez WZ i poza sprzedażą; korekta: zwrot na te same partie, różnice w pozycjach, sprzedaż i marża po korekcie, pakiet, tylko wysłana faktura VAT i raz, walidacja, idempotencja, dwa testy współbieżności, ograniczenie w bazie |
 
-Wynik: 182 z 182 testów przechodzi lokalnie w około 70 s (z uruchomieniem kontenera) i w CI.
+Wynik: 200 z 200 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
 
 ### Eksperyment 1: czy testy współbieżności wykrywają brak blokady
 
@@ -197,6 +199,24 @@ Udawana Fakturownia w testach, jak prawdziwa przy `oid_unique=yes`, odrzuca drug
 
 - Rezerwacja to odczyt („ile jest wolne”) i zapis („zarezerwuj”) rozdzielone w czasie, więc bez blokady dwa zamówienia widzą ten sam wolny towar. Ten sam błąd, który chroni blokada dokumentów magazynowych, pojawia się w każdym nowym miejscu, które decyduje na podstawie stanu.
 - Stała kolejność blokad (wiersz zamówienia, potem produkty) wystarcza, żeby nowa blokada nie tworzyła zakleszczeń z istniejącymi.
+
+### Eksperyment 4: korekta faktury bez blokady korygowanej faktury
+
+**Cel.** Wystawienie korekty (`SPEC.md` 5.12) zaczyna się od `SELECT … FOR UPDATE` na wierszu korygowanej faktury. Eksperyment sprawdza, czy ta blokada jest potrzebna, skoro bazę i tak chroni unikalny indeks `IX_Invoices_CorrectsInvoiceId`.
+
+**Metoda i wyniki.** W `InvoiceService.CorrectCoreAsync` usunięto `FOR UPDATE` i uruchamiano testy równoległych korekt po 5 razy.
+
+| Test | Bez blokady | Wyjaśnienie |
+|---|---|---|
+| `Parallel_corrections_of_one_invoice_create_one` (zwrot towaru) | 5 z 5 przechodzi | Zwrot przechodzi przez korektę WZ, która blokuje wiersze produktów i sprawdza, czy WZ ma już korektę. To ona ustawiała korekty w kolejce |
+| `Parallel_price_corrections_of_one_invoice_create_one_and_refuse_the_rest_cleanly` (sama cena) | 5 z 5 pada: `DbUpdateException … 23505 … IX_Invoices_CorrectsInvoiceId` | Bez zwrotu towaru nie ma blokady produktów. Druga korekta nie zobaczyła pierwszej, a unikalny indeks zatrzymał ją dopiero przy zapisie, jako błąd zamiast komunikatu |
+
+Drugi test powstał w trakcie eksperymentu, bo pierwszy nie potrafił się nie udać. Plik przywrócono z kopii, `cmp` nie wykazał różnic, a wszystkie testy korekt przeszły.
+
+**Wnioski:**
+
+- Unikalny indeks chroni dane, ale nie użytkownika: bez blokady druga osoba dostałaby stronę błędu zamiast komunikatu „Faktura ma już korektę”.
+- Test współbieżności musi pokrywać ścieżkę, na której dane zabezpieczenie jest jedyne. Przy zwrocie towaru inna blokada maskowała brak tej, którą sprawdzano.
 
 ## 4. Testy funkcjonalne
 

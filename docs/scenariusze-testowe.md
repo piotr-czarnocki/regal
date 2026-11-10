@@ -190,6 +190,27 @@ Scenariusze F1–F5 nie wymagają Fakturowni: bez konfiguracji faktura czeka w k
 | 5 | „Stany magazynowe” → aparat → zeskanuj kod | Lista zawęża się do zeskanowanego produktu |
 | 6 | W narzędziach przeglądarki (zakładka sieci) sprawdź pobierane pliki przy pierwszym skanie | `ponyfill.js` i `zxing_reader.wasm` z domeny aplikacji albo wcale (gdy przeglądarka ma własny czytnik), nic z CDN |
 
+## F8. Proforma (poziom 2)
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Nowa faktura”, rodzaj „Proforma”, nabywca Sklep Pod Lipą, Mleko 1L × 5 | Podgląd bez partii („bez wydania”), przycisk „Wystaw fakturę” aktywny |
+| 2 | Wystaw, potwierdź („Wystawić proformę?”) | Szczegóły z oznaczeniem „Proforma”, bez WZ; stan Mleka bez zmian |
+| 3 | Na koncie testowym Fakturowni | Dokument rodzaju proforma z tymi pozycjami |
+| 4 | „Sprzedaż i marża” za dzisiaj | Proforma nie zwiększa sprzedaży |
+
+## F9. Faktura korygująca (poziom 2)
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Wysłana faktura z Mlekiem × 4 po 20,00 zł → „Korekta” | Formularz z pozycjami faktury i polem przyczyny |
+| 2 | Bez przyczyny „Wystaw korektę” | Komunikat „Podaj przyczynę korekty.” |
+| 3 | Przyczyna „Zwrot 3 szt.”, ilość po korekcie 1 | Zmiana brutto −73,80 zł |
+| 4 | Wystaw, potwierdź | Szczegóły korekty: link do faktury, przyczyna, pozycja „było 4, jest 1”, link do korekty WZ; stan Mleka +3 na tej samej partii |
+| 5 | Wróć do faktury | Informacja „Skorygowana fakturą …”, brak przycisku „Korekta” |
+| 6 | Na koncie testowym Fakturowni | Korekta powiązana z fakturą, ilość przed 4, po 1 |
+| 7 | „Sprzedaż i marża” | Sprzedaż Mleka liczy 1 szt. |
+
 # Scenariusze testów ręcznych: analizy i generator
 
 **Dane:** baza po scenariuszach powyżej oraz po uruchomieniu generatora (README, sekcja „Przykładowe dane”).

@@ -39,7 +39,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 ### Poziom 2 – jeśli zostanie czas (w tej kolejności)
 
 1. Zamówienia klientów (ZK) z rezerwacją towaru, bez wygasania. **Gotowe** (punkt 5.11).
-2. Proforma i faktura korygująca przez Fakturownię.
+2. Proforma i faktura korygująca przez Fakturownię. **Gotowe** (punkt 5.12).
 3. Wysyłka faktury mailem, status płatności z Fakturowni.
 4. Inwentaryzacja ze skanowaniem.
 5. Pobieranie danych firmy po NIP-ie.
@@ -220,6 +220,24 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - **Współbieżność:** zapis zamówienia blokuje wiersze `Products` swoich towarów (rosnąco, jak dokumenty), więc rezerwacja i wydanie tego samego produktu idą po kolei. Faktura z zamówienia najpierw blokuje wiersz zamówienia, potem produkty; anulowanie blokuje tylko wiersz zamówienia. Kolejność jest stała, więc nie ma zakleszczeń.
 - Rola bazy aplikacji nie ma `DELETE` na zamówieniach ani `UPDATE`/`DELETE` na pozycjach; w zamówieniu może zmieniać tylko status i powiązaną fakturę.
 
+### 5.12. Proforma i faktura korygująca (poziom 2)
+
+**Proforma:**
+
+- Formularz faktury ma rodzaj: faktura VAT albo proforma. Proforma trafia do Fakturowni (`kind: "proforma"`) tak samo jak faktura, z ponawianiem i `oid`.
+- Proforma nie jest sprzedażą: nie tworzy WZ, nie zmienia stanów ani rezerwacji i nie liczy się do analiz. Nie można jej wystawić z zamówienia, bo faktura z zamówienia je realizuje.
+- Anulowanie działa jak dla faktury (sprawdzenie w Fakturowni), tylko bez cofania WZ.
+
+**Faktura korygująca:**
+
+- Korygować można fakturę VAT wysłaną do Fakturowni (ma jej identyfikator), raz. Korekty nie można skorygować.
+- Dla każdej pozycji podaje się ilość, cenę netto i rabat po korekcie. Ilość może tylko zmaleć (do zera włącznie); zwiększenie sprzedaży to nowa faktura. Cena i rabat mogą zmienić się w obie strony. Wymagana jest przyczyna (do 500 znaków) i co najmniej jedna zmiana.
+- Pozycja korekty zapisuje różnicę ilości i wartości (po minus przed, z VAT liczonym jak na fakturze od wartości po korekcie), cenę i rabat po korekcie oraz powiązanie z pozycją faktury. Dzięki temu suma faktury i korekty daje stan po korekcie, a analizy liczą sprzedaż i marżę bez osobnych reguł. Koszt jednostkowy pozostaje z faktury.
+- Zmniejszenie ilości towaru oznacza zwrot: w tej samej transakcji powstaje korekta WZ faktury, która przyjmuje zwracaną ilość z powrotem na te same partie, po kosztach z wydania, zaczynając od partii wydanej jako ostatnia. Cena średnia liczy się jak przy korekcie WZ. Ponieważ WZ można skorygować raz, druga korekta tej samej faktury nie jest możliwa.
+- Korekta trafia do Fakturowni jako `kind: "correction"` z `invoice_id` i `from_invoice_id` oryginału, przyczyną i pozycjami zmienionymi, każda z atrybutami przed i po.
+- Korekty nie można anulować, bo zwrotu towaru nie da się cofnąć dokumentem tego samego rodzaju. Odrzuconą przez Fakturownię korektę można ponowić. To znane uproszczenie.
+- Wystawienie korekty blokuje najpierw wiersz korygowanej faktury, potem produkty (przez korektę WZ), więc dwie korekty tej samej faktury idą po kolei.
+
 ## 6. Technologie
 
 | Obszar | Wybór |
@@ -278,8 +296,8 @@ Zasady:
 | `Stock` | `WarehouseId`, `BatchId` (klucz złożony), `Quantity` z `CHECK (Quantity >= 0)` |
 | `StockDocuments` | `Id`, `Type`, `Number` (unikalny), `ContractorId`, `UserId`, `ReversesDocumentId` (unikalny indeks częściowy: jedna korekta na dokument), `CreatedAt` (UTC), `DocumentDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny klucz idempotencji) |
 | `StockMovements` | `Id`, `DocumentId`, `BatchId`, `QuantityChange`, `UnitCost` |
-| `Invoices` | `Id`, `Kind`, `Status`, `ExternalOrderId` (oid, unikalny), `FakturowniaId`, `Number`, `PdfUrl`, `ContractorId`, `StockDocumentId`, `UserId`, sumy netto, VAT i brutto, `RemoteGrossTotal`, `PaymentDays`, `PaymentMethod`, `IssueDate` (Europe/Warsaw), `IssuedAt` (UTC) |
-| `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, kopia nazwy i jednostki, ilość, cena netto, rabat %, stawka VAT, wartości netto, VAT i brutto, koszt jednostkowy |
+| `Invoices` | `Id`, `Kind` (VAT, proforma, korekta), `CorrectsInvoiceId` (korygowana faktura, unikalny), `CorrectionReason`, `Status`, `ExternalOrderId` (oid, unikalny), `FakturowniaId`, `Number`, `PdfUrl`, `ContractorId`, `StockDocumentId`, `UserId`, sumy netto, VAT i brutto, `RemoteGrossTotal`, `PaymentDays`, `PaymentMethod`, `IssueDate` (Europe/Warsaw), `IssuedAt` (UTC) |
+| `InvoiceLines` | `Id`, `InvoiceId`, `ProductId`, `CorrectsLineId` (w korekcie: pozycja korygowana; ilość i wartości są wtedy różnicami), kopia nazwy i jednostki, ilość, cena netto, rabat %, stawka VAT, wartości netto, VAT i brutto, koszt jednostkowy |
 | `OutboxMessages` | `Id`, `Type`, `InvoiceId`, `Payload` (pełne żądanie z chwili wystawienia), `Attempts`, `NextAttemptAt` (puste: nic do zrobienia), `LockedUntil` (dzierżawa), `LastError` |
 | `DocumentCounters` | `Type`, `Year` (klucz złożony), `LastNumber` |
 | `CustomerOrders` | `Id`, `Number` (unikalny), `Status`, `ContractorId`, `UserId`, `CreatedAt` (UTC), `OrderDate` (Europe/Warsaw), `Notes`, `RequestId` (unikalny), `InvoiceId` (faktura, która je zrealizowała) |
@@ -375,6 +393,7 @@ Testy jednostkowe i integracyjne powstają razem z każdą funkcją. Poziom 2 za
 - Potwierdzić prefiks wewnętrznego EAN-13 w zasadach GS1.
 - Sprawdzić w przeglądarce i na telefonie ekrany magazynu według `docs/scenariusze-testowe.md`, w tym czytnik USB.
 - Uruchomić skrypt k6 (`tests/performance/k6/pages.js`) według README i dopisać jego wynik obok pomiaru z `Regal.LoadHost`.
+- Na koncie testowym Fakturowni potwierdzić format proformy i korekty (scenariusze F8 i F9), zwłaszcza czy pozycja korekty ma mieć różnicę, czy stan po korekcie.
 - Na koncie testowym Fakturowni potwierdzić: nagłówek `Authorization: Bearer` przy wyszukiwaniu po `oid`, odrzucanie duplikatu przy `oid_unique=yes`, nazwy pól odpowiedzi (`token`, `price_gross`) i zgodność sum (scenariusz F6).
 
 Rozstrzygnięte w etapie „Magazyn”: wycena PW bez podanego kosztu (punkt 5.5).
