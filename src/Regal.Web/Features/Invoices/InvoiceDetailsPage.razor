@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject InvoiceQueries Queries
 @inject InvoiceService Invoices
+@inject InvoicePaymentService Payments
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 
@@ -112,6 +113,34 @@
             </MudItem>
         </MudGrid>
 
+        @if (invoice.Status == InvoiceStatus.Sent)
+        {
+            <MudPaper Outlined="true" Class="pa-3 mb-3">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Płatność i wysyłka do nabywcy</MudText>
+                <div class="d-flex flex-wrap align-center gap-2 mb-2">
+                    <MudChip T="string" Size="Size.Small" Color="PaymentColor(invoice)">@InvoiceLabels.Payment(invoice.PaymentStatus)</MudChip>
+                    @if (invoice.PaidAmount is { } paid && paid > 0)
+                    {
+                        <MudText Typo="Typo.body2">zapłacono @StockLabels.Money(paid)@(invoice.PaidDate is { } date ? $" ({StockLabels.Date(date)})" : null)</MudText>
+                    }
+                    <MudText Typo="Typo.body2">termin @StockLabels.Date(invoice.IssueDate.AddDays(invoice.PaymentDays))</MudText>
+                    @if (invoice.PaymentCheckedAt is { } checkedAt)
+                    {
+                        <MudText Typo="Typo.caption">sprawdzono @checkedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                    }
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="RefreshPaymentAsync" Disabled="_working">Sprawdź płatność</MudButton>
+                </div>
+                <div class="d-flex flex-wrap align-center gap-2">
+                    <MudTextField T="string" @bind-Value="_email" Label="Adres e-mail nabywcy" InputType="InputType.Email" Style="min-width: 18rem" />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="EmailAsync" Disabled="_working">Wyślij mailem</MudButton>
+                    @if (invoice.EmailedAt is { } emailedAt)
+                    {
+                        <MudText Typo="Typo.caption">wysłano @emailedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") na @invoice.EmailedTo</MudText>
+                    }
+                </div>
+            </MudPaper>
+        }
+
         <MudTable T="InvoiceLineRow" Items="invoice.Lines" Hover="true" Breakpoint="Breakpoint.Sm">
             <HeaderContent>
                 <MudTh>Pozycja</MudTh>
@@ -177,6 +206,62 @@
     {
         _invoice = await Queries.GetDetailsAsync(Id);
         _notFound = _invoice is null;
+        _email ??= _invoice?.EmailedTo ?? _invoice?.ContractorEmail;
+    }
+
+    private string? _email;
+
+    private static Color PaymentColor(InvoiceDetails invoice) => invoice.PaymentStatus switch
+    {
+        InvoicePaymentStatus.Paid => Color.Success,
+        InvoicePaymentStatus.Partial => Color.Warning,
+        InvoicePaymentStatus.Unpaid when invoice.IssueDate.AddDays(invoice.PaymentDays) < DateOnly.FromDateTime(DateTime.Today) => Color.Error,
+        _ => Color.Default,
+    };
+
+    private async Task RefreshPaymentAsync()
+    {
+        // Set before the first await, so a second click is ignored.
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var result = await Payments.RefreshAsync(Id);
+            if (!result.IsSuccess)
+            {
+                Snackbar.Add(result.Error!, Severity.Error);
+            }
+
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    private async Task EmailAsync()
+    {
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var result = await Payments.SendByEmailAsync(Id, _email);
+            Snackbar.Add(result.IsSuccess ? $"Fakturownia wyśle fakturę na {_email?.Trim()}." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Error);
+            await LoadAsync();
+        }
+        finally
+        {
+            _working = false;
+        }
     }
 
     /// <summary>The sender works in the background, so a waiting invoice is reloaded until it settles.</summary>

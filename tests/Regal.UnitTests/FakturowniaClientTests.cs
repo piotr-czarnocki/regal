@@ -56,6 +56,43 @@ public class FakturowniaClientTests
         Assert.Equal(HttpMethod.Post, handler.Requests[0].Method);
     }
 
+    [Theory]
+    [InlineData("""{"id":5,"status":"paid","paid":"123,45","paid_date":"2026-11-09"}""", "paid", 123.45, "2026-11-09")]
+    [InlineData("""{"id":5,"status":"partial","paid":"10.00","paid_date":""}""", "partial", 10.00, null)]
+    [InlineData("""{"id":5,"status":"issued","paid":0}""", "issued", 0, null)]
+    public async Task Payment_is_read_with_a_decimal_comma_or_point(string body, string status, double paid, string? date)
+    {
+        var (client, handler) = Create(_ => Reply(HttpStatusCode.OK, body));
+
+        var payment = await client.GetPaymentAsync(5, CancellationToken.None);
+
+        Assert.Equal(new RemotePayment(status, (decimal)paid, date is null ? null : DateOnly.Parse(date)), payment);
+        Assert.Equal("https://firma.fakturownia.pl/invoices/5.json", handler.Requests[0].RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
+    }
+
+    [Fact]
+    public async Task Email_is_requested_with_the_pdf_and_an_escaped_address_and_no_token_in_the_url()
+    {
+        var (client, handler) = Create(_ => Reply(HttpStatusCode.OK, "{}"));
+
+        await client.SendByEmailAsync(7, "jan+faktury@example.com", CancellationToken.None);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("https://firma.fakturownia.pl/invoices/7/send_by_email.json?email_to=jan%2Bfaktury%40example.com&email_pdf=true", request.RequestUri!.AbsoluteUri);
+        Assert.DoesNotContain(Token, request.RequestUri.ToString());
+        Assert.Equal(Token, request.Headers.Authorization!.Parameter);
+    }
+
+    [Fact]
+    public async Task A_refused_email_is_reported_as_rejected()
+    {
+        var (client, _) = Create(_ => Reply(HttpStatusCode.UnprocessableEntity, """{"message":"brak adresu"}"""));
+
+        await Assert.ThrowsAsync<FakturowniaRejectedException>(() => client.SendByEmailAsync(7, "a@example.com", CancellationToken.None));
+    }
+
     [Fact]
     public async Task Lookup_accepts_only_an_exact_oid()
     {

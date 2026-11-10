@@ -16,7 +16,9 @@ public sealed record InvoiceListItem(
     DateOnly IssueDate,
     string ContractorName,
     decimal GrossTotal,
-    InvoiceKind Kind = InvoiceKind.Vat);
+    InvoiceKind Kind = InvoiceKind.Vat,
+    InvoicePaymentStatus PaymentStatus = InvoicePaymentStatus.Unknown,
+    DateOnly? DueDate = null);
 
 public sealed record InvoiceLineRow(
     string ProductName,
@@ -62,7 +64,14 @@ public sealed record InvoiceDetails(
     InvoiceKind Kind = InvoiceKind.Vat,
     InvoiceLink? Corrects = null,
     InvoiceLink? CorrectedBy = null,
-    string? CorrectionReason = null)
+    string? CorrectionReason = null,
+    string? ContractorEmail = null,
+    InvoicePaymentStatus PaymentStatus = InvoicePaymentStatus.Unknown,
+    decimal? PaidAmount = null,
+    DateOnly? PaidDate = null,
+    DateTime? PaymentCheckedAt = null,
+    DateTime? EmailedAt = null,
+    string? EmailedTo = null)
 {
     public decimal Margin => Lines.Sum(line => line.Margin);
 }
@@ -102,7 +111,7 @@ public sealed class InvoiceQueries(IDbContextFactory<RegalDbContext> dbContextFa
         var total = await query.CountAsync(cancellationToken);
         var items = await query.OrderByDescending(i => i.IssuedAt).ThenByDescending(i => i.Id)
             .Skip(Paging.Skip(page, pageSize)).Take(Paging.Take(pageSize))
-            .Select(i => new InvoiceListItem(i.Id, i.Number, i.Status, i.IssueDate, i.Contractor!.Name, i.GrossTotal, i.Kind))
+            .Select(i => new InvoiceListItem(i.Id, i.Number, i.Status, i.IssueDate, i.Contractor!.Name, i.GrossTotal, i.Kind, i.PaymentStatus, i.IssueDate.AddDays(i.PaymentDays)))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<InvoiceListItem>(items, total);
@@ -119,6 +128,7 @@ public sealed class InvoiceQueries(IDbContextFactory<RegalDbContext> dbContextFa
                 Invoice = i,
                 ContractorName = i.Contractor!.Name,
                 ContractorNip = i.Contractor.Nip,
+                ContractorEmail = i.Contractor.Email,
                 UserEmail = i.User!.Email,
                 StockDocument = i.StockDocument == null ? null : new DocumentLink(i.StockDocument.Id, i.StockDocument.Number),
                 Message = db.OutboxMessages.Where(m => m.InvoiceId == i.Id)
@@ -148,7 +158,8 @@ public sealed class InvoiceQueries(IDbContextFactory<RegalDbContext> dbContextFa
             header.ContractorName, header.ContractorNip, header.UserEmail, invoice.PaymentDays, invoice.PaymentMethod, header.StockDocument,
             invoice.NetTotal, invoice.VatTotal, invoice.GrossTotal, invoice.RemoteGrossTotal,
             header.Message?.Attempts ?? 0, header.Message?.NextAttemptAt, header.Message?.LastError, lines,
-            invoice.Kind, header.Corrects, header.CorrectedBy, invoice.CorrectionReason);
+            invoice.Kind, header.Corrects, header.CorrectedBy, invoice.CorrectionReason, header.ContractorEmail,
+            invoice.PaymentStatus, invoice.PaidAmount, invoice.PaidDate, invoice.PaymentCheckedAt, invoice.EmailedAt, invoice.EmailedTo);
     }
 }
 
@@ -160,6 +171,14 @@ public sealed record InvoiceLink(int Id, string? Number)
 
 public static class InvoiceLabels
 {
+    public static string Payment(InvoicePaymentStatus status) => status switch
+    {
+        InvoicePaymentStatus.Paid => "Opłacona",
+        InvoicePaymentStatus.Partial => "Częściowo opłacona",
+        InvoicePaymentStatus.Unpaid => "Nieopłacona",
+        _ => "Płatność nieznana",
+    };
+
     public static string Kind(InvoiceKind kind) => kind switch
     {
         InvoiceKind.Vat => "Faktura VAT",

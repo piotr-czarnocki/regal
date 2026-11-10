@@ -37,6 +37,8 @@ builder.Services.AddScoped<CustomerOrderService>();
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<InvoiceSender>();
 builder.Services.AddHostedService<InvoiceSendingWorker>();
+builder.Services.AddScoped<InvoicePaymentService>();
+builder.Services.AddHostedService<PaymentRefreshWorker>();
 builder.Services.Configure<FakturowniaOptions>(builder.Configuration.GetSection(FakturowniaOptions.Section));
 builder.Services.AddHttpClient<IFakturowniaClient, FakturowniaClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 

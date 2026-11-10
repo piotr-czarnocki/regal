@@ -27,6 +27,7 @@ public sealed class InvoicePagesTests : InvoiceTestBase
         _context.Services.AddScoped(_ => Documents);
         _context.Services.AddScoped(_ => Stock);
         _context.Services.AddScoped(_ => Contractors);
+        _context.Services.AddScoped(_ => new InvoicePaymentService(Postgres.DbContextFactory, new FixedUser(UserId), Fakturownia, Clock));
         _context.Services.AddScoped(_ => new Regal.Web.Features.Orders.CustomerOrderService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         _context.Render<MudPopoverProvider>();
         _dialogs = _context.Render<MudDialogProvider>();
@@ -131,6 +132,30 @@ public sealed class InvoicePagesTests : InvoiceTestBase
         corrected.WaitForAssertion(() => Assert.Contains("Przyczyna: Zwrot 3 szt.", corrected.Markup));
         Assert.Contains("było 4, jest 1", corrected.Markup);
         Assert.DoesNotContain(corrected.FindAll("button"), b => b.TextContent.Contains("Anuluj fakturę"));
+    }
+
+    [Fact]
+    public async Task Payment_can_be_checked_and_the_invoice_emailed_from_the_page()
+    {
+        var buyer = await Contractors.SaveAsync(null, new Regal.Web.Features.Contractors.ContractorInput { Name = Unique("Sklep"), Email = "sklep@example.com" });
+        var draft = Draft(Item(await NewServiceAsync(), 1));
+        draft.ContractorId = buyer.Id;
+        var id = await IssueOkAsync(draft);
+        await DrainAsync();
+        var invoice = await InvoiceAsync(id);
+        Fakturownia.SetPayment(invoice.FakturowniaId!.Value, "paid", invoice.GrossTotal, new DateOnly(2026, 6, 20));
+
+        var page = _context.Render<InvoiceDetailsPage>(parameters => parameters.Add(x => x.Id, id));
+        page.WaitForAssertion(() => Assert.Contains("Płatność nieznana", page.Markup));
+        Assert.Equal("sklep@example.com", page.FindComponents<MudTextField<string>>().Single(f => f.Instance.Label == "Adres e-mail nabywcy").Find("input").GetAttribute("value"));
+
+        ClickButton(page, "Sprawdź płatność");
+        page.WaitForAssertion(() => Assert.Contains("Opłacona", page.Markup));
+        Assert.Contains("20.06.2026", page.Markup);
+
+        ClickButton(page, "Wyślij mailem");
+        page.WaitForAssertion(() => Assert.Contains("na sklep@example.com", page.Markup));
+        Assert.Contains((invoice.FakturowniaId!.Value, "sklep@example.com"), Fakturownia.Emails);
     }
 
     private async Task<Invoice> WaitForCorrectionAsync(int invoiceId)

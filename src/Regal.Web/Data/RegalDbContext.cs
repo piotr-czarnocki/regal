@@ -97,6 +97,10 @@ public sealed class RegalDbContext(DbContextOptions<RegalDbContext> options) : D
             invoice.HasOne(i => i.StockDocument).WithMany().HasForeignKey(i => i.StockDocumentId).OnDelete(DeleteBehavior.Restrict);
             invoice.HasOne(i => i.User).WithMany().HasForeignKey(i => i.UserId).OnDelete(DeleteBehavior.Restrict);
             invoice.Property(i => i.CorrectionReason).HasMaxLength(500);
+            invoice.Property(i => i.PaymentStatus).HasConversion<string>().HasMaxLength(20);
+            invoice.Property(i => i.PaidAmount).HasPrecision(18, 2);
+            invoice.Property(i => i.EmailedTo).HasMaxLength(320);
+            invoice.HasIndex(i => new { i.PaymentStatus, i.PaymentCheckedAt });
             invoice.HasIndex(i => i.CorrectsInvoiceId).IsUnique();
             invoice.HasOne(i => i.CorrectsInvoice).WithMany().HasForeignKey(i => i.CorrectsInvoiceId).OnDelete(DeleteBehavior.Restrict);
         });
