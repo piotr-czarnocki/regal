@@ -197,6 +197,7 @@ public sealed class AnalyticsTests(PostgresFixture postgres) : InvoiceTestBase(p
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddMudServices();
         context.Services.AddScoped(_ => Analytics);
+        context.Services.AddScoped<Regal.Web.Components.Shared.FileDownloader>();
         context.Services.AddScoped(_ => new Regal.Web.Features.Invoices.InvoicePaymentService(Postgres.DbContextFactory, new FixedUser(UserId), Fakturownia, Clock));
         context.Services.AddScoped(_ => new CategoryService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped(_ => Contractors);

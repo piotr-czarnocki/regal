@@ -4,7 +4,10 @@
 <PageTitle>Sprzedaż i marża – Regał</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
-    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Sprzedaż i marża</MudText>
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Sprzedaż i marża</MudText>
+        <ExportButton FileName="@AnalyticsExports.Period("sprzedaz", _filter)" Build="() => AnalyticsExports.Sales(_products, _categories, _comparison)" />
+    </div>
 
     <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" />
 

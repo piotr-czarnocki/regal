@@ -4,7 +4,10 @@
 <PageTitle>Klienci – Regał</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
-    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Klienci</MudText>
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Klienci</MudText>
+        <ExportButton FileName="@AnalyticsExports.Period("klienci", _filter)" Build="() => AnalyticsExports.Customers(_rows)" />
+    </div>
     <MudText Typo="Typo.body2" Class="mb-3">Nabywcy w wybranym okresie, od największej sprzedaży netto. Korekty pomniejszają sprzedaż, proformy się nie liczą.</MudText>
 
     <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" />

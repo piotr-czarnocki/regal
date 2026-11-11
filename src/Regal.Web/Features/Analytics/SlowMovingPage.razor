@@ -5,7 +5,10 @@
 <PageTitle>Towary zalegające – Regał</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
-    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Towary zalegające</MudText>
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Towary zalegające</MudText>
+        <ExportButton FileName="@AnalyticsExports.Today("zalegajace", Analytics.Today)" Build="() => AnalyticsExports.SlowMoving(_rows)" />
+    </div>
     <MudText Typo="Typo.body2" Class="mb-3">Towary na stanie, których nikt nie kupił od podanej liczby dni, od największej wartości zapasu.</MudText>
 
     <MudGrid Spacing="2" Class="mb-3">

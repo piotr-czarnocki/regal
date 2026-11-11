@@ -39,6 +39,7 @@ builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddScoped<InvoiceQueries>();
 builder.Services.AddScoped<CustomerOrderService>();
 builder.Services.AddScoped<AnalyticsService>();
+builder.Services.AddScoped<Regal.Web.Components.Shared.FileDownloader>();
 builder.Services.AddScoped<InvoiceSender>();
 builder.Services.AddHostedService<InvoiceSendingWorker>();
 builder.Services.AddScoped<InvoicePaymentService>();
