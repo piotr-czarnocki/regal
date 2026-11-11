@@ -248,7 +248,7 @@ Other options: `--products`, `--customers`, `--suppliers`, `--days`, `--invoices
 dotnet test Regal.slnx
 ```
 
-Integration and browser tests start PostgreSQL through Testcontainers, so Docker must be running. Browser tests download Chromium themselves on the first run (internet needed); on Linux, install the browser's system libraries as CI does (`playwright.ps1 install --with-deps chromium`).
+Integration and browser tests start PostgreSQL through Testcontainers, so Docker must be running. Browser tests download Chromium themselves on the first run (internet needed); on Linux without the browser's system libraries, install them with `pwsh tests/Regal.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium` (CI does not need them, as the runner image has them).
 
 ### Performance tests
 
