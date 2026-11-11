@@ -372,7 +372,9 @@ Reguły opisuje `SPEC.md`, punkt 5.16; sprawdzają je testy `PlanningTests` i `P
 
 | Krok | Działanie | Oczekiwany wynik |
 |---|---|---|
-| 1 | „Produkty i usługi”, zaznacz dwa produkty, kopii 13, „Etykiety PDF (2)” | Pobiera się PDF z dwiema stronami A4 (26 etykiet, 24 na stronie) |
+| 1 | „Produkty i usługi”, kopii 13, przy jednym towarze „Etykieta” | Od razu pobiera się PDF z 13 etykietami tego towaru |
+| 1a | Zaznacz dwa produkty, kopii 13, „Etykiety PDF (2)” | Pobiera się PDF z dwiema stronami A4 (26 etykiet, 24 na stronie) |
+| 1b | Usługa na liście | Nie ma przycisku „Etykieta” (usługa nie ma kodu EAN) |
 | 2 | Wydrukuj w skali 100% na arkuszu 70 × 37 mm | Etykiety trafiają w pola arkusza |
 | 3 | Zeskanuj kod z wydruku czytnikiem USB w polu produktu dokumentu | Dodaje się ten produkt |
 | 4 | Produkt z polskimi literami w nazwie | Litery wydrukowane poprawnie |

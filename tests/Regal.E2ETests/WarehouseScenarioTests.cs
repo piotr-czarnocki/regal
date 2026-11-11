@@ -148,15 +148,19 @@ public sealed class WarehouseScenarioTests(AppFixture app)
     }
 
     // S10, step 7: tables turn into cards on a phone and nothing is wider than the screen.
-    [Fact]
-    public async Task Stock_page_fits_a_phone_screen()
+    // The products list has three buttons per row since the one-click label (SPEC 5.18).
+    [Theory]
+    [InlineData("/stock", "Stany magazynowe")]
+    [InlineData("/products", "Produkty i usługi")]
+    public async Task Pages_fit_a_phone_screen(string path, string heading)
     {
+        await NewGoodsAsync();
         var page = await app.NewPageAsync(app.AdminId, phone: true);
 
-        await page.WithScreenshotOnFailureAsync("phone", async () =>
+        await page.WithScreenshotOnFailureAsync("phone" + path.Replace('/', '-'), async () =>
         {
-            await AppFixture.OpenAsync(page, "/stock");
-            await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = "Stany magazynowe" })).ToBeVisibleAsync();
+            await AppFixture.OpenAsync(page, path);
+            await Assertions.Expect(page.GetByRole(AriaRole.Heading, new() { Name = heading })).ToBeVisibleAsync();
         });
 
         var overflow = await page.EvaluateAsync<bool>("() => document.documentElement.scrollWidth > window.innerWidth + 1");

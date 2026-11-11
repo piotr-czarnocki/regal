@@ -286,7 +286,7 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 
 ### 5.18. Etykiety z kodami w PDF (poziom 2)
 
-- Na liście produktów zaznacza się produkty, podaje liczbę kopii każdego (1–100) i pobiera „Etykiety PDF”: arkusze A4 po 24 etykiety 70 × 37 mm (3 × 8, typowy format samoprzylepny), najwyżej 480 etykiet naraz.
+- Przy każdym towarze z kodem EAN jest przycisk „Etykieta”: jedno kliknięcie pobiera PDF z etykietami tego towaru w liczbie kopii z pola „Kopii każdego” (1–100). Kilka towarów naraz drukuje się po zaznaczeniu ich i kliknięciu „Etykiety PDF”. Format: arkusze A4 po 24 etykiety 70 × 37 mm (3 × 8, typowy format samoprzylepny), najwyżej 480 etykiet naraz.
 - Etykieta: nazwa (do dwóch wierszy), SKU w jednym wierszu, cena brutto za jednostkę i kod EAN-13 jako paski i cyfry.
 - Paski liczy Regał według specyfikacji GS1 (zestawy L, G, R, parzystość z pierwszej cyfry, 95 modułów, wydłużone pasy ochronne, margines ciszy) i rysuje jako SVG. Moduł ma około 0,32 mm, czyli blisko nominalnych 0,33 mm.
 - PDF tworzy QuestPDF 2026.7.1 na licencji Community (bezpłatnej dla firm o przychodzie poniżej 1 mln USD i projektów open source), z wbudowaną czcionką obsługującą polskie znaki.
