@@ -18,8 +18,8 @@ Regał to Blazor Web App w trybie Interactive Server: pierwsze wczytanie strony 
 
 | Rodzaj | Projekt | Liczba | Co uruchamia | Czego nie obejmuje |
 |---|---|---|---|---|
-| Jednostkowe | `tests/Regal.UnitTests` | 274 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
-| Integracyjne | `tests/Regal.IntegrationTests` | 236 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
+| Jednostkowe | `tests/Regal.UnitTests` | 293 | Czyste reguły (średnia, FEFO, ABC, EAN, NIP, walidacja dokumentu, kwoty faktur), klient Fakturowni z podstawionym `HttpMessageHandler`, komponenty Blazora w bUnit z podmienionym JavaScriptem | Bazy danych, przeglądarki |
+| Integracyjne | `tests/Regal.IntegrationTests` | 242 | Serwisy na prawdziwym PostgreSQL 18.6 w Testcontainers z rolą o ograniczonych uprawnieniach; strony renderowane przez aplikację w teście (`WebApplicationFactory`) | Kliknięć w przeglądarce |
 | Funkcjonalne | `tests/Regal.E2ETests` | 13 | Cała aplikacja na Kestrelu, Chromium sterowany przez Playwright, logowanie kontem testowym, udawana Fakturownia | Prawdziwego Google i Fakturowni |
 | Wydajności: zapytania | `tests/performance/Regal.Benchmarks` | 7 zapytań | Zapytania analiz z serwisu na bazie z rokiem wygenerowanych danych | Renderowania stron |
 | Wydajności: HTTP | `tests/performance/k6`, `Regal.LoadHost --measure` | 8 stron | Pierwsze wczytanie stron (pełny HTML z serwera) przez 20 równoczesnych użytkowników | Zdarzeń SignalR po wczytaniu (kliknięcia, filtry) |
@@ -46,6 +46,7 @@ Testy nigdy nie łączą się z prawdziwą Fakturownią ani z Google: klient Fak
 | `OrderRulesTests` | 13 | Zamówienie: nabywca, 1–200 pozycji, produkt raz, uwagi do 500 znaków, numer `ZK/n/rok`, nazwy statusów |
 | `CorrectionRulesTests` | 15 | Korekta: przyczyna, ilość nieujemna, cena i rabat, pozycja raz; proforma nie z zamówienia; rodzaj i stany „przed/po” w pakiecie dla Fakturowni |
 | `VatRegistryTests` | 14 | Biała lista VAT: adres zapytania, odczyt nazwy i adresu (także osoby fizycznej), nieznany NIP, odmowa z kodem, błędy serwera i sieci, tylko znormalizowany NIP w adresie; wyszukiwanie: normalizacja, data w Polsce, niepoprawny NIP nie jest wysyłany |
+| `PlanningRulesTests` | 19 | Porównanie okresów (poprzedni, rok wcześniej, 29 lutego), zmiana w procentach, średnia dzienna, zapas w dniach, sugerowane zamówienie zaokrąglane w górę, zakres dni |
 | `AccessPolicyTests` | 10 | Lista dozwolonych adresów, nieaktywny użytkownik |
 | `AverageCostTests` | 9 | Średnia ważona przy przyjęciu i korekcie, zaokrąglenie do 4 miejsc, przycięcie do zera |
 | `InvoiceEditorTests` (bUnit) | 7 | Formularz faktury: sumy na bieżąco, usługi bez stanu |
@@ -58,7 +59,7 @@ Dane testowe pochodzą z obliczeń ręcznych zapisanych w testach (np. średnia 
 
 ### Wynik
 
-274 z 274 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
+293 z 293 testów przechodzi lokalnie w 5 s i w każdym przebiegu CI od scalenia etapu „Analizy”.
 
 ### Pokrycie kodu
 
@@ -118,8 +119,9 @@ Interpretacja:
 | `StocktakeTests` | 14 | Inwentaryzacja: skan liczy sztuki, partie na arkuszu, RW niedoborów i PW nadwyżek na tych samych partiach, kilka RW dla jednego produktu, różnica od stanu przy zatwierdzeniu, warunki zatwierdzenia, odmowa nadwyżki na przeterminowanej partii, walidacja, zamknięcie w serwisie i wyzwalaczem w bazie, anulowanie, współbieżność i kolejność blokad |
 | `StocktakePagesTests` | 3 | Ekrany inwentaryzacji: skanowanie, liczenie i zatwierdzenie z potwierdzeniem |
 | `CompanyLookupTests` | 2 | Okno kontrahenta wypełnione z udawanej białej listy i zapisane; niedostępny wykaz nie zmienia wpisanych danych |
+| `PlanningTests` | 6 | Klienci (kolejność, faktury, marża, ostatni zakup, korekta), porównanie z poprzednim okresem i rokiem wcześniej, prognoza z rezerwacjami, zakres dni, wczytanie stron |
 
-Wynik: 236 z 236 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
+Wynik: 242 z 242 testów przechodzi lokalnie w około 90 s (z uruchomieniem kontenera) i w CI.
 
 ### Eksperyment 1: czy testy współbieżności wykrywają brak blokady
 

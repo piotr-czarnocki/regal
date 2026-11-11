@@ -1,0 +1,98 @@
+@page "/analytics/forecast"
+@inject AnalyticsService Analytics
+@inject CategoryService Categories
+
+<PageTitle>Prognoza zamówień – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Prognoza zamówień</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Średnia dzienna sprzedaż z ostatnich dni historii razy liczba dni horyzontu, minus towar dostępny do sprzedaży
+        (stan bez przeterminowanych partii, pomniejszony o rezerwacje). Lista pokazuje tylko towary do zamówienia, od najkrótszego zapasu.
+        To prosta średnia: nie uwzględnia sezonowości ani promocji.
+    </MudText>
+
+    <MudGrid Spacing="2" Class="mb-3">
+        <MudItem xs="6" md="2">
+            <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" Value="_history" ValueChanged="OnHistoryChanged" Label="Historia (dni)"
+                             Min="1" Max="PlanningRules.MaxDays" HideSpinButtons="true" DebounceInterval="300" Immediate="true" />
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" Value="_horizon" ValueChanged="OnHorizonChanged" Label="Horyzont (dni)"
+                             Min="1" Max="PlanningRules.MaxDays" HideSpinButtons="true" DebounceInterval="300" Immediate="true" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudSelect T="int?" Value="_categoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">
+                <MudSelectItem T="int?" Value="null">Wszystkie</MudSelectItem>
+                @foreach (var category in _categories)
+                {
+                    <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">@_error</MudAlert>
+    }
+
+    <MudTable T="ForecastRow" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Towar</MudTh>
+            <MudTh>Sprzedano w historii</MudTh>
+            <MudTh>Średnio dziennie</MudTh>
+            <MudTh>Dostępne</MudTh>
+            <MudTh>Zapas na (dni)</MudTh>
+            <MudTh>Zamówić</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Towar"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Sprzedano">@StockLabels.Quantity(context.SoldInHistory) @context.Unit</MudTd>
+            <MudTd DataLabel="Średnio dziennie">@StockLabels.Quantity(context.DailyAverage) @context.Unit</MudTd>
+            <MudTd DataLabel="Dostępne">@StockLabels.Quantity(context.Available) @context.Unit</MudTd>
+            <MudTd DataLabel="Zapas na (dni)">@(context.DaysOfCover is { } days ? days.ToString("0.0") : "—")</MudTd>
+            <MudTd DataLabel="Zamówić"><strong>@StockLabels.Quantity(context.SuggestedOrder) @context.Unit</strong></MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Nic nie trzeba zamawiać na ten horyzont.</MudText></NoRecordsContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private int _history = PlanningRules.DefaultHistoryDays;
+    private int _horizon = PlanningRules.DefaultHorizonDays;
+    private int? _categoryId;
+    private string? _error;
+    private IReadOnlyList<CategoryItem> _categories = [];
+    private IReadOnlyList<ForecastRow> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await Categories.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private Task OnHistoryChanged(int value)
+    {
+        _history = value;
+        return LoadAsync();
+    }
+
+    private Task OnHorizonChanged(int value)
+    {
+        _horizon = value;
+        return LoadAsync();
+    }
+
+    private Task OnCategoryChanged(int? value)
+    {
+        _categoryId = value;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _error = PlanningRules.ValidateDays(_history, _horizon);
+        _rows = _error is null ? await Analytics.GetForecastAsync(_history, _horizon, _categoryId) : [];
+    }
+}

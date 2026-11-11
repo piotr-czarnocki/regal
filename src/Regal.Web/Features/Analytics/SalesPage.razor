@@ -17,6 +17,32 @@
             <MudItem xs="6" md="3"><StatCard Title="Faktury" Value="@_summary.InvoiceCount.ToString()" /></MudItem>
         </MudGrid>
 
+        @if (_comparison is { } comparison)
+        {
+            <MudPaper Outlined="true" Class="pa-3 mb-3">
+                <MudText Typo="Typo.h6" Class="mb-1">Porównanie okresów</MudText>
+                <MudSimpleTable Dense="true" Elevation="0">
+                    <thead>
+                        <tr><th>Okres</th><th>Sprzedaż netto</th><th>Zmiana</th><th>Marża</th><th>Zmiana</th><th>Faktury</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var (label, period) in new[] { ("Wybrany", comparison.Current), ("Poprzedni", comparison.Previous), ("Rok wcześniej", comparison.YearEarlier) })
+                        {
+                            <tr data-period="@label">
+                                <td>@label: @StockLabels.Date(period.From) – @StockLabels.Date(period.To)</td>
+                                <td>@StockLabels.Money(period.Sales.NetSales)</td>
+                                <td>@ChangeText(comparison.Current.Sales.NetSales, period.Sales.NetSales, period == comparison.Current)</td>
+                                <td>@StockLabels.Money(period.Sales.Margin)</td>
+                                <td>@ChangeText(comparison.Current.Sales.Margin, period.Sales.Margin, period == comparison.Current)</td>
+                                <td>@period.Sales.InvoiceCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+                <MudText Typo="Typo.caption">Zmiana: wybrany okres względem danego wiersza.</MudText>
+            </MudPaper>
+        }
+
         <MudPaper Outlined="true" Class="pa-3 mb-3">
             <SalesChart Points="_points" />
         </MudPaper>
@@ -68,6 +94,10 @@
     private IReadOnlyList<SalesPoint> _points = [];
     private IReadOnlyList<CategorySales> _categories = [];
     private IReadOnlyList<ProductSales> _products = [];
+    private PeriodComparison? _comparison;
+
+    private static string ChangeText(decimal current, decimal earlier, bool same) =>
+        same ? "—" : PlanningRules.ChangePercent(current, earlier) is { } change ? $"{(change > 0 ? "+" : null)}{change:0.0}%" : "brak danych";
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,5 +118,6 @@
         _points = await Analytics.GetSalesOverTimeAsync(_filter);
         _categories = await Analytics.GetSalesByCategoryAsync(_filter);
         _products = await Analytics.GetSalesByProductAsync(_filter, take: 50);
+        _comparison = await Analytics.ComparePeriodsAsync(_filter);
     }
 }
