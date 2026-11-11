@@ -4,6 +4,7 @@
 @inject ISnackbar Snackbar
 @inject LabelService Labels
 @inject Regal.Web.Components.Shared.FileDownloader Downloader
+@inject TimeProvider Clock
 
 <PageTitle>Produkty i usługi – Regał</PageTitle>
 
@@ -81,7 +82,7 @@
             var result = await Labels.BuildAsync(_selected.Select(p => new LabelRequest(p.Id, _copies)).ToList());
             if (result.Pdf is { } pdf)
             {
-                await Downloader.SaveAsync(string.Create(CultureInfo.InvariantCulture, $"etykiety-{DateTime.Now:yyyy-MM-dd-HHmm}.pdf"), pdf);
+                await Downloader.SaveAsync(string.Create(CultureInfo.InvariantCulture, $"etykiety-{WarehouseTime.LocalNow(Clock.GetUtcNow()):yyyy-MM-dd-HHmm}.pdf"), pdf);
             }
             else
             {

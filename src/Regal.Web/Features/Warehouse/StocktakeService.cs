@@ -64,8 +64,8 @@ public sealed class StocktakeService(
     }
 
     /// <summary>
-    /// Puts the goods' batches with stock on the sheet. With one batch, every scan also counts one
-    /// unit, so counting can be done by scanning each item.
+    /// Puts the goods' batches with stock on the sheet. With one batch of goods in pieces, every scan
+    /// also counts one, so counting can be done by scanning each item; weights are typed in.
     /// </summary>
     public Task<StocktakeScanResult> AddProductAsync(int stocktakeId, int productId, CancellationToken cancellationToken = default) =>
         InDraftAsync(stocktakeId, async (db, _) =>
@@ -92,7 +92,9 @@ public sealed class StocktakeService(
             }
 
             var lines = await db.StocktakeLines.Where(l => l.StocktakeId == stocktakeId && batches.Contains(l.BatchId)).ToListAsync(cancellationToken);
-            if (batches.Count == 1)
+            // A scan is one item, so only whole pieces are counted by scanning; a weight is typed in.
+            var countsByScan = string.Equals(product.Unit.Trim(), "szt", StringComparison.OrdinalIgnoreCase);
+            if (batches.Count == 1 && countsByScan)
             {
                 var line = lines.SingleOrDefault();
                 if (line is null)
@@ -114,7 +116,9 @@ public sealed class StocktakeService(
             }
 
             await db.SaveChangesAsync(cancellationToken);
-            return new StocktakeScanResult(true, $"{product.Name}: {batches.Count} partie, wpisz ilość przy każdej.");
+            return new StocktakeScanResult(true, batches.Count == 1
+                ? $"{product.Name}: wpisz ilość w {product.Unit}."
+                : $"{product.Name}: {batches.Count} partie, wpisz ilość przy każdej.");
         }, cancellationToken);
 
     /// <summary>Empty clears the count; zero means nothing was found.</summary>

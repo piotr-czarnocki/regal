@@ -279,3 +279,23 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** 25 etykiet dało 10 stron PDF zamiast 2.
 - **Przyczyna:** dwie naraz. QuestPDF domyślnie skaluje SVG do szerokości, więc kod kreskowy był za wysoki. Do tego długie SKU z testu (z GUID-em, bez spacji) zawijało się na kilka wierszy. Etykieta nie mieściła się w 37 mm, a tabela przenosiła ją na następną stronę.
 - **Rozwiązanie:** kod w obszarze 37 × 13 mm (`FitArea`), SKU w jednym wierszu z wielokropkiem, cena obok. Bez narzędzia do podglądu PDF układ sprawdziłem, każąc QuestPDF chwilowo zapisać obraz strony. Ten podgląd pokazał też, że kod był za wąski (moduł około 0,2 mm, poniżej minimum normy), więc ma teraz około 0,32 mm.
+
+## Przegląd po poziomie 2 (11.11.2026)
+
+Po ukończeniu poziomu 2 poprosiłem o przegląd mocniejszy model (doradcę w Claude Code). Zamiast nowych funkcji wskazał błędy i nieaktualne pomiary.
+
+### Czas serwera zamiast czasu polskiego
+
+- **Objaw:** strony z poziomu 2 pokazywały godziny przez `ToLocalTime()` i oceniały „po terminie” przez `DateTime.Today`. Na tym komputerze (strefa polska) wyglądało to dobrze, ale w kontenerze Docker (UTC) godziny byłyby przesunięte o 1–2 h, a kolor „po terminie” zły wokół północy.
+- **Przyczyna:** SPEC mówi, że czas zapisuje się w UTC, a daty pokazuje według Europe/Warsaw. Starsze moduły robiły to przez `WarehouseTime`, nowsze ten wzorzec pominęły.
+- **Rozwiązanie:** `WarehouseTime.Display` (test: 31.12 23:30 UTC to 01.01 00:30) i dzisiejsza data z `TimeProvider` na stronach. Test strony faktury przesuwa zegar testu poza termin; na starym kodzie byłby czerwony, bo `DateTime.Today` to listopad, a zegar testu stoi w czerwcu.
+
+### Skan dodawał 1 kg
+
+- **Objaw:** w inwentaryzacji każdy skan towaru z jedną partią dodawał 1 do ilości, także dla kilogramów.
+- **Rozwiązanie:** liczenie skanem tylko dla „szt”; inne jednostki trafiają na arkusz bez ilości. Test był czerwony przed poprawką (dwa skany dały 2 kg).
+
+### Należności liczone w pamięci
+
+- **Problem:** karta należności na pulpicie ładowała wszystkie nieopłacone faktury i liczyła przeterminowane w C#.
+- **Rozwiązanie:** liczenie i sumy w jednym zapytaniu SQL.

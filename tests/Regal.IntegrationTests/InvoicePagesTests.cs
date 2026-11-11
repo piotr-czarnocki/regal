@@ -22,6 +22,7 @@ public sealed class InvoicePagesTests : InvoiceTestBase
     {
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         _context.Services.AddMudServices();
+        _context.Services.AddSingleton<TimeProvider>(Clock);
         _context.Services.AddScoped(_ => Invoices);
         _context.Services.AddScoped(_ => new InvoiceQueries(Postgres.DbContextFactory, new FixedUser(UserId)));
         _context.Services.AddScoped(_ => Documents);
@@ -156,6 +157,25 @@ public sealed class InvoicePagesTests : InvoiceTestBase
         ClickButton(page, "Wyślij mailem");
         page.WaitForAssertion(() => Assert.Contains("na sklep@example.com", page.Markup));
         Assert.Contains((invoice.FakturowniaId!.Value, "sklep@example.com"), Fakturownia.Emails);
+    }
+
+    [Fact]
+    public async Task Overdue_is_judged_by_the_application_clock_in_poland()
+    {
+        var id = await IssueOkAsync(Draft(Item(await NewServiceAsync(), 1)));
+        await DrainAsync();
+        await new InvoicePaymentService(Postgres.DbContextFactory, new FixedUser(UserId), Fakturownia, Clock).RefreshAsync(id);
+        var invoice = await InvoiceAsync(id);
+
+        var due = _context.Render<InvoiceDetailsPage>(parameters => parameters.Add(x => x.Id, id));
+        due.WaitForAssertion(() => Assert.Contains("Nieopłacona", due.Markup));
+        Assert.DoesNotContain(due.FindAll(".mud-chip"), chip => chip.TextContent.Contains("Nieopłacona") && chip.ClassList.Contains("mud-chip-color-error"));
+
+        // The test clock, not the computer's, moves past the due date.
+        Clock.Advance(TimeSpan.FromDays(invoice.PaymentDays + 1));
+        var overdue = _context.Render<InvoiceDetailsPage>(parameters => parameters.Add(x => x.Id, id));
+        overdue.WaitForAssertion(() => Assert.Contains(overdue.FindAll(".mud-chip"),
+            chip => chip.TextContent.Contains("Nieopłacona") && chip.ClassList.Contains("mud-chip-color-error")));
     }
 
     private async Task<Invoice> WaitForCorrectionAsync(int invoiceId)

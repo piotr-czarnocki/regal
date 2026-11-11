@@ -1,5 +1,6 @@
 @page "/invoices"
 @inject InvoiceQueries Queries
+@inject TimeProvider Clock
 
 <PageTitle>Faktury – Regał</PageTitle>
 
@@ -48,7 +49,7 @@
                 }
                 @if (context.Status == InvoiceStatus.Sent && context.PaymentStatus != InvoicePaymentStatus.Unknown)
                 {
-                    <MudChip T="string" Size="Size.Small" Color="@(context.PaymentStatus == InvoicePaymentStatus.Paid ? Color.Success : context.DueDate < DateOnly.FromDateTime(DateTime.Today) ? Color.Error : Color.Default)">@InvoiceLabels.Payment(context.PaymentStatus)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="@(context.PaymentStatus == InvoicePaymentStatus.Paid ? Color.Success : context.DueDate < _today ? Color.Error : Color.Default)">@InvoiceLabels.Payment(context.PaymentStatus)</MudChip>
                 }
             </MudTd>
             <MudTd DataLabel="Data">@StockLabels.Date(context.IssueDate)</MudTd>
@@ -63,6 +64,9 @@
 
 @code {
     private MudTable<InvoiceListItem>? _table;
+    private DateOnly _today;
+
+    protected override void OnInitialized() => _today = WarehouseTime.DateOf(Clock.GetUtcNow());
     private string? _search;
     private InvoiceStatus? _status;
     private DateTime? _from;

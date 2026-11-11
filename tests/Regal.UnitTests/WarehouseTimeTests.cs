@@ -32,3 +32,16 @@ public class WarehouseTimeTests
     public void Number_has_the_type_the_sequence_and_the_year(StockDocumentType type, int number, int year, string expected) =>
         Assert.Equal(expected, DocumentNumber.Format(type, number, year));
 }
+
+public class WarsawDisplayTests
+{
+    [Theory]
+    [InlineData("2026-12-31T23:30:00", "01.01.2027 00:30")] // winter: UTC+1, already the next year
+    [InlineData("2026-07-01T10:15:00", "01.07.2026 12:15")] // summer: UTC+2
+    public void Utc_moments_are_shown_in_polish_time(string utc, string shown) =>
+        Assert.Equal(shown, Regal.Web.Features.Warehouse.WarehouseTime.Display(DateTime.SpecifyKind(DateTime.Parse(utc, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc)));
+
+    [Fact]
+    public void A_moment_read_from_the_database_without_kind_counts_as_utc() =>
+        Assert.Equal("01.01.2027 00:30", Regal.Web.Features.Warehouse.WarehouseTime.Display(new DateTime(2026, 12, 31, 23, 30, 0, DateTimeKind.Unspecified)));
+}

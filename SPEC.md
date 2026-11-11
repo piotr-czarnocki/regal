@@ -250,7 +250,7 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 ### 5.14. Inwentaryzacja ze skanowaniem (poziom 2)
 
 - Spis prowadzi się na arkuszu, który jest wersją roboczą zapisywaną po każdej zmianie (przerwane połączenie telefonu niczego nie gubi). Arkusz można anulować, dopóki nie jest zatwierdzony.
-- Zeskanowanie albo wybranie towaru dodaje na arkusz wszystkie jego partie ze stanem większym od zera. Gdy towar ma jedną partię, kolejne skany dodają po jednej sztuce do policzonej ilości; przy kilku partiach ilość wpisuje się przy partii. Pozycję można usunąć.
+- Zeskanowanie albo wybranie towaru dodaje na arkusz wszystkie jego partie ze stanem większym od zera. Gdy towar w sztukach („szt”) ma jedną partię, każdy skan dodaje jedną sztukę do policzonej ilości. Przy kilku partiach i przy innych jednostkach (np. kg) ilość wpisuje się ręcznie, bo skan nie mówi nic o wadze. Pozycję można usunąć.
 - Arkusz obejmuje tylko to, co na nim jest: towary spoza arkusza zostają bez zmian (spis częściowy, np. jednego regału).
 - Zatwierdzenie wymaga policzenia każdej pozycji (zero jest dozwolone). Stan oczekiwany to stan partii w chwili zatwierdzenia, odczytany pod blokadą wszystkich produktów arkusza; w czasie liczenia nie należy wydawać ani przyjmować tych towarów. Arkusz zapisuje stan oczekiwany przy każdej pozycji.
 - Różnice księguje się w tej samej transakcji: niedobór to RW z partii, której dotyczy (powód „Niedobór inwentaryzacyjny INW/…”), nadwyżka to PW do tej samej partii po bieżącej cenie średniej. Produkt może wystąpić na RW raz, więc niedobory jednego produktu na kilku partiach dają kilka dokumentów RW. Dokumenty mają do 200 pozycji, a powstałe dokumenty wskazują swój arkusz.

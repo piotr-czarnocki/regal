@@ -53,6 +53,22 @@ public class StocktakeTests(PostgresFixture postgres) : WarehouseTestBase(postgr
     }
 
     [Fact]
+    public async Task Scanning_goods_sold_by_weight_puts_them_on_the_sheet_without_counting()
+    {
+        var flour = await NewGoodsAsync(unit: "kg");
+        await PostOkAsync(Pz(In(flour, 12.5m, 2m, "A")));
+        var sheet = await NewSheetAsync();
+
+        var first = await Stocktakes.AddProductAsync(sheet, flour);
+        await Stocktakes.AddProductAsync(sheet, flour);
+
+        // One scan is one item, which says nothing about kilograms: the weight is typed in.
+        var line = Assert.Single((await SheetAsync(sheet)).Lines);
+        Assert.Null(line.Counted);
+        Assert.Contains("wpisz", first.Message);
+    }
+
+    [Fact]
     public async Task A_product_with_several_batches_puts_each_on_the_sheet_uncounted()
     {
         var product = await NewGoodsAsync();

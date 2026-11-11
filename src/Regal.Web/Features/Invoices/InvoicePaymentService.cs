@@ -141,14 +141,24 @@ public sealed class InvoicePaymentService(
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var today = WarehouseTime.DateOf(timeProvider.GetUtcNow());
 
-        var open = await db.Invoices.AsNoTracking()
+        // Counted and summed in the database: the dashboard reads this on every visit, and loading
+        // every open invoice into memory grew with the number of unpaid invoices.
+        var totals = await db.Invoices.AsNoTracking()
             .Where(i => i.Kind == InvoiceKind.Vat && i.Status == InvoiceStatus.Sent
                 && (i.PaymentStatus == InvoicePaymentStatus.Unpaid || i.PaymentStatus == InvoicePaymentStatus.Partial))
-            .Select(i => new { i.IssueDate, i.PaymentDays, Due = i.GrossTotal - (i.PaidAmount ?? 0) })
-            .ToListAsync(cancellationToken);
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Due = g.Sum(i => i.GrossTotal - (i.PaidAmount ?? 0)),
+                OverdueCount = g.Count(i => i.IssueDate.AddDays(i.PaymentDays) < today),
+                OverdueDue = g.Where(i => i.IssueDate.AddDays(i.PaymentDays) < today).Sum(i => i.GrossTotal - (i.PaidAmount ?? 0)),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
 
-        var overdue = open.Where(i => i.IssueDate.AddDays(i.PaymentDays) < today).ToList();
-        return new ReceivablesSummary(overdue.Count, overdue.Sum(i => i.Due), open.Count, open.Sum(i => i.Due));
+        return totals is null
+            ? new ReceivablesSummary(0, 0, 0, 0)
+            : new ReceivablesSummary(totals.OverdueCount, totals.OverdueDue, totals.Count, totals.Due);
     }
 
     public static InvoicePaymentStatus StatusOf(RemotePayment payment) => payment.Status switch

@@ -23,7 +23,7 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Arkusz"><MudLink Href="@StockDocumentRoutes.Stocktake(context.Id)">@(context.Number ?? $"Arkusz nr {context.Id}")</MudLink></MudTd>
-            <MudTd DataLabel="Utworzony">@context.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudTd>
+            <MudTd DataLabel="Utworzony">@WarehouseTime.Display(context.CreatedAt)</MudTd>
             <MudTd DataLabel="Pozycje">@context.LineCount</MudTd>
             <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Color="StocktakeLabels.Color(context.Status)">@StocktakeLabels.Status(context.Status)</MudChip></MudTd>
         </RowTemplate>

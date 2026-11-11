@@ -10,6 +10,16 @@ public static class WarehouseTime
     /// <summary>The calendar date in Poland: 31 December 23:30 UTC is already 1 January there.</summary>
     public static DateOnly DateOf(DateTimeOffset instant) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, Zone).DateTime);
+
+    /// <summary>
+    /// A stored moment (UTC) as a person in Poland reads it. Never ToLocalTime(): that is the server's
+    /// zone, which in a Docker container is UTC. A value read without a kind counts as UTC, as stored.
+    /// </summary>
+    /// <summary>The wall-clock time in Poland now, e.g. for a file name.</summary>
+    public static DateTime LocalNow(DateTimeOffset now) => TimeZoneInfo.ConvertTime(now, Zone).DateTime;
+
+    public static string Display(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zone).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
 }
 
 public static class DocumentNumber
