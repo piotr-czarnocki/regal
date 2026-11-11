@@ -20,6 +20,8 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 | Analizy → Sprzedaż i marża | `/analytics/sales` | Wykres w czasie, tabele według produktów i kategorii |
 | Analizy → ABC | `/analytics/abc` | Podział produktów na klasy A, B, C |
 | Analizy → Zalegające | `/analytics/slow-moving` | Towary na stanie bez sprzedaży od N dni |
+| Analizy → Klienci | `/analytics/customers` | Nabywcy w okresie |
+| Analizy → Prognoza zamówień | `/analytics/forecast` | Towary do zamówienia na horyzont |
 
 ## 1. Logowanie i dostęp
 
@@ -121,6 +123,9 @@ Sprzedaż i ABC mają filtr okresu, kategorii i klienta, a zalegające filtr kat
 - **Sprzedaż i marża:** wykres liniowy dzień po dniu (do dwóch miesięcy) albo miesiąc po miesiącu oraz tabele według produktów i kategorii z marżą procentową.
 - **ABC:** produkty uporządkowane według sprzedaży; klasa A to produkty dające pierwsze 80% sprzedaży, B kolejne 15%, C resztę. Ekran pokazuje udział i udział narastający.
 - **Zalegające:** towary na stanie, których ostatnia sprzedaż była dawniej niż N dni temu albo których nigdy nie sprzedano, z wartością zamrożonego zapasu.
+- **Klienci (poziom 2):** nabywcy w okresie z liczbą faktur, sprzedażą, marżą, średnią fakturą i datą ostatniego zakupu.
+- **Porównanie okresów (poziom 2):** strona sprzedaży zestawia wybrany okres z poprzednim okresem tej samej długości i z tym samym okresem rok wcześniej, ze zmianą w procentach.
+- **Prognoza zamówień (poziom 2):** średnia dzienna sprzedaż z ostatnich dni (domyślnie 28) razy horyzont (domyślnie 14 dni) minus towar dostępny do sprzedaży daje sugerowaną ilość do zamówienia; lista od najkrótszego zapasu. To prosta średnia, bez sezonowości.
 
 ## 8. Dziennik działań
 
@@ -132,4 +137,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4) oraz dane firmy po NIP-ie (punkt 3); nie powstały m.in. eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4), dane firmy po NIP-ie (punkt 3) oraz analizy klientów, porównanie okresów i prognoza zamówień (punkt 7); nie powstały m.in. eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).

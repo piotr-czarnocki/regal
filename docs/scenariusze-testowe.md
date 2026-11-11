@@ -337,3 +337,24 @@ Reguły opisuje `SPEC.md`, punkt 5.14. Reguły sprawdzają testy `StocktakeTests
 | 3 | NIP z błędną cyfrą kontrolną, „Pobierz dane” | Komunikat o niepoprawnym NIP-ie, pola bez zmian |
 | 4 | Poprawny NIP, którego nie ma w wykazie | Komunikat, że wykaz nie zna podmiotu |
 | 5 | Bez internetu, „Pobierz dane” | Komunikat, że wykaz nie odpowiada; wpisane dane zostają |
+
+# Scenariusze testów ręcznych: analizy poziomu 2
+
+Reguły opisuje `SPEC.md`, punkt 5.16; sprawdzają je testy `PlanningTests` i `PlanningRulesTests`. Najlepiej na danych z generatora.
+
+## A5. Klienci i porównanie okresów
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Analizy” → „Klienci”, ostatnie 12 miesięcy | Nabywcy od największej sprzedaży, z liczbą faktur, marżą, średnią fakturą i ostatnim zakupem |
+| 2 | „Sprzedaż i marża”, okres jednego miesiąca | Sekcja „Porównanie okresów”: wybrany miesiąc, poprzedni miesiąc tej samej długości i rok wcześniej, ze zmianą w procentach |
+| 3 | Zmień kategorię | Wszystkie trzy wiersze liczą się dla tej kategorii |
+
+## A6. Prognoza zamówień
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Analizy” → „Prognoza zamówień” | Towary do zamówienia od najkrótszego zapasu; „Zamówić” w całych sztukach dla „szt” |
+| 2 | Dla jednego towaru sprawdź: sprzedane w 28 dniach ÷ 28 × 14 − dostępne | Zgadza się z kolumną „Zamówić” (w górę) |
+| 3 | Zarezerwuj ten towar zamówieniem klienta i odśwież | „Dostępne” maleje, „Zamówić” rośnie |
+| 4 | Horyzont 0 | Komunikat o zakresie 1–365 dni |

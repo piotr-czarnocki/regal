@@ -6,7 +6,7 @@
 
 Regał to webowa aplikacja magazynowo-sprzedażowa dla małej firmy handlowej z własną produkcją. Projekt powstaje na zaliczenie na studiach i do portfolio. Zakres opisuje [SPEC.md](SPEC.md).
 
-**Stan projektu:** gotowe są fundament (logowanie Google z listą dozwolonych adresów, dziennik działań, testy i CI), kartoteki, magazyn (dokumenty PZ, PW, WZ i RW, partie z datami ważności, stany, cena średnia i korekty), faktury wysyłane do Fakturowni z automatycznym WZ, skanowanie kodów czytnikiem USB i aparatem telefonu, pulpit z analizami (sprzedaż i marża, ABC, towary zalegające), generator przykładowych danych, a z poziomu 2 zamówienia klientów z rezerwacją towaru, proformy i faktury korygujące, wysyłka faktur mailem ze statusem płatności, inwentaryzacja ze skanowaniem oraz dane firmy po NIP-ie z białej listy VAT.
+**Stan projektu:** gotowe są fundament (logowanie Google z listą dozwolonych adresów, dziennik działań, testy i CI), kartoteki, magazyn (dokumenty PZ, PW, WZ i RW, partie z datami ważności, stany, cena średnia i korekty), faktury wysyłane do Fakturowni z automatycznym WZ, skanowanie kodów czytnikiem USB i aparatem telefonu, pulpit z analizami (sprzedaż i marża, ABC, towary zalegające), generator przykładowych danych, a z poziomu 2 zamówienia klientów z rezerwacją towaru, proformy i faktury korygujące, wysyłka faktur mailem ze statusem płatności, inwentaryzacja ze skanowaniem, dane firmy po NIP-ie z białej listy VAT oraz analizy klientów, porównanie okresów i prognoza zamówień.
 
 ### Wymagania
 
@@ -150,7 +150,7 @@ Ten sam test obciążenia w k6: uruchom `dotnet run -c Release --project tests/p
 
 Regał is a web application for warehouse and sales management in a small trading company with its own production. It is a university project and a portfolio piece. The scope is described in [SPEC.md](SPEC.md) (in Polish). The application's interface is Polish only.
 
-**Status:** done are the foundation (Google sign-in with an allow-list, audit log, tests and CI), catalogs, the warehouse (PZ, PW, WZ and RW documents, batches with expiry dates, stock levels, average cost and corrections), invoices sent to Fakturownia with an automatic WZ, barcode scanning with a USB reader or a phone camera, a dashboard with analytics (sales and margin, ABC, slow-moving goods), a sample data generator and, from level 2, customer orders that reserve goods, proforma and correcting invoices, invoices emailed with their payment status followed, stocktaking by scanning, and company details fetched by tax number from the VAT register.
+**Status:** done are the foundation (Google sign-in with an allow-list, audit log, tests and CI), catalogs, the warehouse (PZ, PW, WZ and RW documents, batches with expiry dates, stock levels, average cost and corrections), invoices sent to Fakturownia with an automatic WZ, barcode scanning with a USB reader or a phone camera, a dashboard with analytics (sales and margin, ABC, slow-moving goods), a sample data generator and, from level 2, customer orders that reserve goods, proforma and correcting invoices, invoices emailed with their payment status followed, stocktaking by scanning, company details fetched by tax number from the VAT register, and customer analytics, period comparison and an order forecast.
 
 ### Requirements
 

@@ -43,7 +43,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 3. Wysyłka faktury mailem, status płatności z Fakturowni. **Gotowe** (punkt 5.13).
 4. Inwentaryzacja ze skanowaniem. **Gotowe** (punkt 5.14).
 5. Pobieranie danych firmy po NIP-ie. **Gotowe** (punkt 5.15).
-6. Analizy klientów, prosta prognoza zamówień i porównanie okresów.
+6. Analizy klientów, prosta prognoza zamówień i porównanie okresów. **Gotowe** (punkt 5.16).
 7. Eksport analiz do Excela (.xlsx).
 8. Etykiety z kodami w PDF do druku.
 
@@ -266,6 +266,13 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Adres pochodzi z `workingAddress`, a gdy go nie ma, z `residenceAddress` (osoby fizyczne). Okno pokazuje status VAT („Czynny”, „Zwolniony”, „Niezarejestrowany”).
 - Gdy wykaz nie zna NIP-u, nie odpowiada albo odrzuca zapytanie, okno mówi o tym, a wpisane dane zostają bez zmian.
 - Zapytanie idzie tylko po kliknięciu, nigdy w tle ani przy zapisie, bo API nie podaje limitów. Testy używają udawanego wykazu.
+
+### 5.16. Analizy klientów, prognoza zamówień i porównanie okresów (poziom 2)
+
+- **Klienci:** nabywcy w okresie (filtr okresu i kategorii), od największej sprzedaży netto: liczba faktur VAT, sprzedaż netto, marża, średnia faktura i data ostatniego zakupu. Korekty pomniejszają sprzedaż, ale nie są liczone jako faktury; proformy się nie liczą.
+- **Porównanie okresów:** strona sprzedaży zestawia wybrany okres z poprzednim okresem tej samej długości (bezpośrednio przed nim) i z tymi samymi datami rok wcześniej (29 lutego staje się 28 lutego), przy tych samych filtrach. Zmiana w procentach liczona jest względem wartości z danego wiersza; przy zerze „brak danych”.
+- **Prognoza zamówień:** dla aktywnych towarów sprzedanych w historii (domyślnie 28 dni, kończy się dzisiaj) średnia dzienna sprzedaż = sprzedana ilość ÷ liczba dni. Dostępne = stan bez przeterminowanych partii minus rezerwacje. Zapas na = dostępne ÷ średnia dzienna. Sugerowane zamówienie = średnia × horyzont (domyślnie 14 dni) − dostępne, nie mniej niż 0, w górę do całych sztuk albo do 3 miejsc po przecinku. Lista pokazuje tylko towary do zamówienia, od najkrótszego zapasu. To świadomie prosta średnia, bez sezonowości, dni tygodnia i czasu dostawy.
+- Historia i horyzont: od 1 do 365 dni.
 
 ## 6. Technologie
 
