@@ -32,6 +32,21 @@ public sealed record SlowMovingRow(int ProductId, string Name, string CategoryNa
 
 public sealed record ExpiringBatchRow(int ProductId, string ProductName, string BatchNumber, DateOnly ExpiryDate, decimal Quantity, string Unit, bool IsExpired);
 
+public sealed record CustomerSales(int ContractorId, string Name, string? Nip, int InvoiceCount, decimal NetSales, decimal Cost, DateOnly LastPurchase)
+{
+    public decimal Margin => NetSales - Cost;
+
+    public decimal AverageInvoice => InvoiceCount == 0 ? 0 : decimal.Round(NetSales / InvoiceCount, 2, MidpointRounding.AwayFromZero);
+}
+
+public sealed record PeriodSummary(DateOnly From, DateOnly To, SalesSummary Sales);
+
+/// <summary>The filtered period beside the one just before it and the same dates a year earlier.</summary>
+public sealed record PeriodComparison(PeriodSummary Current, PeriodSummary Previous, PeriodSummary YearEarlier);
+
+public sealed record ForecastRow(
+    int ProductId, string Name, string Unit, decimal SoldInHistory, decimal DailyAverage, decimal Available, decimal? DaysOfCover, decimal SuggestedOrder);
+
 /// <summary>
 /// Sales are the lines of invoices that were not cancelled, dated by the invoice's issue date.
 /// Cost is what the WZ recorded, so margin is net sales minus that cost.
@@ -211,6 +226,88 @@ public sealed class AnalyticsService(
             .ToListAsync(cancellationToken);
 
         return rows.Select(r => new ExpiringBatchRow(r.ProductId, r.Name, r.Number, r.Expiry, r.Quantity, r.Unit, BatchAllocator.IsExpired(r.Expiry, today))).ToList();
+    }
+
+    /// <summary>Buyers in the period, best first. The contractor filter is ignored: every buyer is listed.</summary>
+    public async Task<IReadOnlyList<CustomerSales>> GetCustomersAsync(
+        AnalyticsFilter filter, int take = MaxRows, CancellationToken cancellationToken = default)
+    {
+        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var rows = await Lines(db, filter with { ContractorId = null })
+            .GroupBy(l => new { l.Invoice!.ContractorId, l.Invoice.Contractor!.Name, l.Invoice.Contractor.Nip })
+            .Select(g => new
+            {
+                g.Key.ContractorId,
+                g.Key.Name,
+                g.Key.Nip,
+                Invoices = g.Where(l => l.Invoice!.Kind == InvoiceKind.Vat).Select(l => l.InvoiceId).Distinct().Count(),
+                Net = g.Sum(l => l.NetValue),
+                Cost = g.Sum(l => l.Quantity * l.UnitCost),
+                Last = g.Max(l => l.Invoice!.IssueDate),
+            })
+            .OrderByDescending(r => r.Net).ThenBy(r => r.ContractorId)
+            .Take(Math.Clamp(take, 1, MaxRows))
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => new CustomerSales(r.ContractorId, r.Name, r.Nip, r.Invoices, r.Net, RoundMoney(r.Cost), r.Last)).ToList();
+    }
+
+    /// <summary>The same filters over three periods: the chosen one, the one before it, a year earlier.</summary>
+    public async Task<PeriodComparison> ComparePeriodsAsync(AnalyticsFilter filter, CancellationToken cancellationToken = default)
+    {
+        var previous = PlanningRules.PreviousPeriod(filter.From, filter.To);
+        var yearEarlier = PlanningRules.YearEarlier(filter.From, filter.To);
+
+        return new PeriodComparison(
+            new PeriodSummary(filter.From, filter.To, await GetSummaryAsync(filter, cancellationToken)),
+            new PeriodSummary(previous.From, previous.To, await GetSummaryAsync(filter with { From = previous.From, To = previous.To }, cancellationToken)),
+            new PeriodSummary(yearEarlier.From, yearEarlier.To, await GetSummaryAsync(filter with { From = yearEarlier.From, To = yearEarlier.To }, cancellationToken)));
+    }
+
+    /// <summary>
+    /// Goods to order (SPEC 5.16): the average daily sales over the last <paramref name="historyDays"/>
+    /// days times the horizon, minus what is available for sale now (unexpired stock less
+    /// reservations). Only goods that sell and need ordering, the shortest cover first.
+    /// </summary>
+    public async Task<IReadOnlyList<ForecastRow>> GetForecastAsync(
+        int historyDays, int horizonDays, int? categoryId = null, int take = MaxRows, CancellationToken cancellationToken = default)
+    {
+        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        if (PlanningRules.ValidateDays(historyDays, horizonDays) is { } error)
+        {
+            throw new ArgumentOutOfRangeException(nameof(historyDays), error);
+        }
+
+        await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var today = Today;
+        var history = new AnalyticsFilter(today.AddDays(1 - historyDays), today, categoryId);
+
+        var sold = await Lines(db, history)
+            .Where(l => l.Product!.Kind == ProductKind.Goods && l.Product.IsActive)
+            .GroupBy(l => new { l.ProductId, l.Product!.Name, l.Product.Unit })
+            .Select(g => new { g.Key.ProductId, g.Key.Name, g.Key.Unit, Quantity = g.Sum(l => l.Quantity) })
+            .Where(r => r.Quantity > 0)
+            .ToListAsync(cancellationToken);
+
+        var ids = sold.Select(r => r.ProductId).ToArray();
+        var stock = await Reservations.UnexpiredStockAsync(db, ids, today, cancellationToken);
+        var reserved = await Reservations.ReservedAsync(db, ids, exceptOrderId: null, cancellationToken);
+
+        return sold
+            .Select(r =>
+            {
+                var daily = PlanningRules.DailyAverage(r.Quantity, historyDays);
+                var available = stock.GetValueOrDefault(r.ProductId) - reserved.GetValueOrDefault(r.ProductId);
+                return new ForecastRow(
+                    r.ProductId, r.Name, r.Unit, r.Quantity, decimal.Round(daily, 3, MidpointRounding.AwayFromZero), available,
+                    PlanningRules.DaysOfCover(available, daily), PlanningRules.SuggestedOrder(daily, horizonDays, available, r.Unit));
+            })
+            .Where(r => r.SuggestedOrder > 0)
+            .OrderBy(r => r.DaysOfCover ?? 0).ThenBy(r => r.Name).ThenBy(r => r.ProductId)
+            .Take(Math.Clamp(take, 1, MaxRows))
+            .ToList();
     }
 
     private static IQueryable<InvoiceLine> Lines(RegalDbContext db, AnalyticsFilter filter)

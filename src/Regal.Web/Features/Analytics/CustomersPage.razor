@@ -1,0 +1,51 @@
+@page "/analytics/customers"
+@inject AnalyticsService Analytics
+
+<PageTitle>Klienci – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Klienci</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">Nabywcy w wybranym okresie, od największej sprzedaży netto. Korekty pomniejszają sprzedaż, proformy się nie liczą.</MudText>
+
+    <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" />
+
+    <MudTable T="CustomerSales" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Klient</MudTh>
+            <MudTh>Faktury</MudTh>
+            <MudTh>Sprzedaż netto</MudTh>
+            <MudTh>Marża</MudTh>
+            <MudTh>Średnia faktura</MudTh>
+            <MudTh>Ostatni zakup</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Klient">@context.Name @(context.Nip is null ? null : $"(NIP {context.Nip})")</MudTd>
+            <MudTd DataLabel="Faktury">@context.InvoiceCount</MudTd>
+            <MudTd DataLabel="Sprzedaż netto">@StockLabels.Money(context.NetSales)</MudTd>
+            <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+            <MudTd DataLabel="Średnia faktura">@StockLabels.Money(context.AverageInvoice)</MudTd>
+            <MudTd DataLabel="Ostatni zakup">@StockLabels.Date(context.LastPurchase)</MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private AnalyticsFilter _filter = null!;
+    private IReadOnlyList<CustomerSales> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = Analytics.Today;
+        _filter = new AnalyticsFilter(today.AddMonths(-11).AddDays(1 - today.Day), today);
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChanged(AnalyticsFilter filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _rows = await Analytics.GetCustomersAsync(_filter);
+}
