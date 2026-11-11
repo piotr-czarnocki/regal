@@ -27,7 +27,7 @@ public sealed class ContractorService(
     public async Task<PagedResult<ContractorListItem>> SearchAsync(
         string? term, bool includeInactive, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var query = db.Contractors.AsNoTracking();

@@ -1,4 +1,5 @@
 @page "/orders/new"
+@attribute [Authorize(Roles = Roles.Administrator)]
 @inject CustomerOrderService Orders
 @inject StockService Stock
 @inject ContractorService Contractors

@@ -40,10 +40,10 @@ public sealed class RegalTestHost(string connectionString) : WebApplicationFacto
     }
 
     /// <summary>An allowed user; put its id in the TestAuthHandler cookie to act as it.</summary>
-    public async Task<int> CreateUserAsync(bool isActive = true)
+    public async Task<int> CreateUserAsync(bool isActive = true, string role = Roles.Administrator)
     {
         await using var db = await DbContextFactory.CreateDbContextAsync();
-        var user = new User { Email = $"{Guid.NewGuid():N}@example.com", Role = Roles.Administrator, IsActive = isActive };
+        var user = new User { Email = $"{Guid.NewGuid():N}@example.com", Role = role, IsActive = isActive };
         db.Users.Add(user);
         await db.SaveChangesAsync();
         return user.Id;

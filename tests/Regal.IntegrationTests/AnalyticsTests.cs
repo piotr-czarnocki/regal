@@ -201,10 +201,20 @@ public sealed class AnalyticsTests(PostgresFixture postgres) : InvoiceTestBase(p
         context.Services.AddScoped(_ => new Regal.Web.Features.Invoices.InvoicePaymentService(Postgres.DbContextFactory, new FixedUser(UserId), Fakturownia, Clock));
         context.Services.AddScoped(_ => new CategoryService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped(_ => Contractors);
+        var authorization = context.AddAuthorization();
+        authorization.SetAuthorized("admin@example.com").SetRoles(Regal.Web.Features.Auth.Roles.Administrator);
         context.Render<MudPopoverProvider>();
 
+        // The home page depends on the role: figures for the administrator, the warehouse view for the rest.
         var home = context.Render<Home>();
-        home.WaitForAssertion(() => Assert.Contains("Pulpit", home.Markup));
+        home.WaitForAssertion(() => Assert.Contains("Sprzedaż netto", home.Markup));
+        Assert.Contains("Nowa faktura", home.Markup);
+
+        authorization.SetRoles(Regal.Web.Features.Auth.Roles.Warehouse);
+        var warehouse = context.Render<Home>();
+        warehouse.WaitForAssertion(() => Assert.Contains("Partie z bliską datą ważności", warehouse.Markup));
+        Assert.DoesNotContain("Sprzedaż netto", warehouse.Markup);
+        Assert.DoesNotContain("Nowa faktura", warehouse.Markup);
 
         var abc = context.Render<AbcPage>();
         abc.WaitForAssertion(() => Assert.Contains(name, abc.Markup));

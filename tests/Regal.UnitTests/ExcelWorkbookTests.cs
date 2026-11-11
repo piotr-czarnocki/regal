@@ -67,6 +67,15 @@ public class ExcelWorkbookTests
     }
 
     [Fact]
+    public void The_sales_export_leaves_out_a_comparison_that_was_not_shown()
+    {
+        var content = AnalyticsExports.Sales([new ProductSales(1, "Chleb", "Pieczywo", "szt", 10, 100m, 40m)], [], comparison: null);
+
+        using var workbook = Open(content);
+        Assert.Equal(["Produkty", "Kategorie"], workbook.Worksheets.Select(w => w.Name));
+    }
+
+    [Fact]
     public void File_names_carry_the_period() =>
         Assert.Equal("klienci-2026-01-01-2026-11-10", AnalyticsExports.Period("klienci", new AnalyticsFilter(new DateOnly(2026, 1, 1), new DateOnly(2026, 11, 10))));
 }

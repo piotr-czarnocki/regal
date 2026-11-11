@@ -27,6 +27,7 @@ builder.Services.AddDbContextFactory<RegalDbContext>(options => options.UseNpgsq
 
 builder.Services.AddRegalAuth(builder.Configuration);
 
+builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<LabelService>();

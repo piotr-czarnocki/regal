@@ -40,7 +40,7 @@ public sealed class CategoryService(
 
     public async Task<IReadOnlyList<CategoryItem>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await db.Categories.AsNoTracking().OrderBy(c => c.Name)

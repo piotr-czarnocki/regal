@@ -213,7 +213,7 @@ public sealed class AnalyticsService(
     public async Task<IReadOnlyList<ExpiringBatchRow>> GetExpiringBatchesAsync(
         int days, int take = MaxRows, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var today = Today;
         var limit = today.AddDays(Math.Max(days, 0));

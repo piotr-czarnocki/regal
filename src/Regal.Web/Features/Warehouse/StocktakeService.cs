@@ -43,7 +43,7 @@ public sealed class StocktakeService(
 
     public async Task<SaveResult> CreateAsync(string? notes = null, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         var trimmed = notes?.Trim();
         if (trimmed?.Length > StockDraftValidator.MaxNotesLength)
         {
@@ -156,7 +156,7 @@ public sealed class StocktakeService(
 
     public async Task<SaveResult> CancelAsync(int stocktakeId, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
@@ -181,7 +181,7 @@ public sealed class StocktakeService(
     /// <summary>Posts the differences against the stock at this moment and closes the sheet. Repeating it changes nothing.</summary>
     public async Task<SaveResult> ApproveAsync(int stocktakeId, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
@@ -196,7 +196,7 @@ public sealed class StocktakeService(
 
     public async Task<PagedResult<StocktakeListItem>> SearchAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var total = await db.Stocktakes.CountAsync(cancellationToken);
@@ -210,7 +210,7 @@ public sealed class StocktakeService(
 
     public async Task<StocktakeDetails?> GetDetailsAsync(int stocktakeId, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var sheet = await db.Stocktakes.AsNoTracking().Where(s => s.Id == stocktakeId)
@@ -369,7 +369,7 @@ public sealed class StocktakeService(
     private async Task<StocktakeScanResult> InDraftAsync(
         int stocktakeId, Func<RegalDbContext, Stocktake, Task<StocktakeScanResult>> change, CancellationToken cancellationToken)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 

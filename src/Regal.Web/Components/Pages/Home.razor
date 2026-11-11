@@ -7,11 +7,27 @@
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
     <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Pulpit</MudText>
 
-    @if (_summary is null)
+    @* The most frequent tasks one click away, before any figures (SPEC 5.19). *@
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @if (_admin)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/invoices/new">Nowa faktura</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/orders/new">Nowe zamówienie</MudButton>
+        }
+        <MudButton Variant="@(_admin ? Variant.Outlined : Variant.Filled)" Color="Color.Primary" Href="/stock-documents/new">Przyjęcie lub wydanie towaru</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/stock">Sprawdź stan</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/stocktakes">Inwentaryzacja</MudButton>
+    </div>
+
+    @if (!_loaded)
     {
         <MudProgressLinear Indeterminate="true" />
     }
-    else
+    else if (!_admin)
+    {
+        @ExpiringTable
+    }
+    else if (_summary is not null)
     {
         <MudText Typo="Typo.subtitle1" Class="mb-2">Bieżący miesiąc: @StockLabels.Date(_month.From) – @StockLabels.Date(_month.To)</MudText>
 
@@ -52,28 +68,7 @@
                 </MudTable>
             </MudItem>
             <MudItem xs="12" md="6">
-                <MudText Typo="Typo.h6" Class="mb-1">Partie z bliską datą ważności</MudText>
-                <MudTable T="ExpiringBatchRow" Items="_expiring" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
-                    <HeaderContent>
-                        <MudTh>Produkt</MudTh>
-                        <MudTh>Partia</MudTh>
-                        <MudTh>Ważna do</MudTh>
-                        <MudTh>Ilość</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Produkt"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.ProductName</MudLink></MudTd>
-                        <MudTd DataLabel="Partia">@context.BatchNumber</MudTd>
-                        <MudTd DataLabel="Ważna do">
-                            @StockLabels.Date(context.ExpiryDate)
-                            @if (context.IsExpired)
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Error">przeterminowana</MudChip>
-                            }
-                        </MudTd>
-                        <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
-                    </RowTemplate>
-                    <NoRecordsContent><MudText>Brak partii z ważnością w ciągu 14 dni.</MudText></NoRecordsContent>
-                </MudTable>
+                @ExpiringTable
             </MudItem>
             <MudItem xs="12">
                 <MudText Typo="Typo.h6" Class="mb-1">Towary zalegające (bez sprzedaży od @SlowMovingDays dni)</MudText>
@@ -110,15 +105,53 @@
     private IReadOnlyList<SlowMovingRow> _slow = [];
     private ReceivablesSummary? _receivables;
 
+    private bool _admin;
+    private bool _loaded;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? Authentication { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
-        var today = Analytics.Today;
-        _month = new AnalyticsFilter(new DateOnly(today.Year, today.Month, 1), today);
-        _summary = await Analytics.GetSummaryAsync(_month);
-        _points = await Analytics.GetSalesOverTimeAsync(_month);
-        _top = await Analytics.GetSalesByProductAsync(_month, take: 5);
+        _admin = Authentication is not null && (await Authentication).User.IsInRole(Roles.Administrator);
         _expiring = await Analytics.GetExpiringBatchesAsync(ExpiringDays, take: 10);
-        _slow = await Analytics.GetSlowMovingAsync(SlowMovingDays, take: 10);
-        _receivables = await Payments.GetReceivablesAsync();
+        if (_admin)
+        {
+            var today = Analytics.Today;
+            _month = new AnalyticsFilter(new DateOnly(today.Year, today.Month, 1), today);
+            _summary = await Analytics.GetSummaryAsync(_month);
+            _points = await Analytics.GetSalesOverTimeAsync(_month);
+            _top = await Analytics.GetSalesByProductAsync(_month, take: 5);
+            _slow = await Analytics.GetSlowMovingAsync(SlowMovingDays, take: 10);
+            _receivables = await Payments.GetReceivablesAsync();
+        }
+
+        _loaded = true;
     }
+
+    private RenderFragment ExpiringTable => __builder =>
+    {
+                <MudText Typo="Typo.h6" Class="mb-1">Partie z bliską datą ważności</MudText>
+                <MudTable T="ExpiringBatchRow" Items="_expiring" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Produkt</MudTh>
+                        <MudTh>Partia</MudTh>
+                        <MudTh>Ważna do</MudTh>
+                        <MudTh>Ilość</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Produkt"><MudLink Href="@StockDocumentRoutes.ProductHistory(context.ProductId)">@context.ProductName</MudLink></MudTd>
+                        <MudTd DataLabel="Partia">@context.BatchNumber</MudTd>
+                        <MudTd DataLabel="Ważna do">
+                            @StockLabels.Date(context.ExpiryDate)
+                            @if (context.IsExpired)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error">przeterminowana</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak partii z ważnością w ciągu 14 dni.</MudText></NoRecordsContent>
+                </MudTable>
+    };
 }

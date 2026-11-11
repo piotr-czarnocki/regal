@@ -1,4 +1,5 @@
 @page "/analytics/sales"
+@attribute [Authorize(Roles = Roles.Administrator)]
 @inject AnalyticsService Analytics
 
 <PageTitle>Sprzedaż i marża – Regał</PageTitle>

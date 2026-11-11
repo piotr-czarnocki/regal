@@ -1,4 +1,5 @@
 @page "/invoices/new"
+@attribute [Authorize(Roles = Roles.Administrator)]
 @inject InvoiceService Invoices
 @inject StockDocumentService Documents
 @inject StockService Stock

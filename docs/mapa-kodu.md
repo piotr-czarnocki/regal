@@ -59,6 +59,8 @@ Każda reguła, której złamanie psuje dane, jest pilnowana dwa razy: w serwisi
 | Wejść może tylko adres z listy | `Web/Features/Auth/AuthService.cs`: `AuthorizeLoginAsync` | `IT/AuthServiceTests.cs`: `Address_outside_the_list_is_denied_and_audited` |
 | Dezaktywacja kończy trwającą sesję | `AuthService.IsSessionValidAsync`, `ActiveUserAuthenticationStateProvider` | `IT/AuthServiceTests.cs`: `Session_stops_being_valid_after_deactivation` |
 | Dziennika działań nie da się zmienić ani usunąć z aplikacji | rola bazy `regal_app` nie ma na `AuditLog` prawa `UPDATE` ani `DELETE` (migracja `InitialCreate`) | `IT/AuthServiceTests.cs`: `Application_role_cannot_change_the_audit_log` |
+| Magazynier tylko w magazynie: serwisy sprzedaży, analiz, kartotek i użytkowników odmawiają (5.19) | `Web/Features/Auth/Roles.cs` (`Staff`), `CurrentUser.RequireUserIdAsync`; strony z `[Authorize(Roles = Roles.Administrator)]` | `IT/RoleTests.cs`: `A_warehouse_worker_gets_nothing_from_sales_catalog_analytics_or_users`, `A_warehouse_worker_receives_issues_and_counts_goods`; w przeglądarce `E2E/RoleScenarioTests.cs` |
+| Nikt nie odbiera uprawnień sam sobie; zmiana roli kończy sesję (5.19) | `Web/Features/Auth/UserService.cs`: `SetRoleAsync`, `SetActiveAsync` | `IT/RoleTests.cs`: `Changing_the_role_ends_the_open_session_and_nobody_can_lock_themselves_out` |
 
 ## Generator danych (5.9)
 

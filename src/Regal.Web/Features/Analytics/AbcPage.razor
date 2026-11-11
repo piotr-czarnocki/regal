@@ -1,4 +1,5 @@
 @page "/analytics/abc"
+@attribute [Authorize(Roles = Roles.Administrator)]
 @inject AnalyticsService Analytics
 
 <PageTitle>Analiza ABC – Regał</PageTitle>
@@ -39,7 +40,7 @@
             <MudTd DataLabel="Udział narastająco">@($"{context.CumulativeShare:0.00}%")</MudTd>
         </RowTemplate>
         <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
-        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
     </MudTable>
 </MudContainer>
 

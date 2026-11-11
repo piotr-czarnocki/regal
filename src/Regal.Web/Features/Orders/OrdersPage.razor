@@ -1,4 +1,5 @@
 @page "/orders"
+@attribute [Authorize(Roles = Roles.Administrator)]
 @inject CustomerOrderService Orders
 
 <PageTitle>Zamówienia – Regał</PageTitle>
@@ -41,7 +42,7 @@
             <MudTd DataLabel="Status"><OrderStatusChip Status="context.Status" /></MudTd>
         </RowTemplate>
         <NoRecordsContent><MudText>Brak zamówień.</MudText></NoRecordsContent>
-        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
     </MudTable>
 </MudContainer>
 
