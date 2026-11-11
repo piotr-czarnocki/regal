@@ -257,13 +257,39 @@ public sealed class AnalyticsService(
     /// <summary>The same filters over three periods: the chosen one, the one before it, a year earlier.</summary>
     public async Task<PeriodComparison> ComparePeriodsAsync(AnalyticsFilter filter, CancellationToken cancellationToken = default)
     {
-        var previous = PlanningRules.PreviousPeriod(filter.From, filter.To);
-        var yearEarlier = PlanningRules.YearEarlier(filter.From, filter.To);
+        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var (currentFrom, currentTo) = (filter.From, filter.To);
+        var (previousFrom, previousTo) = PlanningRules.PreviousPeriod(currentFrom, currentTo);
+        var (yearFrom, yearTo) = PlanningRules.YearEarlier(currentFrom, currentTo);
+        var from = new[] { currentFrom, previousFrom, yearFrom }.Min();
+
+        // One pass over the lines with sums per period. Three summaries were six queries, and under
+        // load they made the sales page the slowest one (docs/analiza-dynamiczna.md, point 5).
+        var totals = await Lines(db, filter with { From = from })
+            .Select(l => new { l.InvoiceId, IsVat = l.Invoice!.Kind == InvoiceKind.Vat, Date = l.Invoice.IssueDate, l.NetValue, Cost = l.Quantity * l.UnitCost })
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                CurrentNet = g.Where(l => l.Date >= currentFrom && l.Date <= currentTo).Sum(l => l.NetValue),
+                CurrentCost = g.Where(l => l.Date >= currentFrom && l.Date <= currentTo).Sum(l => l.Cost),
+                CurrentInvoices = g.Where(l => l.IsVat && l.Date >= currentFrom && l.Date <= currentTo).Select(l => l.InvoiceId).Distinct().Count(),
+                PreviousNet = g.Where(l => l.Date >= previousFrom && l.Date <= previousTo).Sum(l => l.NetValue),
+                PreviousCost = g.Where(l => l.Date >= previousFrom && l.Date <= previousTo).Sum(l => l.Cost),
+                PreviousInvoices = g.Where(l => l.IsVat && l.Date >= previousFrom && l.Date <= previousTo).Select(l => l.InvoiceId).Distinct().Count(),
+                YearNet = g.Where(l => l.Date >= yearFrom && l.Date <= yearTo).Sum(l => l.NetValue),
+                YearCost = g.Where(l => l.Date >= yearFrom && l.Date <= yearTo).Sum(l => l.Cost),
+                YearInvoices = g.Where(l => l.IsVat && l.Date >= yearFrom && l.Date <= yearTo).Select(l => l.InvoiceId).Distinct().Count(),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        SalesSummary Summary(decimal? net, decimal? cost, int? invoices) => new(net ?? 0, RoundMoney(cost ?? 0), invoices ?? 0);
 
         return new PeriodComparison(
-            new PeriodSummary(filter.From, filter.To, await GetSummaryAsync(filter, cancellationToken)),
-            new PeriodSummary(previous.From, previous.To, await GetSummaryAsync(filter with { From = previous.From, To = previous.To }, cancellationToken)),
-            new PeriodSummary(yearEarlier.From, yearEarlier.To, await GetSummaryAsync(filter with { From = yearEarlier.From, To = yearEarlier.To }, cancellationToken)));
+            new PeriodSummary(currentFrom, currentTo, Summary(totals?.CurrentNet, totals?.CurrentCost, totals?.CurrentInvoices)),
+            new PeriodSummary(previousFrom, previousTo, Summary(totals?.PreviousNet, totals?.PreviousCost, totals?.PreviousInvoices)),
+            new PeriodSummary(yearFrom, yearTo, Summary(totals?.YearNet, totals?.YearCost, totals?.YearInvoices)));
     }
 
     /// <summary>
