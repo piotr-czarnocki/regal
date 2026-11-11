@@ -24,7 +24,7 @@ Około 15 minut: 10 slajdów i pokaz na żywo według [`pokaz-na-zywo.md`](pokaz
 - Faktury: WZ w tej samej transakcji, wysyłka w tle do Fakturowni
 - Skanowanie: czytnik USB i aparat telefonu
 - Analizy: pulpit, sprzedaż i marża, ABC, zalegające
-- Poziom 2: zamówienia klientów z rezerwacją towaru, proforma i faktura korygująca ze zwrotem towaru, wysyłka mailem i płatności z Fakturowni, inwentaryzacja ze skanowaniem, dane po NIP-ie, analizy klientów, prognoza zamówień, eksport do Excela
+- Poziom 2: zamówienia klientów z rezerwacją towaru, proforma i faktura korygująca ze zwrotem towaru, wysyłka mailem i płatności z Fakturowni, inwentaryzacja ze skanowaniem, dane po NIP-ie, analizy klientów, prognoza zamówień, eksport do Excela, etykiety PDF (cały poziom 2)
 
 *Notatka:* szczegóły w `funkcjonalnosci.md`; tu tylko mapa, resztę pokaże demo.
 
@@ -51,8 +51,8 @@ Około 15 minut: 10 slajdów i pokaz na żywo według [`pokaz-na-zywo.md`](pokaz
 
 | Rodzaj | Liczba | Narzędzie |
 |---|---:|---|
-| Jednostkowe | 302 | xUnit, bUnit |
-| Integracyjne | 243 | Testcontainers, PostgreSQL 18 |
+| Jednostkowe | 310 | xUnit, bUnit |
+| Integracyjne | 248 | Testcontainers, PostgreSQL 18 |
 | Funkcjonalne | 13 | Playwright |
 | Wydajności | 7 zapytań, 8 stron | BenchmarkDotNet, k6 |
 
