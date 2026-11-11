@@ -45,7 +45,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 5. Pobieranie danych firmy po NIP-ie. **Gotowe** (punkt 5.15).
 6. Analizy klientów, prosta prognoza zamówień i porównanie okresów. **Gotowe** (punkt 5.16).
 7. Eksport analiz do Excela (.xlsx). **Gotowe** (punkt 5.17).
-8. Etykiety z kodami w PDF do druku.
+8. Etykiety z kodami w PDF do druku. **Gotowe** (punkt 5.18).
 
 ### Poziom 3 – po oddaniu, do portfolio
 
@@ -281,6 +281,13 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Kwoty i ilości są liczbami, a daty datami, więc w arkuszu można je sumować i sortować. Pierwszy wiersz to pogrubione nagłówki, zablokowane przy przewijaniu.
 - Żaden tekst nie staje się formułą: tekst zaczynający się od `=`, `+`, `-`, `@`, tabulatora lub powrotu karetki dostaje prefiks cudzysłowu Excela (punkt 9, Excel injection).
 - Plik powstaje na serwerze (ClosedXML 0.105.0, MIT) w trakcie połączenia Blazora, więc obowiązują te same uprawnienia co dla strony, i trafia do przeglądarki jako strumień (moduł `wwwroot/js/file-download.js`).
+
+### 5.18. Etykiety z kodami w PDF (poziom 2)
+
+- Na liście produktów zaznacza się produkty, podaje liczbę kopii każdego (1–100) i pobiera „Etykiety PDF”: arkusze A4 po 24 etykiety 70 × 37 mm (3 × 8, typowy format samoprzylepny), najwyżej 480 etykiet naraz.
+- Etykieta: nazwa (do dwóch wierszy), SKU w jednym wierszu, cena brutto za jednostkę i kod EAN-13 jako paski i cyfry.
+- Paski liczy Regał według specyfikacji GS1 (zestawy L, G, R, parzystość z pierwszej cyfry, 95 modułów, wydłużone pasy ochronne, margines ciszy) i rysuje jako SVG. Moduł ma około 0,32 mm, czyli blisko nominalnych 0,33 mm.
+- PDF tworzy QuestPDF 2026.7.1 na licencji Community (bezpłatnej dla firm o przychodzie poniżej 1 mln USD i projektów open source), z wbudowaną czcionką obsługującą polskie znaki.
 
 ## 6. Technologie
 

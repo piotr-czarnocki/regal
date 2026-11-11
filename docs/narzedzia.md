@@ -19,6 +19,7 @@ Wersje pochodzą z plików projektu (`global.json`, `*.csproj`, `docker-compose.
 | Fakturownia (REST API) | — | Wystawianie faktur VAT, proform i korekt, wysyłka mailem, status płatności |
 | Wykaz podatników VAT MF („biała lista”, REST API) | — | Dane firmy po NIP-ie (poziom 2) |
 | ClosedXML | 0.105.0 | Eksport analiz do .xlsx (poziom 2); wybrany zamiast EPPlus (licencja płatna od wersji 5) i ręcznego OpenXML SDK (dużo kodu na prosty arkusz) |
+| QuestPDF | 2026.7.1 | Etykiety z kodami w PDF (poziom 2); licencja Community. Wybrany zamiast PDFsharp, który na Linuksie wymaga własnego dostarczania czcionek, i ręcznie pisanego PDF, który bez osadzonej czcionki nie pokaże polskich liter |
 
 ### Dlaczego tak
 

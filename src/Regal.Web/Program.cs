@@ -29,6 +29,7 @@ builder.Services.AddRegalAuth(builder.Configuration);
 
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<LabelService>();
 builder.Services.AddScoped<ContractorService>();
 builder.Services.AddScoped<CompanyLookupService>();
 builder.Services.AddHttpClient<IVatRegistry, VatRegistryClient>(client => client.Timeout = TimeSpan.FromSeconds(10));

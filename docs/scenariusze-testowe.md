@@ -367,3 +367,12 @@ Reguły opisuje `SPEC.md`, punkt 5.16; sprawdzają je testy `PlanningTests` i `P
 | 2 | Otwórz w Excelu albo LibreOffice, zsumuj kolumnę „Netto” | Suma działa (liczby, nie tekst), zgodna z kartą „Sprzedaż netto” |
 | 3 | Kontrahent o nazwie `=1+1`, jego faktura, „Klienci” → „Excel” | W arkuszu widać tekst `=1+1`, a nie wynik 2 |
 | 4 | „Analiza ABC”, „Towary zalegające”, „Prognoza zamówień” → „Excel” | Każdy plik ma te same kolumny co tabela na ekranie |
+
+## K2. Etykiety z kodami
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Produkty i usługi”, zaznacz dwa produkty, kopii 13, „Etykiety PDF (2)” | Pobiera się PDF z dwiema stronami A4 (26 etykiet, 24 na stronie) |
+| 2 | Wydrukuj w skali 100% na arkuszu 70 × 37 mm | Etykiety trafiają w pola arkusza |
+| 3 | Zeskanuj kod z wydruku czytnikiem USB w polu produktu dokumentu | Dodaje się ten produkt |
+| 4 | Produkt z polskimi literami w nazwie | Litery wydrukowane poprawnie |

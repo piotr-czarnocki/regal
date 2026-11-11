@@ -260,3 +260,22 @@ Dziennik problemów napotkanych podczas pracy: objaw, przyczyna, rozwiązanie. W
 - **Objaw:** po scaleniu danych po NIP-ie CI zgłosiło błąd starego testu `Inactive_product_is_not_added_by_ean_or_by_fragment` (strona nowego dokumentu, bUnit): „The assertion did not pass within the timeout period”. Lokalnie przechodził.
 - **Przyczyna:** testy stron czekają na odświeżenie, które wymaga zapytań do bazy, a domyślny limit oczekiwania bUnit to 1 s. Maszyna CI jest wolniejsza, a testów przybyło, więc czasem nie zdążyła.
 - **Rozwiązanie:** domyślny limit 10 s dla całego projektu testów integracyjnych, ustawiany w fiksturze bazy. Udany warunek kończy oczekiwanie od razu, więc zielone testy nie zwalniają. Nie zmieniałem metody skanu, bo część testów celowo skanuje szybko, bez czekania.
+
+## Poziom 2: analizy, eksport i etykiety (11.11.2026)
+
+### Docker Desktop nie wstał po ponownym uruchomieniu komputera
+
+- **Objaw:** testy integracyjne padły z `DockerUnavailableException`, a `docker ps` zgłaszał brak potoku `dockerDesktopLinuxEngine`.
+- **Rozwiązanie:** `docker desktop start`. Baza deweloperska wstała sama, bo ma `restart: unless-stopped`.
+
+### Zła liczba w moim teście prognozy
+
+- **Objaw:** test prognozy oczekiwał średniej 1 sztuki dziennie, a dostał 0,75.
+- **Przyczyna:** zegar testu przesuwał się o 7 dni po każdej sprzedaży, więc pierwsza wypadła poza 28-dniowe okno historii. Kod liczył dobrze, test zakładał co innego, niż ustawił.
+- **Rozwiązanie:** przesunięcia o 6 dni, wszystkie cztery sprzedaże w oknie.
+
+### Etykiety po jednym rzędzie na stronę
+
+- **Objaw:** 25 etykiet dało 10 stron PDF zamiast 2.
+- **Przyczyna:** dwie naraz. QuestPDF domyślnie skaluje SVG do szerokości, więc kod kreskowy był za wysoki. Do tego długie SKU z testu (z GUID-em, bez spacji) zawijało się na kilka wierszy. Etykieta nie mieściła się w 37 mm, a tabela przenosiła ją na następną stronę.
+- **Rozwiązanie:** kod w obszarze 37 × 13 mm (`FitArea`), SKU w jednym wierszu z wielokropkiem, cena obok. Bez narzędzia do podglądu PDF układ sprawdziłem, każąc QuestPDF chwilowo zapisać obraz strony. Ten podgląd pokazał też, że kod był za wąski (moduł około 0,2 mm, poniżej minimum normy), więc ma teraz około 0,32 mm.

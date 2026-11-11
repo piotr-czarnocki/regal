@@ -2,13 +2,24 @@
 @inject ProductService Products
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject LabelService Labels
+@inject Regal.Web.Components.Shared.FileDownloader Downloader
 
 <PageTitle>Produkty i usługi – Regał</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
     <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Produkty i usługi</MudText>
 
-    <MudTable @ref="_table" T="ProductListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25">
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.body2">Etykiety z kodem (A4, 3 × 8): zaznacz produkty</MudText>
+        <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" @bind-Value="_copies" Label="Kopii każdego" Min="1" Max="LabelService.MaxCopies"
+                         HideSpinButtons="true" Style="max-width: 9rem" Margin="Margin.Dense" />
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.QrCode" OnClick="LabelsAsync"
+                   Disabled="@(_selected.Count == 0 || _printing)">Etykiety PDF (@_selected.Count)</MudButton>
+    </div>
+
+    <MudTable @ref="_table" T="ProductListItem" ServerData="LoadAsync" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="25"
+              MultiSelection="true" @bind-SelectedItems="_selected">
         <ToolBarContent>
             <MudTextField T="string" Value="_search" ValueChanged="OnSearchChanged" Placeholder="Szukaj: nazwa, SKU, EAN" Immediate="true" DebounceInterval="300"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
@@ -53,6 +64,35 @@
     private MudTable<ProductListItem>? _table;
     private string? _search;
     private bool _includeInactive;
+    private HashSet<ProductListItem> _selected = [];
+    private int _copies = 1;
+    private bool _printing;
+
+    private async Task LabelsAsync()
+    {
+        if (_printing)
+        {
+            return;
+        }
+
+        _printing = true;
+        try
+        {
+            var result = await Labels.BuildAsync(_selected.Select(p => new LabelRequest(p.Id, _copies)).ToList());
+            if (result.Pdf is { } pdf)
+            {
+                await Downloader.SaveAsync(string.Create(CultureInfo.InvariantCulture, $"etykiety-{DateTime.Now:yyyy-MM-dd-HHmm}.pdf"), pdf);
+            }
+            else
+            {
+                Snackbar.Add(result.Error!, Severity.Warning);
+            }
+        }
+        finally
+        {
+            _printing = false;
+        }
+    }
 
     private static string VatLabel(string rate) => char.IsAsciiDigit(rate[0]) ? $"{rate}%" : rate;
 
