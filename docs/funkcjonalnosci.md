@@ -135,7 +135,7 @@ Regał zapisuje logowania, odmowy dostępu, zmiany kartotek, zatwierdzenia i kor
 
 ## 9. Dane przykładowe
 
-Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności przez prawdziwe serwisy aplikacji: dostawy, produkcję pieczywa, spisywanie przeterminowanego towaru, faktury z realistycznym rozkładem popularności i ok. 1% anulowanych. Dane służą do pokazu i do testów wydajności. Wygenerowane faktury nigdy nie trafiają do Fakturowni. Narzędzie działa tylko w środowisku deweloperskim i testowym oraz przed zapisem wypisuje, do której bazy pisze.
+Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności przez prawdziwe serwisy aplikacji: dostawy, produkcję pieczywa, spisywanie przeterminowanego towaru, faktury z realistycznym rozkładem popularności i ok. 1% anulowanych, zamówienia klientów (zrealizowane, anulowane i kilka otwartych), proformy oraz statusy płatności z częścią faktur po terminie. Dane służą do pokazu i do testów wydajności. Wygenerowane faktury nigdy nie trafiają do Fakturowni. Narzędzie działa tylko w środowisku deweloperskim i testowym oraz przed zapisem wypisuje, do której bazy pisze.
 
 ## Czego program świadomie nie robi
 
