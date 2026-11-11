@@ -358,3 +358,12 @@ Reguły opisuje `SPEC.md`, punkt 5.16; sprawdzają je testy `PlanningTests` i `P
 | 2 | Dla jednego towaru sprawdź: sprzedane w 28 dniach ÷ 28 × 14 − dostępne | Zgadza się z kolumną „Zamówić” (w górę) |
 | 3 | Zarezerwuj ten towar zamówieniem klienta i odśwież | „Dostępne” maleje, „Zamówić” rośnie |
 | 4 | Horyzont 0 | Komunikat o zakresie 1–365 dni |
+
+## A7. Eksport do Excela
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Sprzedaż i marża”, wybrany okres, „Excel” | Plik `sprzedaz-<od>-<do>.xlsx` z arkuszami Produkty, Kategorie, Porównanie |
+| 2 | Otwórz w Excelu albo LibreOffice, zsumuj kolumnę „Netto” | Suma działa (liczby, nie tekst), zgodna z kartą „Sprzedaż netto” |
+| 3 | Kontrahent o nazwie `=1+1`, jego faktura, „Klienci” → „Excel” | W arkuszu widać tekst `=1+1`, a nie wynik 2 |
+| 4 | „Analiza ABC”, „Towary zalegające”, „Prognoza zamówień” → „Excel” | Każdy plik ma te same kolumny co tabela na ekranie |

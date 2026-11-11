@@ -18,6 +18,7 @@ Wersje pochodzą z plików projektu (`global.json`, `*.csproj`, `docker-compose.
 | ngrok | — | Tunel HTTPS do telefonu |
 | Fakturownia (REST API) | — | Wystawianie faktur VAT, proform i korekt, wysyłka mailem, status płatności |
 | Wykaz podatników VAT MF („biała lista”, REST API) | — | Dane firmy po NIP-ie (poziom 2) |
+| ClosedXML | 0.105.0 | Eksport analiz do .xlsx (poziom 2); wybrany zamiast EPPlus (licencja płatna od wersji 5) i ręcznego OpenXML SDK (dużo kodu na prosty arkusz) |
 
 ### Dlaczego tak
 

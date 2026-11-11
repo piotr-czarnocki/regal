@@ -44,7 +44,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 4. Inwentaryzacja ze skanowaniem. **Gotowe** (punkt 5.14).
 5. Pobieranie danych firmy po NIP-ie. **Gotowe** (punkt 5.15).
 6. Analizy klientów, prosta prognoza zamówień i porównanie okresów. **Gotowe** (punkt 5.16).
-7. Eksport analiz do Excela (.xlsx).
+7. Eksport analiz do Excela (.xlsx). **Gotowe** (punkt 5.17).
 8. Etykiety z kodami w PDF do druku.
 
 ### Poziom 3 – po oddaniu, do portfolio
@@ -274,6 +274,14 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - **Prognoza zamówień:** dla aktywnych towarów sprzedanych w historii (domyślnie 28 dni, kończy się dzisiaj) średnia dzienna sprzedaż = sprzedana ilość ÷ liczba dni. Dostępne = stan bez przeterminowanych partii minus rezerwacje. Zapas na = dostępne ÷ średnia dzienna. Sugerowane zamówienie = średnia × horyzont (domyślnie 14 dni) − dostępne, nie mniej niż 0, w górę do całych sztuk albo do 3 miejsc po przecinku. Lista pokazuje tylko towary do zamówienia, od najkrótszego zapasu. To świadomie prosta średnia, bez sezonowości, dni tygodnia i czasu dostawy.
 - Historia i horyzont: od 1 do 365 dni.
 
+### 5.17. Eksport analiz do Excela (poziom 2)
+
+- Strony „Sprzedaż i marża”, „Analiza ABC”, „Towary zalegające”, „Klienci” i „Prognoza zamówień” mają przycisk „Excel”, który zapisuje to, co strona pokazuje, przy bieżących filtrach, jako plik `.xlsx`. Sprzedaż ma trzy arkusze: produkty, kategorie i porównanie okresów.
+- Nazwa pliku zawiera okres, np. `sprzedaz-2026-01-01-2026-11-10.xlsx`, albo dzisiejszą datę dla stanów i prognozy.
+- Kwoty i ilości są liczbami, a daty datami, więc w arkuszu można je sumować i sortować. Pierwszy wiersz to pogrubione nagłówki, zablokowane przy przewijaniu.
+- Żaden tekst nie staje się formułą: tekst zaczynający się od `=`, `+`, `-`, `@`, tabulatora lub powrotu karetki dostaje prefiks cudzysłowu Excela (punkt 9, Excel injection).
+- Plik powstaje na serwerze (ClosedXML 0.105.0, MIT) w trakcie połączenia Blazora, więc obowiązują te same uprawnienia co dla strony, i trafia do przeglądarki jako strumień (moduł `wwwroot/js/file-download.js`).
+
 ## 6. Technologie
 
 | Obszar | Wybór |
@@ -284,7 +292,7 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 | Logowanie | Uwierzytelnianie ciasteczkiem z dostawcą Google |
 | Faktury | API Fakturowni (REST, JSON) |
 | Kody kreskowe | Generowanie EAN-13 po stronie serwera, skanowanie biblioteką JavaScript (wybór na etapie) |
-| Eksport (poziom 2) | Biblioteka .xlsx, np. ClosedXML (do weryfikacji) |
+| Eksport (poziom 2) | ClosedXML 0.105.0 (MIT) |
 | Testy | xUnit, bUnit 2.x, Testcontainers, Playwright, k6, BenchmarkDotNet |
 | Uruchamianie | Docker Compose |
 | CI i bezpieczeństwo | GitHub Actions, CodeQL, Dependabot, ochrona przed wysłaniem sekretów |

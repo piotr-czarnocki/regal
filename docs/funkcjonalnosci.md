@@ -126,6 +126,7 @@ Sprzedaż i ABC mają filtr okresu, kategorii i klienta, a zalegające filtr kat
 - **Klienci (poziom 2):** nabywcy w okresie z liczbą faktur, sprzedażą, marżą, średnią fakturą i datą ostatniego zakupu.
 - **Porównanie okresów (poziom 2):** strona sprzedaży zestawia wybrany okres z poprzednim okresem tej samej długości i z tym samym okresem rok wcześniej, ze zmianą w procentach.
 - **Prognoza zamówień (poziom 2):** średnia dzienna sprzedaż z ostatnich dni (domyślnie 28) razy horyzont (domyślnie 14 dni) minus towar dostępny do sprzedaży daje sugerowaną ilość do zamówienia; lista od najkrótszego zapasu. To prosta średnia, bez sezonowości.
+- **Eksport do Excela (poziom 2):** strony analiz mają przycisk „Excel”, który zapisuje bieżącą tabelę jako `.xlsx` z liczbami i datami gotowymi do sumowania; tekst nigdy nie staje się formułą.
 
 ## 8. Dziennik działań
 
@@ -137,4 +138,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4), dane firmy po NIP-ie (punkt 3) oraz analizy klientów, porównanie okresów i prognoza zamówień (punkt 7); nie powstały m.in. eksport do Excela i etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4), dane firmy po NIP-ie (punkt 3), analizy klientów, porównanie okresów i prognoza zamówień oraz eksport do Excela (punkt 7); nie powstały m.in. etykiety w PDF. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
