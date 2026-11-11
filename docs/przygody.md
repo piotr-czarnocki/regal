@@ -299,3 +299,9 @@ Po ukończeniu poziomu 2 poprosiłem o przegląd mocniejszy model (doradcę w Cl
 
 - **Problem:** karta należności na pulpicie ładowała wszystkie nieopłacone faktury i liczyła przeterminowane w C#.
 - **Rozwiązanie:** liczenie i sumy w jednym zapytaniu SQL.
+
+### CI padło na instalacji przeglądarki
+
+- **Objaw:** od 11.11.2026 kolejne przebiegi CI zatrzymywały się na kroku „Install the browser for end-to-end tests”, zanim ruszył jakikolwiek test. Lokalnie wszystko przechodziło, a między ostatnim zielonym i pierwszym czerwonym przebiegiem nie zmieniła się żadna zależność.
+- **Ślepy zaułek:** publiczne adnotacje ostrzegały, że `ubuntu-latest` przechodzi na Ubuntu 26, więc przypiąłem runner do `ubuntu-24.04`. Krok padł tak samo, czyli to nie była przyczyna. Przypięcie cofnąłem.
+- **Co zrobiłem:** log zadania wymaga zalogowania, więc krok instalacji wypisuje teraz koniec swojego wyjścia jako adnotację (widoczną bez logowania) i próbuje trzy razy. Wniosek: najpierw zobaczyć komunikat błędu, potem naprawiać; hipoteza z ostrzeżenia obok kosztowała jeden przebieg.

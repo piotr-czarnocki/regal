@@ -138,6 +138,7 @@ Ten sam test obciążenia w k6: uruchom `dotnet run -c Release --project tests/p
 | [docs/narzedzia.md](docs/narzedzia.md) | Narzędzia i technologie, uzasadnienie wyboru |
 | [docs/analiza-dynamiczna.md](docs/analiza-dynamiczna.md) | Testy, pokrycie, wydajność, debugowanie |
 | [docs/scenariusze-testowe.md](docs/scenariusze-testowe.md) | Scenariusze testów ręcznych |
+| [docs/mapa-kodu.md](docs/mapa-kodu.md) | Reguła → miejsce w kodzie → test, który jej dowodzi |
 | [docs/przygody.md](docs/przygody.md) | Napotkane problemy |
 | [docs/wklad.md](docs/wklad.md) | Wkład autora i czego się nauczył |
 | [docs/prezentacja/](docs/prezentacja/) | Konspekt slajdów i scenariusz pokazu |
@@ -275,7 +276,7 @@ The same load test in k6: start `dotnet run -c Release --project tests/performan
 
 ### Documentation (in Polish)
 
-[SPEC.md](SPEC.md) (specification), [features](docs/funkcjonalnosci.md), [tools](docs/narzedzia.md), [dynamic analysis](docs/analiza-dynamiczna.md), [test scenarios](docs/scenariusze-testowe.md), [problems met](docs/przygody.md), [contribution](docs/wklad.md), [presentation](docs/prezentacja/).
+[SPEC.md](SPEC.md) (specification), [features](docs/funkcjonalnosci.md), [tools](docs/narzedzia.md), [dynamic analysis](docs/analiza-dynamiczna.md), [test scenarios](docs/scenariusze-testowe.md), [code map](docs/mapa-kodu.md), [problems met](docs/przygody.md), [contribution](docs/wklad.md), [presentation](docs/prezentacja/).
 
 ### License
 
