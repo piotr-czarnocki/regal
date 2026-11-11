@@ -110,12 +110,37 @@ public class PlanningTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Analytics.GetForecastAsync(0, 14));
 
     [Fact]
+    public async Task The_excel_button_sends_the_customers_workbook_to_the_browser()
+    {
+        var goods = await StockedGoodsAsync(10);
+        await SellAsync(await NewContractorAsync(), Item(goods, 1, netPrice: 20m));
+        await using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var module = context.JSInterop.SetupModule(Regal.Web.Components.Shared.FileDownloader.ModulePath);
+        var save = module.SetupVoid("saveFile", _ => true);
+        context.Services.AddMudServices();
+        context.Services.AddScoped(_ => Analytics);
+        context.Services.AddScoped<Regal.Web.Components.Shared.FileDownloader>();
+        context.Services.AddScoped(_ => new CategoryService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
+        context.Services.AddScoped(_ => Contractors);
+        context.Render<MudPopoverProvider>();
+
+        var page = context.Render<CustomersPage>();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("td[data-label=\"Klient\"]")));
+        page.FindAll("button").Single(b => b.TextContent.Contains("Excel")).Click();
+
+        var call = save.VerifyInvoke("saveFile");
+        Assert.Matches(@"^klienci-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\.xlsx$", call.Arguments[0] as string);
+    }
+
+    [Fact]
     public async Task Pages_load()
     {
         await using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddMudServices();
         context.Services.AddScoped(_ => Analytics);
+        context.Services.AddScoped<Regal.Web.Components.Shared.FileDownloader>();
         context.Services.AddScoped(_ => new CategoryService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped(_ => Contractors);
         context.Render<MudPopoverProvider>();

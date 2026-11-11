@@ -1,0 +1,33 @@
+@inject Regal.Web.Components.Shared.FileDownloader Downloader
+
+<MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportAsync" Disabled="_busy">Excel</MudButton>
+
+@code {
+    private bool _busy;
+
+    /// <summary>Without the extension; the dates of the period are a good part of it.</summary>
+    [Parameter, EditorRequired]
+    public string FileName { get; set; } = null!;
+
+    /// <summary>Builds the workbook from what the page shows now.</summary>
+    [Parameter, EditorRequired]
+    public Func<byte[]> Build { get; set; } = null!;
+
+    private async Task ExportAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            await Downloader.SaveAsync($"{FileName}.xlsx", Build());
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
