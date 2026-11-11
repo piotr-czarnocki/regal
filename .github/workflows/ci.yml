@@ -22,11 +22,12 @@ jobs:
       - name: Build
         run: dotnet build Regal.slnx --no-restore --configuration Release
       - name: Install the browser for end-to-end tests
-        # Retried, and the end of the output becomes an annotation, readable without signing in,
-        # unlike the job log (docs/przygody.md).
+        # Only the browser: the runner image already has the system libraries Chrome needs, and
+        # --with-deps failed when the Ubuntu package mirror could not be resolved (docs/przygody.md).
+        # Retried, and the end of the output becomes an annotation, readable without signing in.
         run: |
           for attempt in 1 2 3; do
-            if pwsh tests/Regal.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium > install.log 2>&1; then
+            if pwsh tests/Regal.E2ETests/bin/Release/net10.0/playwright.ps1 install chromium > install.log 2>&1; then
               exit 0
             fi
             echo "::warning title=Browser install attempt $attempt failed::$(tail -c 900 install.log | tr -d '%\r' | tr '\n' ' ')"
