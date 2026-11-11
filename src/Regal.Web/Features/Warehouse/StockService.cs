@@ -57,7 +57,7 @@ public sealed class StockService(
     public async Task<PagedResult<StockListItem>> SearchAsync(
         StockFilter filter, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var today = WarehouseTime.DateOf(timeProvider.GetUtcNow());
 
@@ -116,7 +116,7 @@ public sealed class StockService(
     /// <summary>Batches that hold stock, in the order an automatic issue would take them.</summary>
     public async Task<IReadOnlyList<StockBatchRow>> GetBatchesAsync(int productId, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var today = WarehouseTime.DateOf(timeProvider.GetUtcNow());
 
@@ -132,7 +132,7 @@ public sealed class StockService(
     public async Task<PagedResult<ProductMovementRow>> GetProductMovementsAsync(
         int productId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var query = db.StockMovements.AsNoTracking().Where(m => m.Batch!.ProductId == productId);
@@ -170,7 +170,7 @@ public sealed class StockService(
     private async Task<IReadOnlyList<ProductPick>> SearchProductsAsync(
         string? term, int take, bool includeServices, CancellationToken cancellationToken)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var query = db.Products.AsNoTracking().Where(p => p.IsActive && (includeServices || p.Kind == ProductKind.Goods));
@@ -189,7 +189,7 @@ public sealed class StockService(
 
     private async Task<ProductPick?> FindProductByCodeAsync(string? code, bool includeServices, CancellationToken cancellationToken)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
 
         var text = code?.Trim();
         if (string.IsNullOrEmpty(text))

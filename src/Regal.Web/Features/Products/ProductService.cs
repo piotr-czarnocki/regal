@@ -75,7 +75,7 @@ public sealed class ProductService(
 
     public async Task<ProductInput?> GetForEditAsync(int id, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await db.Products.AsNoTracking().Where(p => p.Id == id)

@@ -61,7 +61,7 @@ public sealed class StockDocumentService(
     /// <summary>Approves the draft in its own transaction.</summary>
     public async Task<SaveResult> PostAsync(StockDocumentDraft draft, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await InOwnTransactionAsync(db, () => PostCoreAsync(db, draft, userId, cancellationToken), draft.RequestId, cancellationToken);
@@ -75,14 +75,14 @@ public sealed class StockDocumentService(
     /// </summary>
     public async Task<SaveResult> PostInTransactionAsync(RegalDbContext db, StockDocumentDraft draft, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         return await InCallerTransactionAsync(db, () => PostCoreAsync(db, draft, userId, cancellationToken), draft.RequestId, cancellationToken);
     }
 
     /// <summary>The correction counterpart of PostInTransactionAsync, with the same rules for the caller.</summary>
     public async Task<SaveResult> ReverseInTransactionAsync(RegalDbContext db, int documentId, Guid requestId, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         return await InCallerTransactionAsync(db, () => ReverseCoreAsync(db, documentId, requestId, userId, cancellationToken), requestId, cancellationToken);
     }
 
@@ -95,7 +95,7 @@ public sealed class StockDocumentService(
         RegalDbContext db, int issueDocumentId, IReadOnlyDictionary<int, decimal> returned, Guid requestId, string notes,
         CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         return await InCallerTransactionAsync(
             db, () => ReturnCoreAsync(db, issueDocumentId, returned, requestId, notes, userId, cancellationToken), requestId, cancellationToken);
     }
@@ -194,7 +194,7 @@ public sealed class StockDocumentService(
     /// <summary>Posts the opposite of a whole document, on the same batches and at the same costs.</summary>
     public async Task<SaveResult> ReverseAsync(int documentId, Guid requestId, CancellationToken cancellationToken = default)
     {
-        var userId = await currentUser.RequireUserIdAsync(Roles.Administrator);
+        var userId = await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await InOwnTransactionAsync(db, () => ReverseCoreAsync(db, documentId, requestId, userId, cancellationToken), requestId, cancellationToken);
@@ -203,7 +203,7 @@ public sealed class StockDocumentService(
     /// <summary>What an issue would take right now. Holds no locks, so approval may still allocate differently.</summary>
     public async Task<IReadOnlyList<IssuePreviewLine>> PreviewIssueAsync(StockDocumentDraft draft, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var productIds = draft.Lines.Select(line => line.ProductId).Distinct().ToArray();
@@ -230,7 +230,7 @@ public sealed class StockDocumentService(
     public async Task<PagedResult<StockDocumentListItem>> SearchAsync(
         StockDocumentFilter filter, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var query = db.StockDocuments.AsNoTracking();
@@ -274,7 +274,7 @@ public sealed class StockDocumentService(
 
     public async Task<StockDocumentDetails?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
     {
-        await currentUser.RequireUserIdAsync(Roles.Administrator);
+        await currentUser.RequireUserIdAsync(Roles.Staff);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var header = await db.StockDocuments.AsNoTracking().Where(d => d.Id == id)

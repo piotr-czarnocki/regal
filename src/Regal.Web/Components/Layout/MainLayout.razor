@@ -18,7 +18,7 @@
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <MudText Typo="Typo.body2" Class="mr-3 d-none d-sm-block">@context.User.Identity?.Name</MudText>
+                <MudText Typo="Typo.body2" Class="mr-3 d-none d-sm-block">@context.User.Identity?.Name@(context.User.IsInRole(Roles.Warehouse) ? " (magazynier)" : null)</MudText>
                 @* A native POST: the logout has to clear a cookie, which needs a real HTTP response. *@
                 <form method="post" action="/auth/logout">
                     <AntiforgeryToken />
@@ -30,26 +30,38 @@
     <AuthorizeView>
         <Authorized>
             <MudDrawer @bind-Open="_drawerOpen" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always" Elevation="1">
+                @* Grouped by the work done; a warehouse worker sees only the warehouse (SPEC 5.19). *@
                 <MudNavMenu>
                     <MudNavLink Href="/" Match="NavLinkMatch.All">Pulpit</MudNavLink>
-                    <MudNavLink Href="/products">Produkty i usługi</MudNavLink>
-                    <MudNavLink Href="/categories">Kategorie</MudNavLink>
-                    <MudNavLink Href="/contractors">Kontrahenci</MudNavLink>
-                    <MudNavLink Href="/stock-documents" Match="NavLinkMatch.All">Dokumenty magazynowe</MudNavLink>
-                    <MudNavLink Href="/stock-documents/new">Nowy dokument</MudNavLink>
-                    <MudNavLink Href="/stock">Stany magazynowe</MudNavLink>
-                    <MudNavLink Href="/stocktakes">Inwentaryzacja</MudNavLink>
-                    <MudNavLink Href="/orders" Match="NavLinkMatch.All">Zamówienia</MudNavLink>
-                    <MudNavLink Href="/orders/new">Nowe zamówienie</MudNavLink>
-                    <MudNavLink Href="/invoices" Match="NavLinkMatch.All">Faktury</MudNavLink>
-                    <MudNavLink Href="/invoices/new">Nowa faktura</MudNavLink>
-                    <MudNavGroup Title="Analizy" Expanded="true">
-                        <MudNavLink Href="/analytics/sales">Sprzedaż i marża</MudNavLink>
-                        <MudNavLink Href="/analytics/abc">Analiza ABC</MudNavLink>
-                        <MudNavLink Href="/analytics/slow-moving">Towary zalegające</MudNavLink>
-                        <MudNavLink Href="/analytics/customers">Klienci</MudNavLink>
-                        <MudNavLink Href="/analytics/forecast">Prognoza zamówień</MudNavLink>
+                    <AuthorizeView Roles="@Roles.Administrator" Context="admin">
+                        <MudNavGroup Title="Sprzedaż" Expanded="true">
+                            <MudNavLink Href="/invoices/new">Nowa faktura</MudNavLink>
+                            <MudNavLink Href="/invoices" Match="NavLinkMatch.All">Faktury</MudNavLink>
+                            <MudNavLink Href="/orders/new">Nowe zamówienie</MudNavLink>
+                            <MudNavLink Href="/orders" Match="NavLinkMatch.All">Zamówienia</MudNavLink>
+                        </MudNavGroup>
+                    </AuthorizeView>
+                    <MudNavGroup Title="Magazyn" Expanded="true">
+                        <MudNavLink Href="/stock-documents/new">Nowy dokument</MudNavLink>
+                        <MudNavLink Href="/stock-documents" Match="NavLinkMatch.All">Dokumenty magazynowe</MudNavLink>
+                        <MudNavLink Href="/stock">Stany magazynowe</MudNavLink>
+                        <MudNavLink Href="/stocktakes">Inwentaryzacja</MudNavLink>
                     </MudNavGroup>
+                    <AuthorizeView Roles="@Roles.Administrator" Context="admin">
+                        <MudNavGroup Title="Analizy">
+                            <MudNavLink Href="/analytics/sales">Sprzedaż i marża</MudNavLink>
+                            <MudNavLink Href="/analytics/abc">Analiza ABC</MudNavLink>
+                            <MudNavLink Href="/analytics/slow-moving">Towary zalegające</MudNavLink>
+                            <MudNavLink Href="/analytics/customers">Klienci</MudNavLink>
+                            <MudNavLink Href="/analytics/forecast">Prognoza zamówień</MudNavLink>
+                        </MudNavGroup>
+                        <MudNavGroup Title="Kartoteki">
+                            <MudNavLink Href="/products">Produkty i usługi</MudNavLink>
+                            <MudNavLink Href="/categories">Kategorie</MudNavLink>
+                            <MudNavLink Href="/contractors">Kontrahenci</MudNavLink>
+                            <MudNavLink Href="/users">Użytkownicy</MudNavLink>
+                        </MudNavGroup>
+                    </AuthorizeView>
                 </MudNavMenu>
             </MudDrawer>
         </Authorized>

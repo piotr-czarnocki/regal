@@ -6,12 +6,20 @@
 <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-8">
     <MudPaper Class="pa-6" Elevation="2">
         <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Brak dostępu</MudText>
-        <MudText Class="mb-4">To konto nie ma dostępu do Regału. Skontaktuj się z administratorem albo użyj innego konta.</MudText>
-
-        <form method="get" action="/auth/login">
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">
-                Zaloguj innym kontem
-            </MudButton>
-        </form>
+        <AuthorizeView>
+            <Authorized>
+                @* Signed in, but the page needs another role (SPEC 5.19). *@
+                <MudText Class="mb-4">Nie masz uprawnień do tej strony. Jeśli jej potrzebujesz, poproś administratora o zmianę roli.</MudText>
+                <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">Wróć na pulpit</MudButton>
+            </Authorized>
+            <NotAuthorized>
+                <MudText Class="mb-4">To konto nie ma dostępu do Regału. Skontaktuj się z administratorem albo użyj innego konta.</MudText>
+                <form method="get" action="/auth/login">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">
+                        Zaloguj innym kontem
+                    </MudButton>
+                </form>
+            </NotAuthorized>
+        </AuthorizeView>
     </MudPaper>
 </MudContainer>

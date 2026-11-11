@@ -8,26 +8,28 @@ Wszystkie ekrany są po polsku. Kwoty są w złotych, ilości do 3 miejsc po prz
 
 | Menu | Adres | Co tam jest |
 |---|---|---|
-| Pulpit | `/` | Sprzedaż i marża w bieżącym miesiącu, najlepsze produkty, partie z kończącą się ważnością, towary zalegające, należności po terminie |
-| Produkty | `/products` | Kartoteka towarów i usług |
-| Kategorie | `/categories` | Słownik kategorii produktów |
-| Kontrahenci | `/contractors` | Odbiorcy i dostawcy |
-| Stany magazynowe | `/stock` | Stan każdego towaru i jego partii; z wiersza historia ruchów (`/stock/{id}/history`) |
-| Inwentaryzacja | `/stocktakes` | Arkusze spisu; arkusz ze skanowaniem, różnicami i zatwierdzeniem (`/stocktakes/{id}`) |
-| Dokumenty magazynowe | `/stock-documents` | Lista PZ, PW, WZ, RW z wyszukiwaniem; nowy dokument (`/stock-documents/new`), szczegóły i korekta (`/stock-documents/{id}`) |
-| Zamówienia | `/orders` | Zamówienia klientów ze statusem; nowe zamówienie (`/orders/new`), szczegóły z pokryciem, faktura i anulowanie (`/orders/{id}`) |
-| Faktury | `/invoices` | Lista faktur ze statusem wysyłki; nowa faktura (`/invoices/new`, z zamówienia `/invoices/new?order={id}`), szczegóły (`/invoices/{id}`) |
+| Pulpit | `/` | Skróty do najczęstszych czynności; dla administratora sprzedaż i marża w bieżącym miesiącu, najlepsze produkty, partie z kończącą się ważnością, towary zalegające, należności po terminie |
+| Kartoteki → Produkty i usługi | `/products` | Kartoteka towarów i usług |
+| Kartoteki → Kategorie | `/categories` | Słownik kategorii produktów |
+| Kartoteki → Kontrahenci | `/contractors` | Odbiorcy i dostawcy |
+| Magazyn → Stany magazynowe | `/stock` | Stan każdego towaru i jego partii; z wiersza historia ruchów (`/stock/{id}/history`) |
+| Magazyn → Inwentaryzacja | `/stocktakes` | Arkusze spisu; arkusz ze skanowaniem, różnicami i zatwierdzeniem (`/stocktakes/{id}`) |
+| Magazyn → Dokumenty magazynowe | `/stock-documents` | Lista PZ, PW, WZ, RW z wyszukiwaniem; nowy dokument (`/stock-documents/new`), szczegóły i korekta (`/stock-documents/{id}`) |
+| Sprzedaż → Zamówienia | `/orders` | Zamówienia klientów ze statusem; nowe zamówienie (`/orders/new`), szczegóły z pokryciem, faktura i anulowanie (`/orders/{id}`) |
+| Sprzedaż → Faktury | `/invoices` | Lista faktur ze statusem wysyłki; nowa faktura (`/invoices/new`, z zamówienia `/invoices/new?order={id}`), szczegóły (`/invoices/{id}`) |
 | Analizy → Sprzedaż i marża | `/analytics/sales` | Wykres w czasie, tabele według produktów i kategorii |
 | Analizy → ABC | `/analytics/abc` | Podział produktów na klasy A, B, C |
 | Analizy → Zalegające | `/analytics/slow-moving` | Towary na stanie bez sprzedaży od N dni |
 | Analizy → Klienci | `/analytics/customers` | Nabywcy w okresie |
 | Analizy → Prognoza zamówień | `/analytics/forecast` | Towary do zamówienia na horyzont |
+| Kartoteki → Użytkownicy | `/users` | Kto może się zalogować i z jaką rolą (tylko administrator) |
 
 ## 1. Logowanie i dostęp
 
 - Logowanie wyłącznie kontem Google. Regał nie przechowuje haseł.
 - Wejść mogą tylko adresy z listy dozwolonych użytkowników w bazie. Pozostali widzą stronę odmowy dostępu i nie dostają żadnych danych, także przez bezpośredni adres podstrony.
-- Pierwszego administratora dodaje konfiguracja przy starcie (poza repozytorium).
+- Pierwszego administratora dodaje konfiguracja przy starcie (poza repozytorium). Kolejne osoby dodaje administrator na ekranie „Użytkownicy” (`/users`), wybierając rolę: administrator albo magazynier.
+- Magazynier widzi tylko magazyn: pulpit ze skrótami i kończącymi się partiami, stany, dokumenty magazynowe i inwentaryzację. Pozostałe strony są dla niego zamknięte, także pod bezpośrednim adresem.
 - Każde logowanie i każda odmowa trafiają do dziennika działań.
 
 ## 2. Produkty, usługi i kategorie
@@ -139,4 +141,4 @@ Narzędzie `tools/Regal.DataGenerator` tworzy rok wymyślonej działalności prz
 
 ## Czego program świadomie nie robi
 
-Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4), dane firmy po NIP-ie (punkt 3), analizy klientów, porównanie okresów i prognoza zamówień, eksport do Excela (punkt 7) oraz etykiety w PDF (punkt 2). Poziom 2 specyfikacji jest więc w całości gotowy. Kolejne role użytkowników to poziom 3. Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).
+Księgowość, kadry, wiele magazynów i walut, warianty i zdjęcia produktów, import z pliku, receptury. Z poziomu 2 specyfikacji powstały zamówienia klientów z rezerwacją (punkt 5a), proformy i faktury korygujące, wysyłka mailem ze statusem płatności (punkt 5), inwentaryzacja ze skanowaniem (punkt 4), dane firmy po NIP-ie (punkt 3), analizy klientów, porównanie okresów i prognoza zamówień, eksport do Excela (punkt 7) oraz etykiety w PDF (punkt 2). Poziom 2 specyfikacji jest więc w całości gotowy. Z poziomu 3 powstała rola magazyniera z ekranem użytkowników (punkt 1). Lista znanych uproszczeń jest w `SPEC.md` (m.in. przycinanie średniej do zera po korekcie).

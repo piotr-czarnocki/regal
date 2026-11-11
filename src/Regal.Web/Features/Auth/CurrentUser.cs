@@ -6,7 +6,10 @@ namespace Regal.Web.Features.Auth;
 
 public interface ICurrentUser
 {
-    /// <summary>Returns the Users.Id of the signed-in user, or throws UnauthorizedAccessException.</summary>
+    /// <summary>
+    /// Returns the Users.Id of the signed-in user when it has one of the roles (comma-separated,
+    /// see Roles.Staff), or throws UnauthorizedAccessException.
+    /// </summary>
     Task<int> RequireUserIdAsync(string requiredRole);
 }
 
@@ -18,7 +21,7 @@ public sealed class CurrentUser(AuthenticationStateProvider authenticationStateP
         var user = (await authenticationStateProvider.GetAuthenticationStateAsync()).User;
 
         if (user.Identity?.IsAuthenticated == true
-            && user.IsInRole(requiredRole)
+            && Roles.AllowsAny(requiredRole, user.IsInRole)
             && int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), CultureInfo.InvariantCulture, out var userId))
         {
             return userId;

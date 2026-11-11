@@ -376,3 +376,15 @@ Reguły opisuje `SPEC.md`, punkt 5.16; sprawdzają je testy `PlanningTests` i `P
 | 2 | Wydrukuj w skali 100% na arkuszu 70 × 37 mm | Etykiety trafiają w pola arkusza |
 | 3 | Zeskanuj kod z wydruku czytnikiem USB w polu produktu dokumentu | Dodaje się ten produkt |
 | 4 | Produkt z polskimi literami w nazwie | Litery wydrukowane poprawnie |
+
+## U1. Magazynier
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | Jako administrator „Kartoteki → Użytkownicy”, wpisz adres konta Google drugiej osoby, rola „Magazynier”, „Dodaj użytkownika” | Adres na liście z rolą „Magazynier”, status „Aktywny” |
+| 2 | Zaloguj się tym kontem (np. w oknie prywatnym) | Pulpit z przyciskami magazynu i listą kończących się partii, bez sprzedaży i marży; w menu tylko Pulpit i Magazyn |
+| 3 | Wpisz w pasku adresu `/invoices` | „Nie masz uprawnień do tej strony” i przycisk „Wróć na pulpit” |
+| 4 | „Przyjęcie lub wydanie towaru”, przyjmij PZ od dostawcy | Dokument zatwierdzony jak u administratora |
+| 5 | Jako administrator zmień jego rolę na „Administrator” | Przy następnym kliknięciu magazyniera sesja wymaga ponownego logowania, po nim widzi całe menu |
+| 6 | Jako administrator spróbuj zmienić własną rolę | Na swoim wierszu nie ma wyboru roli ani przycisku „Wyłącz” |
+| 7 | „Wyłącz” przy drugiej osobie | Nie może się zalogować; jej otwarta sesja kończy się |

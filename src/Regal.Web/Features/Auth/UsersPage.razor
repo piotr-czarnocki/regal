@@ -1,0 +1,118 @@
+@page "/users"
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject UserService Users
+@inject ISnackbar Snackbar
+
+<PageTitle>Użytkownicy – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4 mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Użytkownicy</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Wejść może tylko osoba z tej listy, logując się swoim kontem Google. Magazynier widzi wyłącznie stany, dokumenty magazynowe i inwentaryzację.
+        Zmiana roli albo wyłączenie konta działa od razu, także na otwartej sesji tej osoby.
+    </MudText>
+
+    <MudPaper Outlined="true" Class="pa-3 mb-3">
+        <div class="d-flex flex-wrap align-center gap-3">
+            <MudTextField T="string" @bind-Value="_email" Label="Adres e-mail konta Google" InputType="InputType.Email" Class="flex-grow-1" Style="min-width: 240px" />
+            <MudSelect T="string" @bind-Value="_role" Label="Rola" Style="min-width: 160px">
+                @foreach (var role in Roles.All)
+                {
+                    <MudSelectItem T="string" Value="role">@Roles.Label(role)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddAsync" Disabled="_working">Dodaj użytkownika</MudButton>
+        </div>
+    </MudPaper>
+
+    <MudTable T="UserListItem" Items="_users" Dense="true" Breakpoint="Breakpoint.Sm" Loading="_users is null">
+        <HeaderContent>
+            <MudTh>Adres e-mail</MudTh>
+            <MudTh>Rola</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Adres e-mail">@context.Email @(context.IsMe ? "(Ty)" : null)</MudTd>
+            <MudTd DataLabel="Rola">
+                @if (context.IsMe)
+                {
+                    @Roles.Label(context.Role)
+                }
+                else
+                {
+                    <MudSelect T="string" Value="context.Role" ValueChanged="role => SetRoleAsync(context, role)" Dense="true" Margin="Margin.Dense"
+                               Label="@($"Rola: {context.Email}")">
+                        @foreach (var role in Roles.All)
+                        {
+                            <MudSelectItem T="string" Value="role">@Roles.Label(role)</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+            </MudTd>
+            <MudTd DataLabel="Status">
+                <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">@(context.IsActive ? "Aktywny" : "Wyłączony")</MudChip>
+            </MudTd>
+            <MudTd DataLabel="">
+                @if (!context.IsMe)
+                {
+                    <MudButton Size="Size.Small" OnClick="() => SetActiveAsync(context)">@(context.IsActive ? "Wyłącz" : "Włącz")</MudButton>
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak użytkowników.</MudText></NoRecordsContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private IReadOnlyList<UserListItem>? _users;
+    private string? _email;
+    private string _role = Roles.Warehouse;
+    private bool _working;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => _users = await Users.GetAllAsync();
+
+    private async Task AddAsync()
+    {
+        if (_working)
+        {
+            return;
+        }
+
+        _working = true;
+        try
+        {
+            var result = await Users.AddAsync(_email, _role);
+            if (result.IsSuccess)
+            {
+                Snackbar.Add($"Dodano {_email?.Trim()}. Może się teraz zalogować kontem Google.", Severity.Success);
+                _email = null;
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Error!, Severity.Warning);
+            }
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    private async Task SetRoleAsync(UserListItem user, string role)
+    {
+        var result = await Users.SetRoleAsync(user.Id, role);
+        Snackbar.Add(result.IsSuccess ? $"{user.Email}: {Roles.Label(role)}." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Warning);
+        await LoadAsync();
+    }
+
+    private async Task SetActiveAsync(UserListItem user)
+    {
+        var result = await Users.SetActiveAsync(user.Id, !user.IsActive);
+        Snackbar.Add(result.IsSuccess ? $"{user.Email}: {(user.IsActive ? "wyłączony" : "włączony")}." : result.Error!, result.IsSuccess ? Severity.Success : Severity.Warning);
+        await LoadAsync();
+    }
+}

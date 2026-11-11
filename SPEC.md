@@ -51,7 +51,7 @@ Projekt służy jako zaliczenie na studiach i pozycja w portfolio. Repozytorium 
 
 - Paragon przez Fakturownię.
 - Status KSeF faktury, jeśli API Fakturowni go udostępnia.
-- Kolejne role, np. magazynier.
+- Kolejne role, np. magazynier. **Zrobione:** rola magazyniera i ekran użytkowników (punkt 5.19).
 - Obsługa kilku magazynów w interfejsie.
 - Hosting w internecie.
 
@@ -63,7 +63,7 @@ Księgowość, kadry i płace, wiele walut, warianty produktów, zdjęcia produk
 
 - Logowanie wyłącznie przez Google, bez haseł w bazie Regału.
 - Wpuszczane są tylko adresy z tabeli dozwolonych użytkowników; pozostali dostają odmowę dostępu.
-- Na start każdy dozwolony użytkownik ma rolę `Administrator`. Rola jest zapisana w bazie i dodawana do tożsamości przy logowaniu, więc później łatwo dodać kolejne role.
+- Role: `Administrator` (wszystko) i `Warehouse`, czyli magazynier (tylko magazyn, punkt 5.19). Rola jest zapisana w bazie i dodawana do tożsamości przy logowaniu. Listę osób i ich role prowadzi administrator na ekranie „Użytkownicy”.
 - Pierwszy administrator jest dodawany przy starcie z konfiguracji spoza repozytorium.
 - Bez ASP.NET Core Identity: uwierzytelnianie przez ciasteczko i dostawcę Google.
 
@@ -290,6 +290,15 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Etykieta: nazwa (do dwóch wierszy), SKU w jednym wierszu, cena brutto za jednostkę i kod EAN-13 jako paski i cyfry.
 - Paski liczy Regał według specyfikacji GS1 (zestawy L, G, R, parzystość z pierwszej cyfry, 95 modułów, wydłużone pasy ochronne, margines ciszy) i rysuje jako SVG. Moduł ma około 0,32 mm, czyli blisko nominalnych 0,33 mm.
 - PDF tworzy QuestPDF 2026.7.1 na licencji Community (bezpłatnej dla firm o przychodzie poniżej 1 mln USD i projektów open source), z wbudowaną czcionką obsługującą polskie znaki.
+
+### 5.19. Role i użytkownicy (poziom 3)
+
+- Ekran „Użytkownicy” (`/users`, tylko administrator): dodanie adresu konta Google z rolą, zmiana roli, wyłączenie i ponowne włączenie konta. Każda zmiana trafia do dziennika działań. Wcześniej nową osobę dało się dodać tylko poleceniem SQL.
+- Zmiana roli albo wyłączenie konta działa od razu, także na otwartej sesji, bo każda sesja porównuje rolę i aktywność z bazą.
+- Nikt nie może zmienić własnej roli ani wyłączyć własnego konta, więc administrator, który to robi, zawsze zachowuje dostęp.
+- Magazynier widzi pulpit magazynu (skróty i partie z bliską datą ważności), stany z historią, dokumenty magazynowe i inwentaryzację. Nie widzi sprzedaży, faktur, zamówień, analiz, kartotek ani użytkowników: nie ma ich w menu, adres takiej strony pokazuje „Nie masz uprawnień”, a serwisy odmawiają także przy wywołaniu z pominięciem strony.
+- Do formularzy magazynu magazynier może czytać listę kontrahentów (dostawca na PZ), kategorie (filtr stanów) i nazwę produktu (historia ruchów), ale nie może ich zmieniać.
+- Pulpit zaczyna się od przycisków najczęstszych czynności, a menu jest pogrupowane według pracy: Sprzedaż, Magazyn, Analizy, Kartoteki.
 
 ## 6. Technologie
 
