@@ -47,7 +47,8 @@ var report = await new DemoDataGenerator(factory, options, TimeProvider.System, 
 
 Console.WriteLine(
     $"Gotowe w {TimeProvider.System.GetElapsedTime(started):hh\\:mm\\:ss}: {report.Products} produktów, {report.Contractors} kontrahentów, " +
-    $"{report.StockDocuments} dokumentów przyjęcia i rozchodu, {report.Invoices} faktur ({report.CancelledInvoices} anulowanych), " +
+    $"{report.StockDocuments} dokumentów przyjęcia i rozchodu, {report.Invoices} faktur ({report.CancelledInvoices} anulowanych, {report.OverdueInvoices} po terminie), " +
+    $"{report.Proformas} proform, {report.Orders} zamówień ({report.OpenOrders} otwartych), " +
     $"{report.Movements} ruchów magazynowych w bazie.");
 
 internal sealed class GeneratorDbContextFactory(DbContextOptions<RegalDbContext> options) : IDbContextFactory<RegalDbContext>

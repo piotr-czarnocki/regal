@@ -71,6 +71,39 @@ public sealed class DemoDataGeneratorTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Generated_data_covers_orders_proformas_and_payments()
+    {
+        var prefix = Prefix();
+
+        var report = await new DemoDataGenerator(postgres.DbContextFactory, Small(prefix), Clock()).RunAsync();
+
+        await using var db = postgres.CreateAppDbContext();
+        var orders = db.CustomerOrders.Where(o => o.Lines.Any(l => l.Product!.Sku.StartsWith(prefix + "-")));
+        var mine = db.Invoices.Where(i => i.Lines.Any(l => l.Product!.Sku.StartsWith(prefix + "-")));
+
+        // Orders: completed by an invoice, still open and reserving goods, and cancelled.
+        Assert.True(report.Orders > 3, $"Only {report.Orders} orders.");
+        Assert.Equal(report.Orders, await orders.CountAsync());
+        Assert.True(await orders.AnyAsync(o => o.Status == CustomerOrderStatus.Completed && o.Invoice!.Status == InvoiceStatus.Sent));
+        Assert.Equal(report.OpenOrders, await orders.CountAsync(o => o.Status == CustomerOrderStatus.Open));
+        Assert.True(report.OpenOrders > 0);
+
+        // Proformas: numbered apart from invoices and with nothing taken from the warehouse.
+        var proformas = mine.Where(i => i.Kind == InvoiceKind.Proforma);
+        Assert.Equal(report.Proformas, await proformas.CountAsync());
+        Assert.True(report.Proformas > 0);
+        Assert.True(await proformas.AllAsync(i => i.Number!.StartsWith("DEMO PF ") && i.StockDocumentId == null));
+
+        // Payments decided by the seed, some overdue, none of them ever asked of Fakturownia.
+        var vat = mine.Where(i => i.Kind == InvoiceKind.Vat && i.Status == InvoiceStatus.Sent);
+        Assert.False(await vat.AnyAsync(i => i.PaymentStatus == InvoicePaymentStatus.Unknown));
+        Assert.True(await vat.AnyAsync(i => i.PaymentStatus == InvoicePaymentStatus.Paid));
+        Assert.True(await vat.Where(i => i.PaymentStatus == InvoicePaymentStatus.Paid).AllAsync(i => i.PaidAmount == i.GrossTotal && i.PaidDate != null));
+        Assert.True(report.OverdueInvoices > 0);
+        Assert.True(await vat.AllAsync(i => i.FakturowniaId == null));
+    }
+
+    [Fact]
     public async Task Weekly_write_off_clears_all_expired_goods_even_in_a_large_catalog()
     {
         // More expiring batches in one week than one page of the write-off. An earlier version
@@ -110,7 +143,9 @@ public sealed class DemoDataGeneratorTests(PostgresFixture postgres)
         var first = await new DemoDataGenerator(postgres.DbContextFactory, Small(Prefix(), seed: 3), Clock()).RunAsync();
         var second = await new DemoDataGenerator(postgres.DbContextFactory, Small(Prefix(), seed: 3), Clock()).RunAsync();
 
-        Assert.Equal((first.StockDocuments, first.Invoices, first.CancelledInvoices), (second.StockDocuments, second.Invoices, second.CancelledInvoices));
+        Assert.Equal(
+            (first.StockDocuments, first.Invoices, first.CancelledInvoices, first.Orders, first.OpenOrders, first.Proformas, first.OverdueInvoices),
+            (second.StockDocuments, second.Invoices, second.CancelledInvoices, second.Orders, second.OpenOrders, second.Proformas, second.OverdueInvoices));
     }
 
     [Fact]
