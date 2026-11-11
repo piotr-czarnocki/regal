@@ -20,6 +20,11 @@
             <MudItem xs="6" md="3"><StatCard Title="Faktury" Value="@_summary.InvoiceCount.ToString()" /></MudItem>
         </MudGrid>
 
+        @if (!_showComparison)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ShowComparisonAsync" Class="mb-2">Porównaj z poprzednim okresem i rokiem wcześniej</MudButton>
+        }
+
         @if (_comparison is { } comparison)
         {
             <MudPaper Outlined="true" Class="pa-3 mb-3">
@@ -117,10 +122,23 @@
 
     private async Task LoadAsync()
     {
+        // One after another on purpose: run together, 20 users took more than the 100 connections
+        // PostgreSQL allows (error 53300; docs/analiza-dynamiczna.md, point 5).
         _summary = await Analytics.GetSummaryAsync(_filter);
         _points = await Analytics.GetSalesOverTimeAsync(_filter);
         _categories = await Analytics.GetSalesByCategoryAsync(_filter);
         _products = await Analytics.GetSalesByProductAsync(_filter, take: 50);
+
+        // The comparison reads up to two years of lines, so it runs only when asked for and is
+        // refreshed with the filters once shown (docs/analiza-dynamiczna.md, point 5).
+        _comparison = _showComparison ? await Analytics.ComparePeriodsAsync(_filter) : null;
+    }
+
+    private bool _showComparison;
+
+    private async Task ShowComparisonAsync()
+    {
+        _showComparison = true;
         _comparison = await Analytics.ComparePeriodsAsync(_filter);
     }
 }

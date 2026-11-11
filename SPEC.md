@@ -270,13 +270,13 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 ### 5.16. Analizy klientów, prognoza zamówień i porównanie okresów (poziom 2)
 
 - **Klienci:** nabywcy w okresie (filtr okresu i kategorii), od największej sprzedaży netto: liczba faktur VAT, sprzedaż netto, marża, średnia faktura i data ostatniego zakupu. Korekty pomniejszają sprzedaż, ale nie są liczone jako faktury; proformy się nie liczą.
-- **Porównanie okresów:** strona sprzedaży zestawia wybrany okres z poprzednim okresem tej samej długości (bezpośrednio przed nim) i z tymi samymi datami rok wcześniej (29 lutego staje się 28 lutego), przy tych samych filtrach. Zmiana w procentach liczona jest względem wartości z danego wiersza; przy zerze „brak danych”.
+- **Porównanie okresów:** na żądanie (przycisk, bo czyta do dwóch lat danych i spowalniało stronę pod obciążeniem; punkt 10, `analiza-dynamiczna.md`) strona sprzedaży zestawia wybrany okres z poprzednim okresem tej samej długości (bezpośrednio przed nim) i z tymi samymi datami rok wcześniej (29 lutego staje się 28 lutego), przy tych samych filtrach. Zmiana w procentach liczona jest względem wartości z danego wiersza; przy zerze „brak danych”.
 - **Prognoza zamówień:** dla aktywnych towarów sprzedanych w historii (domyślnie 28 dni, kończy się dzisiaj) średnia dzienna sprzedaż = sprzedana ilość ÷ liczba dni. Dostępne = stan bez przeterminowanych partii minus rezerwacje. Zapas na = dostępne ÷ średnia dzienna. Sugerowane zamówienie = średnia × horyzont (domyślnie 14 dni) − dostępne, nie mniej niż 0, w górę do całych sztuk albo do 3 miejsc po przecinku. Lista pokazuje tylko towary do zamówienia, od najkrótszego zapasu. To świadomie prosta średnia, bez sezonowości, dni tygodnia i czasu dostawy.
 - Historia i horyzont: od 1 do 365 dni.
 
 ### 5.17. Eksport analiz do Excela (poziom 2)
 
-- Strony „Sprzedaż i marża”, „Analiza ABC”, „Towary zalegające”, „Klienci” i „Prognoza zamówień” mają przycisk „Excel”, który zapisuje to, co strona pokazuje, przy bieżących filtrach, jako plik `.xlsx`. Sprzedaż ma trzy arkusze: produkty, kategorie i porównanie okresów.
+- Strony „Sprzedaż i marża”, „Analiza ABC”, „Towary zalegające”, „Klienci” i „Prognoza zamówień” mają przycisk „Excel”, który zapisuje to, co strona pokazuje, przy bieżących filtrach, jako plik `.xlsx`. Sprzedaż ma trzy arkusze: produkty, kategorie i porównanie okresów (wypełnione, gdy porównanie jest pokazane).
 - Nazwa pliku zawiera okres, np. `sprzedaz-2026-01-01-2026-11-10.xlsx`, albo dzisiejszą datę dla stanów i prognozy.
 - Kwoty i ilości są liczbami, a daty datami, więc w arkuszu można je sumować i sortować. Pierwszy wiersz to pogrubione nagłówki, zablokowane przy przewijaniu.
 - Żaden tekst nie staje się formułą: tekst zaczynający się od `=`, `+`, `-`, `@`, tabulatora lub powrotu karetki dostaje prefiks cudzysłowu Excela (punkt 9, Excel injection).

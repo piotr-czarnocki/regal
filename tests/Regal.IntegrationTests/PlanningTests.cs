@@ -150,6 +150,9 @@ public class PlanningTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
         var forecast = context.Render<ForecastPage>();
         forecast.WaitForAssertion(() => Assert.Contains("Zapas na (dni)", forecast.Markup));
         var sales = context.Render<SalesPage>();
+        sales.WaitForAssertion(() => Assert.Contains("Porównaj z poprzednim okresem", sales.Markup));
+        Assert.Empty(sales.FindAll("tr[data-period]")); // loaded only when asked for
+        sales.FindAll("button").Single(b => b.TextContent.Contains("Porównaj z poprzednim okresem")).Click();
         sales.WaitForAssertion(() => Assert.Contains("Porównanie okresów", sales.Markup));
         Assert.Equal(3, sales.FindAll("tr[data-period]").Count);
     }

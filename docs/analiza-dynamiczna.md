@@ -65,28 +65,32 @@ Dane testowe pochodzą z obliczeń ręcznych zapisanych w testach (np. średnia 
 
 ### Pokrycie kodu
 
-Pomiar: `dotnet test --collect:"XPlat Code Coverage"` (coverlet 6.0.4) osobno dla testów jednostkowych i integracyjnych. Raporty Cobertura połączono skryptem, który liczy wiersz jako pokryty, gdy wykonał go którykolwiek zestaw. Pominięto pliki migracji (kod generowany przez EF Core). Testy funkcjonalne nie są wliczone, bo aplikacja działa w nich w osobnym serwerze Kestrel. Pomiar pochodzi z 10.11.2026, sprzed dodania zamówień klientów (poziom 2), więc nie obejmuje modułu `Features/Orders`.
+Pomiar: `dotnet test --collect:"XPlat Code Coverage"` (coverlet 6.0.4) osobno dla testów jednostkowych i integracyjnych. Raporty Cobertura połączono skryptem, który liczy wiersz jako pokryty, gdy wykonał go którykolwiek zestaw. Pominięto pliki migracji (kod generowany przez EF Core). Testy funkcjonalne nie są wliczone, bo aplikacja działa w nich w osobnym serwerze Kestrel. Pomiar z 11.11.2026, po ukończeniu poziomu 2 (563 testy jednostkowe i integracyjne).
 
 | Obszar `src/Regal.Web` | Wiersze | Jednostkowe | Integracyjne | Razem |
 |---|---:|---:|---:|---:|
-| `Features/Warehouse` | 1250 | 35,6% | 79,4% | **91,1%** |
-| `Features/Invoices` | 940 | 26,2% | 68,6% | **84,0%** |
-| `Features/Products` | 437 | 4,3% | 56,3% | **56,3%** |
-| `Data/Generator` | 353 | 0,0% | 97,7% | **97,7%** |
-| `Features/Analytics` | 304 | 6,9% | 86,8% | **87,5%** |
-| `Data` (DbContext, konfiguracja) | 218 | 0,0% | 94,0% | **94,0%** |
-| `Features/Contractors` | 193 | 11,9% | 59,6% | **61,7%** |
+| `Features/Warehouse` (z inwentaryzacją) | 1810 | 24,8% | 80,7% | **88,8%** |
+| `Features/Invoices` (z korektą i płatnościami) | 1603 | 22,0% | 81,8% | **86,0%** |
+| `Features/Products` (z etykietami) | 567 | 11,1% | 62,1% | **62,4%** |
+| `Features/Analytics` (z prognozą i eksportem) | 561 | 19,4% | 83,2% | **85,9%** |
+| `Features/Orders` | 445 | 7,6% | 70,8% | **72,1%** |
+| `Data/Generator` | 355 | 0,0% | 97,2% | **97,2%** |
+| `Data` (DbContext, konfiguracja) | 292 | 0,0% | 94,9% | **94,9%** |
+| `Features/Contractors` | 239 | 15,5% | 66,9% | **69,5%** |
 | `Features/Auth` | 182 | 12,6% | 34,6% | **42,3%** |
-| `Components/Shared` (skaner, okna) | 126 | 81,0% | 1,6% | **81,0%** |
-| `Data/Entities` | 117 | 16,2% | 78,6% | **78,6%** |
-| `Integrations/Fakturownia` | 92 | 97,8% | 3,3% | **97,8%** |
-| `Program.cs` | 58 | 0,0% | 0,0% | **0,0%** |
-| pozostałe (`Components`, `Components/Pages`, `Components/Layout`, `Features/Audit`, `Features/Common`) | 130 | — | — | 73,8% |
-| **Razem** | **4400** | **22,8%** | **69,5%** | **81,1%** |
+| `Data/Entities` | 170 | 13,5% | 77,6% | **77,6%** |
+| `Components/Shared` (skaner, okna, pobieranie plików) | 133 | 76,7% | 32,3% | **81,2%** |
+| `Integrations/Fakturownia` | 115 | 95,7% | 3,5% | **95,7%** |
+| `Program.cs` | 66 | 0,0% | 0,0% | **0,0%** |
+| `Integrations/VatRegistry` | 57 | 89,5% | 3,5% | **89,5%** |
+| pozostałe (`Components`, `Components/Pages`, `Components/Layout`, `Features/Audit`, `Features/Common`) | 136 | — | — | 75,0% |
+| **Razem** | **6731** | **20,3%** | **74,8%** | **81,9%** |
+
+Poprzedni pomiar (10.11.2026, przed poziomem 2): 4400 wierszy, 81,1%. Kod urósł o połowę, a pokrycie zostało na tym samym poziomie.
 
 Interpretacja:
 
-- Reguły biznesowe (magazyn, faktury, analizy) mają pokrycie 84–91%. Niepokryte wiersze to głównie gałęzie komunikatów o błędach w ekranach i obsługa anulowania operacji (`CancellationToken`).
+- Reguły biznesowe (magazyn, faktury, analizy) mają pokrycie 86–89%, zamówienia 72%. Niepokryte wiersze to głównie gałęzie komunikatów o błędach w ekranach i obsługa anulowania operacji (`CancellationToken`).
 - Niskie pokrycie `Features/Products` i `Features/Contractors` wynika z ekranów kartotek (pliki `.razor`), które sprawdzano ręcznie w przeglądarce podczas etapu „Kartoteki”, bez zapisanych scenariuszy. Serwisy kartotek są pokryte testami `CatalogTests`.
 - `Features/Auth` to w dużej części obsługa przekierowań Google, której testy nie wywołują, bo zastępuje ją schemat testowy. Logikę listy dozwolonych adresów sprawdzają `AccessPolicyTests` i `AuthServiceTests`.
 - `Program.cs` pokazuje 0%, bo coverlet nie przypisuje wierszy instrukcjom najwyższego poziomu uruchamianym przez `WebApplicationFactory`. Konfigurację aplikacji wykonuje każdy test stron i każdy test funkcjonalny.
@@ -417,6 +421,50 @@ Pierwszy pomiar „po” dał p95 573 ms, a powtórzony 439 ms. Pierwszy był do
 - Benchmark pojedynczego zapytania nie wystarczy: 586 ms mieści się w kryterium 1 s, a pod obciążeniem to samo zapytanie podniosło p95 wszystkich stron do 1,9 s.
 - LINQ, który dobrze czyta się w C#, może dać zły SQL. Bez sprawdzenia planu nie było tego widać, bo testy sprawdzają wynik, a nie sposób jego obliczenia.
 - Środowisko testu musi odpowiadać produkcji także w ustawieniach środowiska uruchomieniowego, nie tylko w kodzie.
+
+### Po poziomie 2 (11.11.2026)
+
+Poziom 2 dołożył zapytania do miejsc mierzonych wyżej: rezerwacje przy każdym WZ, oznaczenie rezerwacji na ekranie stanów, kartę należności na pulpicie i porównanie okresów na stronie sprzedaży. Pomiary powtórzyłem na tej samej bazie po nałożeniu nowych migracji. Faktury z generatora miały status płatności „nieznany”, więc karta należności nic by nie kosztowała; na tej jednorazowej bazie ustawiłem najgorszy przypadek: 21 746 faktur nieopłaconych, 2717 częściowo i 2710 opłaconych.
+
+**Środowisko się zmieniało, więc wnioski opierają się na porównaniach w tej samej chwili.** Po ponownym uruchomieniu Dockera ten sam, niezmieniony SQL podsumowania trwał 46 ms zamiast wczorajszych 25,6 ms. Pomiary bezwzględne z różnych godzin nie są więc porównywalne. Dlatego wersję sprzed poziomu 2 (`0f377ee`) zbudowałem w osobnym drzewie roboczym i mierzyłem zaraz przed obecną, na tej samej bazie.
+
+**Nowe zapytania (BenchmarkDotNet, środowisko w normie, podsumowanie 36,9 ms):**
+
+| Zapytanie | Średnio |
+|---|---:|
+| Należności (pulpit, najgorszy przypadek) | 15,4 ms w wolniejszym środowisku |
+| Klienci (rok) | 162 ms w wolniejszym środowisku |
+| Prognoza zamówień (28 dni historii) | 42 ms w wolniejszym środowisku |
+| Porównanie okresów, pierwsza wersja (3 × podsumowanie, 6 zapytań) | około 3 × 37 ms |
+| Porównanie okresów jednym zapytaniem | 64,0 ms |
+
+**Test obciążenia, pary przed/po w tej samej chwili (20 użytkowników, 120 s):**
+
+| Wersja | p95 wszystkich | Pulpit p95 | Sprzedaż p95 | Błędy |
+|---|---:|---:|---:|---:|
+| Przed poziomem 2 | 242 ms | 256 ms | 483 ms | 0 |
+| Po poziomie 2, porównanie jednym zapytaniem | 365 ms | 393 ms | 630 ms | 0 |
+| Przed poziomem 2 | 263 ms | 318 ms | 403 ms | 0 |
+| Po poziomie 2, zapytania stron równolegle | 221 ms | 236 ms | 507 ms | **2** |
+| Przed poziomem 2 | 233 ms | 214 ms | 400 ms | 0 |
+| Po poziomie 2, porównanie jednym zapytaniem, kolejno | 360 ms | 350 ms | 657 ms | 0 |
+
+Kryterium p95 < 500 ms było spełnione, ale poziom 2 podniósł p95 o około połowę, głównie przez stronę sprzedaży i pulpit.
+
+**Co zrobiłem z wynikami:**
+
+1. **Porównanie okresów jednym zapytaniem** zamiast sześciu, a strona nie liczy podsumowania drugi raz. Wyniki są te same (test `Periods_are_compared_with_the_one_before_and_a_year_earlier`).
+2. **Równoległe zapytania stron** dały najniższe p95, ale 2 błędy: `53300: remaining connection slots are reserved for roles with the SUPERUSER attribute`. Przy 20 użytkownikach i 4–6 zapytaniach naraz na stronę aplikacja przekroczyła 100 połączeń PostgreSQL. Kryterium wymaga 0 błędów, więc to wycofałem; komentarz w kodzie mówi dlaczego.
+3. **Porównanie okresów na żądanie:** czyta do dwóch lat pozycji, a większość wejść na stronę sprzedaży go nie potrzebuje. Ładuje je przycisk „Porównaj z poprzednim okresem i rokiem wcześniej”, a podstawowy widok wykonuje te same zapytania co przed poziomem 2.
+4. **Należności** liczone w SQL, nie w pamięci (punkt 6, przegląd po poziomie 2).
+
+**Czego nie zmierzyłem czysto:** ostatniej wersji (porównanie na żądanie). W czasie tego pomiaru na komputerze działał inny wymagający program, a ta sama stara wersja dawała p95 od 524 do 933 ms. Takie liczby nic nie mówią o aplikacji, więc ich tu nie podaję. Pomiar trzeba powtórzyć na nieobciążonym komputerze (`Regal.LoadHost -- --measure 20 120`, README); spodziewam się wyniku bliskiego wersji sprzed poziomu 2, bo strona wykonuje te same zapytania.
+
+**Wnioski:**
+
+- Wydajność trzeba mierzyć parami w tej samej chwili, gdy środowisko jest współdzielone. Kontrolą jest stary kod, nie wczorajsza liczba.
+- Równoległość, która przyspiesza jedną stronę, pod obciążeniem może wyczerpać wspólny zasób (tu połączenia z bazą).
+- Nowa funkcja na często odwiedzanej stronie ma koszt dla wszystkich; drogie dodatki lepiej ładować na żądanie.
 
 ## 6. Debugowanie
 

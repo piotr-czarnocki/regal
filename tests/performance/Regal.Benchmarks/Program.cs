@@ -27,12 +27,27 @@ public class AnalyticsBenchmarks
         public Task<int> RequireUserIdAsync(string requiredRole) => Task.FromResult(1);
     }
 
+    /// <summary>Receivables only read the database; nothing is sent.</summary>
+    private sealed class NoFakturownia : Regal.Web.Integrations.Fakturownia.IFakturowniaClient
+    {
+        public bool IsConfigured => false;
+
+        public Task<Regal.Web.Integrations.Fakturownia.RemoteInvoice?> FindByOidAsync(string oid, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<Regal.Web.Integrations.Fakturownia.RemoteInvoice> CreateAsync(string requestJson, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<Regal.Web.Integrations.Fakturownia.RemotePayment> GetPaymentAsync(long fakturowniaId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task SendByEmailAsync(long fakturowniaId, string email, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
     private sealed class Factory(DbContextOptions<RegalDbContext> options) : IDbContextFactory<RegalDbContext>
     {
         public RegalDbContext CreateDbContext() => new(options);
     }
 
     private AnalyticsService _analytics = null!;
+    private Regal.Web.Features.Invoices.InvoicePaymentService _payments = null!;
     private AnalyticsFilter _year = null!;
 
     private static string ConnectionString =>
@@ -54,6 +69,8 @@ public class AnalyticsBenchmarks
     public void Setup()
     {
         _analytics = Create();
+        var options = new DbContextOptionsBuilder<RegalDbContext>().UseNpgsql(ConnectionString).Options;
+        _payments = new Regal.Web.Features.Invoices.InvoicePaymentService(new Factory(options), new AnyUser(), new NoFakturownia(), TimeProvider.System);
         var today = _analytics.Today;
         _year = new AnalyticsFilter(today.AddDays(-365), today);
     }
@@ -78,6 +95,18 @@ public class AnalyticsBenchmarks
 
     [Benchmark]
     public Task<IReadOnlyList<ExpiringBatchRow>> ExpiringBatches() => _analytics.GetExpiringBatchesAsync(14);
+
+    [Benchmark]
+    public Task<IReadOnlyList<CustomerSales>> Customers() => _analytics.GetCustomersAsync(_year);
+
+    [Benchmark]
+    public Task<PeriodComparison> ComparePeriods() => _analytics.ComparePeriodsAsync(_year);
+
+    [Benchmark]
+    public Task<IReadOnlyList<ForecastRow>> Forecast() => _analytics.GetForecastAsync(28, 14);
+
+    [Benchmark]
+    public Task<Regal.Web.Features.Invoices.ReceivablesSummary> Receivables() => _payments.GetReceivablesAsync();
 
     public static async Task PrintSqlAsync()
     {
