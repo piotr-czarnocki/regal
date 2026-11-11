@@ -4,6 +4,7 @@ using Regal.Web.Data.Entities;
 using Regal.Web.Features.Auth;
 using Regal.Web.Features.Contractors;
 using Regal.Web.Features.Invoices;
+using Regal.Web.Features.Orders;
 using Regal.Web.Features.Products;
 using Regal.Web.Features.Warehouse;
 using Regal.Web.Integrations.Fakturownia;
@@ -34,7 +35,18 @@ public sealed class GeneratorOptions
     public int WriteOffPageSize { get; set; } = StockDraftValidator.MaxLines;
 }
 
-public sealed record GeneratorReport(int Products, int Contractors, int StockDocuments, int Invoices, int CancelledInvoices, long Movements);
+public sealed record GeneratorReport(int Products, int Contractors, int StockDocuments, int Invoices, int CancelledInvoices, long Movements)
+{
+    /// <summary>Customer orders created; some are completed by an invoice, some cancelled, the newest stay open.</summary>
+    public int Orders { get; init; }
+
+    public int OpenOrders { get; init; }
+
+    public int Proformas { get; init; }
+
+    /// <summary>Sent VAT invoices past their due date and not fully paid at the end of the simulation.</summary>
+    public int OverdueInvoices { get; init; }
+}
 
 /// <summary>
 /// Creates about a year of made-up trade through the real services, with a clock moved day by day,
@@ -97,10 +109,17 @@ public sealed class DemoDataGenerator(
 
     private sealed record GeneratedProduct(int Id, string Unit, bool IsService, bool HasExpiry, bool Produced, decimal Cost, double Popularity, int SupplierIndex);
 
+    private sealed record PendingOrder(int Id, int ContractorId, string PaymentMethod, List<InvoiceDraftLine> Lines, DateOnly DueOn);
+
     private readonly Random _random = new(options.Seed);
     private readonly Dictionary<int, decimal> _stock = [];
+    private readonly List<PendingOrder> _pendingOrders = [];
+    private readonly List<int> _sentVat = [];
     private SimulatedClock _clock = null!;
     private int _demoInvoiceNumber;
+    private int _demoProformaNumber;
+    private int _orders;
+    private int _proformas;
 
     public static void EnsureAllowed(string environmentName)
     {
@@ -124,6 +143,7 @@ public sealed class DemoDataGenerator(
         var contractors = new ContractorService(dbContextFactory, user, _clock);
         var documents = new StockDocumentService(dbContextFactory, user, _clock);
         var invoices = new InvoiceService(dbContextFactory, user, documents, new NoFakturownia(), _clock);
+        var orders = new CustomerOrderService(dbContextFactory, user, _clock);
 
         await using (var db = await dbContextFactory.CreateDbContextAsync(cancellationToken))
         {
@@ -147,13 +167,14 @@ public sealed class DemoDataGenerator(
             _clock.Now = start.AddDays(day);
             stockDocuments += await RestockAsync(documents, catalog, suppliers, cancellationToken);
             stockDocuments += await WriteOffExpiredAsync(documents, dbContextFactory, cancellationToken);
+            issued += await CompleteDueOrdersAsync(invoices, orders, cancellationToken);
 
             var weekend = _clock.Now.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
             var count = Poisson(options.InvoicesPerDay * (weekend ? 0.3 : 1));
             for (var i = 0; i < count; i++)
             {
                 _clock.Now = _clock.Now.AddMinutes(_random.Next(5, 40));
-                var outcome = await SellAsync(invoices, catalog, customers, userId, cancellationToken);
+                var outcome = await SellAsync(invoices, orders, catalog, customers, userId, cancellationToken);
                 issued += outcome.Issued ? 1 : 0;
                 cancelled += outcome.Cancelled ? 1 : 0;
             }
@@ -164,10 +185,114 @@ public sealed class DemoDataGenerator(
             }
         }
 
+        var overdue = await SetPaymentsAsync(cancellationToken);
+
         await using var summary = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var movements = await summary.StockMovements.LongCountAsync(cancellationToken);
-        return new GeneratorReport(catalog.Count, suppliers.Count + customers.Count, stockDocuments, issued, cancelled, movements);
+        return new GeneratorReport(catalog.Count, suppliers.Count + customers.Count, stockDocuments, issued, cancelled, movements)
+        {
+            Orders = _orders,
+            OpenOrders = _pendingOrders.Count,
+            Proformas = _proformas,
+            OverdueInvoices = overdue,
+        };
     }
+
+    /// <summary>
+    /// Orders whose day has come: most become an invoice from the order, about one in ten is
+    /// cancelled. Orders placed in the last days are not due yet and stay open, reserving goods.
+    /// </summary>
+    private async Task<int> CompleteDueOrdersAsync(InvoiceService invoices, CustomerOrderService orders, CancellationToken cancellationToken)
+    {
+        var today = WarehouseTime.DateOf(_clock.Now);
+        var issued = 0;
+        foreach (var order in _pendingOrders.Where(o => o.DueOn <= today).ToList())
+        {
+            _pendingOrders.Remove(order);
+            _clock.Now = _clock.Now.AddMinutes(1);
+
+            if (_random.NextDouble() >= 0.1)
+            {
+                var draft = new InvoiceDraft
+                {
+                    RequestId = Guid.NewGuid(),
+                    ContractorId = order.ContractorId,
+                    PaymentMethod = order.PaymentMethod,
+                    OrderId = order.Id,
+                    Lines = order.Lines,
+                };
+
+                if ((await invoices.IssueAsync(draft, cancellationToken)) is { IsSuccess: true, Id: { } invoiceId })
+                {
+                    await MarkAsDemoSentAsync(invoiceId, InvoiceKind.Vat, cancellationToken);
+                    issued++;
+                    continue;
+                }
+            }
+
+            // Cancelled by the customer, or its goods expired before it could be invoiced.
+            await orders.CancelAsync(order.Id, cancellationToken);
+            foreach (var line in order.Lines)
+            {
+                _stock[line.ProductId] = _stock.GetValueOrDefault(line.ProductId) + line.Quantity;
+            }
+        }
+
+        return issued;
+    }
+
+    /// <summary>
+    /// Payment state as if read from Fakturownia, decided by the seed: cash and card are paid on the
+    /// spot, old transfers are nearly all paid, and a few stay overdue, so receivables have
+    /// something to show. The invoices still have no Fakturownia id, so nothing ever asks about them.
+    /// </summary>
+    private async Task<int> SetPaymentsAsync(CancellationToken cancellationToken)
+    {
+        var today = WarehouseTime.DateOf(_clock.Now);
+        var checkedAt = _clock.Now.UtcDateTime;
+        var overdue = 0;
+
+        foreach (var chunk in _sentVat.Chunk(500))
+        {
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var invoices = await db.Invoices.Where(i => chunk.Contains(i.Id) && i.Status == InvoiceStatus.Sent).ToDictionaryAsync(i => i.Id, cancellationToken);
+            foreach (var id in chunk)
+            {
+                var roll = _random.NextDouble();
+                var payDay = _random.Next(0, InvoiceRules.DefaultPaymentDays + 10);
+                var share = 0.3 + (_random.NextDouble() * 0.4);
+                if (!invoices.TryGetValue(id, out var invoice))
+                {
+                    continue;
+                }
+
+                var due = invoice.IssueDate.AddDays(invoice.PaymentDays);
+                var daysPastDue = today.DayNumber - due.DayNumber;
+                var status = invoice.PaymentMethod != "transfer" ? InvoicePaymentStatus.Paid
+                    : daysPastDue > 30 ? (roll < 0.93 ? InvoicePaymentStatus.Paid : roll < 0.96 ? InvoicePaymentStatus.Partial : InvoicePaymentStatus.Unpaid)
+                    : daysPastDue > 0 ? (roll < 0.6 ? InvoicePaymentStatus.Paid : roll < 0.75 ? InvoicePaymentStatus.Partial : InvoicePaymentStatus.Unpaid)
+                    : roll < 0.35 ? InvoicePaymentStatus.Paid : InvoicePaymentStatus.Unpaid;
+
+                invoice.PaymentStatus = status;
+                invoice.PaymentCheckedAt = checkedAt;
+                (invoice.PaidAmount, invoice.PaidDate) = status switch
+                {
+                    InvoicePaymentStatus.Paid when invoice.PaymentMethod != "transfer" => (invoice.GrossTotal, invoice.IssueDate),
+                    InvoicePaymentStatus.Paid => (invoice.GrossTotal, Earlier(invoice.IssueDate.AddDays(payDay), today)),
+                    InvoicePaymentStatus.Partial => (decimal.Round(invoice.GrossTotal * (decimal)share, 2), (DateOnly?)null),
+                    _ => (0m, (DateOnly?)null),
+                };
+
+                overdue += status != InvoicePaymentStatus.Paid && daysPastDue > 0 ? 1 : 0;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return overdue;
+    }
+
+    private static DateOnly Earlier(DateOnly a, DateOnly b) => a < b ? a : b;
 
     private async Task<int> EnsureUserAsync(CancellationToken cancellationToken)
     {
@@ -377,7 +502,7 @@ public sealed class DemoDataGenerator(
     }
 
     private async Task<(bool Issued, bool Cancelled)> SellAsync(
-        InvoiceService invoices, List<GeneratedProduct> catalog, List<int> customers, int userId, CancellationToken cancellationToken)
+        InvoiceService invoices, CustomerOrderService orders, List<GeneratedProduct> catalog, List<int> customers, int userId, CancellationToken cancellationToken)
     {
         var lineCount = 1 + Math.Min(5, Poisson(1.5));
         var chosen = new List<GeneratedProduct>();
@@ -408,6 +533,27 @@ public sealed class DemoDataGenerator(
             }).Where(l => l.Quantity > 0).ToList(),
         };
 
+        // About one sale in seven is ordered first and invoiced within a week; a few customers
+        // ask for a proforma, which takes nothing from the warehouse (SPEC 5.11, 5.12).
+        var way = _random.NextDouble();
+        if (way < 0.15)
+        {
+            await OrderAsync(orders, draft, cancellationToken);
+            return (false, false);
+        }
+
+        if (way < 0.18)
+        {
+            draft.Kind = InvoiceKind.Proforma;
+            if ((await invoices.IssueAsync(draft, cancellationToken)) is { IsSuccess: true, Id: { } proformaId })
+            {
+                await MarkAsDemoSentAsync(proformaId, InvoiceKind.Proforma, cancellationToken);
+                _proformas++;
+            }
+
+            return (false, false);
+        }
+
         var result = await invoices.IssueAsync(draft, cancellationToken);
         if (!result.IsSuccess)
         {
@@ -425,8 +571,31 @@ public sealed class DemoDataGenerator(
             return (true, cancelledByUser);
         }
 
-        await MarkAsDemoSentAsync(result.Id!.Value, cancellationToken);
+        await MarkAsDemoSentAsync(result.Id!.Value, InvoiceKind.Vat, cancellationToken);
         return (true, false);
+    }
+
+    private async Task OrderAsync(CustomerOrderService orders, InvoiceDraft sale, CancellationToken cancellationToken)
+    {
+        var order = new OrderDraft
+        {
+            RequestId = Guid.NewGuid(),
+            ContractorId = sale.ContractorId,
+            Lines = sale.Lines.Select(l => new OrderDraftLine { ProductId = l.ProductId, Quantity = l.Quantity }).ToList(),
+        };
+
+        var dueOn = WarehouseTime.DateOf(_clock.Now).AddDays(_random.Next(2, 8));
+        if ((await orders.CreateAsync(order, cancellationToken)) is not { IsSuccess: true, Id: { } orderId })
+        {
+            return; // the goods are reserved by other orders or have expired
+        }
+
+        _orders++;
+        _pendingOrders.Add(new PendingOrder(orderId, sale.ContractorId!.Value, sale.PaymentMethod, sale.Lines, dueOn));
+        foreach (var line in sale.Lines)
+        {
+            _stock[line.ProductId] = Math.Max(0, _stock.GetValueOrDefault(line.ProductId) - line.Quantity);
+        }
     }
 
     /// <summary>The usual cancel checks Fakturownia, which the generator never contacts; here the invoice is known to exist nowhere.</summary>
@@ -454,10 +623,16 @@ public sealed class DemoDataGenerator(
         return true;
     }
 
-    private async Task MarkAsDemoSentAsync(int invoiceId, CancellationToken cancellationToken)
+    private async Task MarkAsDemoSentAsync(int invoiceId, InvoiceKind kind, CancellationToken cancellationToken)
     {
         var year = WarehouseTime.DateOf(_clock.Now).Year;
-        var number = string.Create(Polish, $"DEMO {++_demoInvoiceNumber}/{year}");
+        var number = kind == InvoiceKind.Proforma
+            ? string.Create(Polish, $"DEMO PF {++_demoProformaNumber}/{year}")
+            : string.Create(Polish, $"DEMO {++_demoInvoiceNumber}/{year}");
+        if (kind == InvoiceKind.Vat)
+        {
+            _sentVat.Add(invoiceId);
+        }
 
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         await db.Invoices.Where(i => i.Id == invoiceId)
