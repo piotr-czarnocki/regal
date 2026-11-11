@@ -21,6 +21,7 @@ public sealed class OrderPagesTests : InvoiceTestBase
     {
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         _context.Services.AddMudServices();
+        _context.Services.AddSingleton<TimeProvider>(Clock);
         _context.Services.AddScoped(_ => Orders);
         _context.Services.AddScoped(_ => Invoices);
         _context.Services.AddScoped(_ => Documents);

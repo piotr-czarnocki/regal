@@ -3,6 +3,7 @@
 @inject InvoiceQueries Queries
 @inject InvoiceService Invoices
 @inject InvoicePaymentService Payments
+@inject TimeProvider Clock
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 
@@ -126,7 +127,7 @@
                     <MudText Typo="Typo.body2">termin @StockLabels.Date(invoice.IssueDate.AddDays(invoice.PaymentDays))</MudText>
                     @if (invoice.PaymentCheckedAt is { } checkedAt)
                     {
-                        <MudText Typo="Typo.caption">sprawdzono @checkedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                        <MudText Typo="Typo.caption">sprawdzono @WarehouseTime.Display(checkedAt)</MudText>
                     }
                     <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="RefreshPaymentAsync" Disabled="_working">Sprawdź płatność</MudButton>
                 </div>
@@ -135,7 +136,7 @@
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="EmailAsync" Disabled="_working">Wyślij mailem</MudButton>
                     @if (invoice.EmailedAt is { } emailedAt)
                     {
-                        <MudText Typo="Typo.caption">wysłano @emailedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") na @invoice.EmailedTo</MudText>
+                        <MudText Typo="Typo.caption">wysłano @WarehouseTime.Display(emailedAt) na @invoice.EmailedTo</MudText>
                     }
                 </div>
             </MudPaper>
@@ -211,13 +212,18 @@
 
     private string? _email;
 
-    private static Color PaymentColor(InvoiceDetails invoice) => invoice.PaymentStatus switch
+    /// <summary>Overdue against today in Poland, from the TimeProvider, not the server's clock.</summary>
+    private Color PaymentColor(InvoiceDetails invoice)
     {
-        InvoicePaymentStatus.Paid => Color.Success,
-        InvoicePaymentStatus.Partial => Color.Warning,
-        InvoicePaymentStatus.Unpaid when invoice.IssueDate.AddDays(invoice.PaymentDays) < DateOnly.FromDateTime(DateTime.Today) => Color.Error,
-        _ => Color.Default,
-    };
+        var today = WarehouseTime.DateOf(Clock.GetUtcNow());
+        return invoice.PaymentStatus switch
+        {
+            InvoicePaymentStatus.Paid => Color.Success,
+            InvoicePaymentStatus.Partial => Color.Warning,
+            InvoicePaymentStatus.Unpaid when invoice.IssueDate.AddDays(invoice.PaymentDays) < today => Color.Error,
+            _ => Color.Default,
+        };
+    }
 
     private async Task RefreshPaymentAsync()
     {
