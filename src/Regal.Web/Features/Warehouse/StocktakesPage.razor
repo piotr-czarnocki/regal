@@ -28,7 +28,7 @@
             <MudTd DataLabel="Status"><MudChip T="string" Size="Size.Small" Color="StocktakeLabels.Color(context.Status)">@StocktakeLabels.Status(context.Status)</MudChip></MudTd>
         </RowTemplate>
         <NoRecordsContent><MudText>Brak arkuszy spisu.</MudText></NoRecordsContent>
-        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
     </MudTable>
 </MudContainer>
 

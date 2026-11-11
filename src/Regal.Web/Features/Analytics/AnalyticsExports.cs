@@ -9,17 +9,26 @@ public static class AnalyticsExports
     public static string Period(string name, AnalyticsFilter filter) =>
         string.Create(CultureInfo.InvariantCulture, $"{name}-{filter.From:yyyy-MM-dd}-{filter.To:yyyy-MM-dd}");
 
-    public static byte[] Sales(IEnumerable<ProductSales> products, IEnumerable<CategorySales> categories, PeriodComparison? comparison) =>
-        ExcelWorkbook.Build(
-            new ExcelSheet("Produkty", ["Produkt", "Kategoria", "Ilość", "Jednostka", "Netto", "Koszt", "Marża"],
+    /// <summary>The comparison sheet only when the comparison was shown: an empty sheet looked like a fault.</summary>
+    public static byte[] Sales(IEnumerable<ProductSales> products, IEnumerable<CategorySales> categories, PeriodComparison? comparison)
+    {
+        List<ExcelSheet> sheets =
+        [
+            new("Produkty", ["Produkt", "Kategoria", "Ilość", "Jednostka", "Netto", "Koszt", "Marża"],
                 products.Select(p => Row(p.Name, p.CategoryName, p.Quantity, p.Unit, p.NetSales, p.Cost, p.Margin))),
-            new ExcelSheet("Kategorie", ["Kategoria", "Netto", "Koszt", "Marża"],
+            new("Kategorie", ["Kategoria", "Netto", "Koszt", "Marża"],
                 categories.Select(c => Row(c.CategoryName, c.NetSales, c.Cost, c.Margin))),
-            new ExcelSheet("Porównanie", ["Okres", "Od", "Do", "Netto", "Marża", "Faktury"],
-                comparison is null
-                    ? []
-                    : new[] { ("Wybrany", comparison.Current), ("Poprzedni", comparison.Previous), ("Rok wcześniej", comparison.YearEarlier) }
-                        .Select(p => Row(p.Item1, p.Item2.From, p.Item2.To, p.Item2.Sales.NetSales, p.Item2.Sales.Margin, p.Item2.Sales.InvoiceCount))));
+        ];
+
+        if (comparison is not null)
+        {
+            sheets.Add(new ExcelSheet("Porównanie", ["Okres", "Od", "Do", "Netto", "Marża", "Faktury"],
+                new[] { ("Wybrany", comparison.Current), ("Poprzedni", comparison.Previous), ("Rok wcześniej", comparison.YearEarlier) }
+                    .Select(p => Row(p.Item1, p.Item2.From, p.Item2.To, p.Item2.Sales.NetSales, p.Item2.Sales.Margin, p.Item2.Sales.InvoiceCount))));
+        }
+
+        return ExcelWorkbook.Build([.. sheets]);
+    }
 
     public static byte[] Abc(IEnumerable<AbcRow> rows) =>
         ExcelWorkbook.Build(new ExcelSheet("ABC", ["Klasa", "Produkt", "Netto", "Udział %", "Udział narastająco %"],

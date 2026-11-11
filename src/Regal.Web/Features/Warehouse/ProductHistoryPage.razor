@@ -25,7 +25,7 @@
             <MudTd DataLabel="Koszt jedn.">@StockLabels.Cost(context.UnitCost)</MudTd>
         </RowTemplate>
         <NoRecordsContent><MudText>Brak ruchów.</MudText></NoRecordsContent>
-        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
     </MudTable>
 </MudContainer>
 

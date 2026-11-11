@@ -46,7 +46,7 @@
             <MudTd DataLabel="Ostatnia sprzedaż">@(context.LastSale is { } date ? StockLabels.Date(date) : "nigdy")</MudTd>
         </RowTemplate>
         <NoRecordsContent><MudText>Brak towarów zalegających.</MudText></NoRecordsContent>
-        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" /></PagerContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
     </MudTable>
 </MudContainer>
 

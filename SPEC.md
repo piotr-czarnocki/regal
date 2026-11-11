@@ -278,7 +278,7 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 
 ### 5.17. Eksport analiz do Excela (poziom 2)
 
-- Strony „Sprzedaż i marża”, „Analiza ABC”, „Towary zalegające”, „Klienci” i „Prognoza zamówień” mają przycisk „Excel”, który zapisuje to, co strona pokazuje, przy bieżących filtrach, jako plik `.xlsx`. Sprzedaż ma trzy arkusze: produkty, kategorie i porównanie okresów (wypełnione, gdy porównanie jest pokazane).
+- Strony „Sprzedaż i marża”, „Analiza ABC”, „Towary zalegające”, „Klienci” i „Prognoza zamówień” mają przycisk „Excel”, który zapisuje to, co strona pokazuje, przy bieżących filtrach, jako plik `.xlsx`. Sprzedaż ma arkusze produktów i kategorii, a arkusz porównania okresów tylko wtedy, gdy porównanie jest pokazane na stronie.
 - Nazwa pliku zawiera okres, np. `sprzedaz-2026-01-01-2026-11-10.xlsx`, albo dzisiejszą datę dla stanów i prognozy.
 - Kwoty i ilości są liczbami, a daty datami, więc w arkuszu można je sumować i sortować. Pierwszy wiersz to pogrubione nagłówki, zablokowane przy przewijaniu.
 - Żaden tekst nie staje się formułą: tekst zaczynający się od `=`, `+`, `-`, `@`, tabulatora lub powrotu karetki dostaje prefiks cudzysłowu Excela (punkt 9, Excel injection).
