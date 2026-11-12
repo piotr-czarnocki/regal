@@ -15,3 +15,6 @@ TestResults/
 
 # Local notes
 .claude/
+
+# BenchmarkDotNet results from a local run
+BenchmarkDotNet.Artifacts/
