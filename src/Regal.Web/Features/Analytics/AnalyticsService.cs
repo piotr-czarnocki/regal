@@ -7,7 +7,8 @@ using Regal.Web.Features.Warehouse;
 namespace Regal.Web.Features.Analytics;
 
 /// <summary>Both dates are included.</summary>
-public sealed record AnalyticsFilter(DateOnly From, DateOnly To, int? CategoryId = null, int? ContractorId = null);
+/// <summary>The period and optional narrowing to a category, a buyer or one product.</summary>
+public sealed record AnalyticsFilter(DateOnly From, DateOnly To, int? CategoryId = null, int? ContractorId = null, int? ProductId = null);
 
 public sealed record SalesSummary(decimal NetSales, decimal Cost, int InvoiceCount)
 {
@@ -336,7 +337,11 @@ public sealed class AnalyticsService(
             .ToList();
     }
 
-    private static IQueryable<InvoiceLine> Lines(RegalDbContext db, AnalyticsFilter filter)
+    /// <summary>
+    /// The one definition of a sale for every analysis: VAT invoices and their corrections (whose
+    /// lines are differences), never proformas or cancelled invoices.
+    /// </summary>
+    internal static IQueryable<InvoiceLine> Lines(RegalDbContext db, AnalyticsFilter filter)
     {
         var lines = db.InvoiceLines.AsNoTracking().Where(l =>
             l.Invoice!.Status != InvoiceStatus.Cancelled
@@ -352,6 +357,11 @@ public sealed class AnalyticsService(
         if (filter.ContractorId is { } contractorId)
         {
             lines = lines.Where(l => l.Invoice!.ContractorId == contractorId);
+        }
+
+        if (filter.ProductId is { } productId)
+        {
+            lines = lines.Where(l => l.ProductId == productId);
         }
 
         return lines;

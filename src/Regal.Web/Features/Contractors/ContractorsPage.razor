@@ -27,7 +27,7 @@
             <MudTh></MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Nazwa">@context.Name</MudTd>
+            <MudTd DataLabel="Nazwa"><MudLink Href="@AnalyticsRoutes.Contractor(context.Id)">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="NIP">@context.Nip</MudTd>
             <MudTd DataLabel="Adres">@context.Address</MudTd>
             <MudTd DataLabel="E-mail">@context.Email</MudTd>

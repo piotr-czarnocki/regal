@@ -60,7 +60,7 @@
                         <MudTh>Marża</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd DataLabel="Produkt">@context.Name</MudTd>
+                        <MudTd DataLabel="Produkt"><MudLink Href="@AnalyticsRoutes.Product(context.ProductId)">@context.Name</MudLink></MudTd>
                         <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
                         <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
                     </RowTemplate>

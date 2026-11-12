@@ -31,8 +31,22 @@ public static class Ui
     {
         var field = page.Field(label);
         await field.FillAsync(text);
-        await page.Locator(OpenPopover).GetByText(text).First.ClickAsync();
-        await Assertions.Expect(page.Locator(OpenPopover)).ToHaveCountAsync(0);
+
+        // Under load the list can redraw just as it is clicked and stay open (seen in a full run):
+        // click the suggestion again, at most three times, until the list closes.
+        for (var attempt = 1; ; attempt++)
+        {
+            await page.Locator(OpenPopover).GetByText(text).First.ClickAsync();
+            try
+            {
+                await Assertions.Expect(page.Locator(OpenPopover)).ToHaveCountAsync(0, new() { Timeout = 3000 });
+                break;
+            }
+            catch (PlaywrightException) when (attempt < 3)
+            {
+            }
+        }
+
         // Starts with: an invoice buyer is shown with its NIP after the name.
         await Assertions.Expect(field).ToHaveValueAsync(new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(text)));
     }

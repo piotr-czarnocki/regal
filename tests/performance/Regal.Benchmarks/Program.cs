@@ -49,6 +49,10 @@ public class AnalyticsBenchmarks
     private AnalyticsService _analytics = null!;
     private Regal.Web.Features.Invoices.InvoicePaymentService _payments = null!;
     private AnalyticsFilter _year = null!;
+    private InsightService _insight = null!;
+    private int _topProduct;
+    private int _topCustomer;
+    private int _topSupplier;
 
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("REGAL_PERF_CONNECTION")
@@ -73,6 +77,12 @@ public class AnalyticsBenchmarks
         _payments = new Regal.Web.Features.Invoices.InvoicePaymentService(new Factory(options), new AnyUser(), new NoFakturownia(), TimeProvider.System);
         var today = _analytics.Today;
         _year = new AnalyticsFilter(today.AddDays(-365), today);
+
+        // The busiest product, buyer and supplier: their cards read the most rows.
+        _insight = new InsightService(new Factory(options), new AnyUser(), TimeProvider.System);
+        _topProduct = _analytics.GetSalesByProductAsync(_year, take: 1).GetAwaiter().GetResult()[0].ProductId;
+        _topCustomer = _analytics.GetCustomersAsync(_year, take: 1).GetAwaiter().GetResult()[0].ContractorId;
+        _topSupplier = _insight.GetSuppliersAsync(_year, take: 1).GetAwaiter().GetResult()[0].ContractorId;
     }
 
     [Benchmark]
@@ -108,6 +118,21 @@ public class AnalyticsBenchmarks
     [Benchmark]
     public Task<Regal.Web.Features.Invoices.ReceivablesSummary> Receivables() => _payments.GetReceivablesAsync();
 
+    [Benchmark]
+    public Task<IReadOnlyList<ProductRankingRow>> ProductRanking() => _insight.GetProductRankingAsync(_year);
+
+    [Benchmark]
+    public Task<ProductCard?> ProductCard() => _insight.GetProductCardAsync(_topProduct, _year);
+
+    [Benchmark]
+    public Task<ContractorCard?> CustomerCard() => _insight.GetContractorCardAsync(_topCustomer, _year);
+
+    [Benchmark]
+    public Task<ContractorCard?> SupplierCard() => _insight.GetContractorCardAsync(_topSupplier, _year);
+
+    [Benchmark]
+    public Task<IReadOnlyList<SupplierRow>> Suppliers() => _insight.GetSuppliersAsync(_year);
+
     public static async Task PrintSqlAsync()
     {
         using var logging = LoggerFactory.Create(builder => builder
@@ -122,5 +147,8 @@ public class AnalyticsBenchmarks
         await analytics.GetAbcAsync(year);
         await analytics.GetSlowMovingAsync(90);
         await analytics.GetExpiringBatchesAsync(14);
+
+        var insightOptions = new DbContextOptionsBuilder<RegalDbContext>().UseNpgsql(ConnectionString).UseLoggerFactory(logging).EnableSensitiveDataLogging().Options;
+        await new InsightService(new Factory(insightOptions), new AnyUser(), TimeProvider.System).GetProductRankingAsync(year);
     }
 }

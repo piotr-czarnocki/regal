@@ -286,7 +286,7 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 
 ### 5.18. Etykiety z kodami w PDF (poziom 2)
 
-- Na liście produktów zaznacza się produkty, podaje liczbę kopii każdego (1–100) i pobiera „Etykiety PDF”: arkusze A4 po 24 etykiety 70 × 37 mm (3 × 8, typowy format samoprzylepny), najwyżej 480 etykiet naraz.
+- Przy każdym towarze z kodem EAN jest przycisk „Etykieta”: jedno kliknięcie pobiera PDF z etykietami tego towaru w liczbie kopii z pola „Kopii każdego” (1–100). Kilka towarów naraz drukuje się po zaznaczeniu ich i kliknięciu „Etykiety PDF”. Format: arkusze A4 po 24 etykiety 70 × 37 mm (3 × 8, typowy format samoprzylepny), najwyżej 480 etykiet naraz.
 - Etykieta: nazwa (do dwóch wierszy), SKU w jednym wierszu, cena brutto za jednostkę i kod EAN-13 jako paski i cyfry.
 - Paski liczy Regał według specyfikacji GS1 (zestawy L, G, R, parzystość z pierwszej cyfry, 95 modułów, wydłużone pasy ochronne, margines ciszy) i rysuje jako SVG. Moduł ma około 0,32 mm, czyli blisko nominalnych 0,33 mm.
 - PDF tworzy QuestPDF 2026.7.1 na licencji Community (bezpłatnej dla firm o przychodzie poniżej 1 mln USD i projektów open source), z wbudowaną czcionką obsługującą polskie znaki.
@@ -299,6 +299,42 @@ Zamówienie (ZK) rezerwuje towar dla klienta, zanim zostanie wydany i zafakturow
 - Magazynier widzi pulpit magazynu (skróty i partie z bliską datą ważności), stany z historią, dokumenty magazynowe i inwentaryzację. Nie widzi sprzedaży, faktur, zamówień, analiz, kartotek ani użytkowników: nie ma ich w menu, adres takiej strony pokazuje „Nie masz uprawnień”, a serwisy odmawiają także przy wywołaniu z pominięciem strony.
 - Do formularzy magazynu magazynier może czytać listę kontrahentów (dostawca na PZ), kategorie (filtr stanów) i nazwę produktu (historia ruchów), ale nie może ich zmieniać.
 - Pulpit zaczyna się od przycisków najczęstszych czynności, a menu jest pogrupowane według pracy: Sprzedaż, Magazyn, Analizy, Kartoteki.
+
+### 5.20. Analiza produktów i kontrahentów (poziom 3)
+
+- **Jedna definicja sprzedaży.** Wszystkie liczby sprzedaży liczy to samo zapytanie co pozostałe analizy: faktury VAT i ich korekty (pozycje korekty to różnice), bez proform i faktur anulowanych. Suma produktu albo klienta na karcie jest więc tą samą liczbą co w „Sprzedaży i marży” i w „Kontrahentach”. Sprzedana ilość pochodzi z faktur, a nie z dokumentów WZ (ręczne WZ jej nie zmienia).
+- **Analiza produktów** (`/analytics/products`): produkty sprzedane w okresie albo w okresie tuż przed nim, od największej sprzedaży. Kolumny:
+  - klasa ABC z udziałem w sprzedaży, liczona dla wszystkich produktów przed przycięciem listy;
+  - ilość, sprzedaż netto, marża i marża %;
+  - średnia cena (sprzedaż netto na jednostkę, po rabatach i korektach);
+  - liczba klientów;
+  - zmiana względem poprzedniego okresu tej samej długości;
+  - zapas w dniach: towar dostępny teraz (w terminie, bez rezerwacji) przy tempie sprzedaży z okresu.
+
+  Kolumny można sortować, a tabelę wyeksportować do Excela.
+- **Karta produktu** (`/analytics/products/{id}`), wejście z listy produktów i z analiz:
+  - sprzedaż w okresie ze zmianą wobec poprzedniego, marża, średnia cena, liczba faktur i klientów;
+  - średni rabat ważony ilością (tylko faktury, bo korekta to różnica);
+  - zwroty z korekt, pierwsza i ostatnia sprzedaż, wykres w czasie, najlepsi klienci.
+  - Dla towaru dodatkowo:
+    - stan, towar w terminie, rezerwacje i dostępne, zapas w dniach;
+    - ruchy w okresie według rodzaju: PZ, PW, WZ, RW oraz nadwyżki i niedobory ze spisu. Cofnięte dokumenty i zwroty są odjęte, bo cofnięcie to dokument tego samego typu z ujemnymi ruchami.
+    - ostatnie przyjęcia z ceną zakupu i oznaczeniem cofniętych.
+  - Usługa nie ma części magazynowej.
+- **Karta kontrahenta** (`/analytics/contractors/{id}`), wejście z listy kontrahentów i z analiz:
+  - Jako klient:
+    - sprzedaż ze zmianą wobec poprzedniego okresu, marża i marża %, liczba faktur i średnia faktura;
+    - korekty (liczba i wartość), pierwszy i ostatni zakup, liczba dni od ostatniego zakupu;
+    - średni odstęp między dniami zakupów w okresie;
+    - wykres, kupowane produkty i udział kategorii.
+  - Płatności:
+    - należności i należności po terminie, według tej samej definicji co karta na pulpicie;
+    - średnia liczba dni od wystawienia do zapłaty i udział faktur zapłaconych w terminie. Liczą się tylko faktury, które Fakturownia zgłosiła jako opłacone z datą zapłaty.
+  - Zamówienia: otwarte, zrealizowane i anulowane.
+  - Jako dostawca: liczba dostaw PZ (cofnięta dostawa znosi oryginał), wartość zakupu, liczba produktów, ostatnia dostawa i najczęściej dostarczane produkty ze średnią ceną.
+- **Kontrahenci** (`/analytics/customers`, wcześniej „Klienci”) mają zakładki „Klienci” i „Dostawcy”. Nazwy prowadzą do kart.
+- Wszystko jest tylko dla administratora.
+- **Wydajność.** Na roku danych z 10 000 produktów ranking trwa 166 ms, karty 40–126 ms, lista dostawców 150 ms (punkt 10, `analiza-dynamiczna.md`).
 
 ## 6. Technologie
 

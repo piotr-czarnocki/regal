@@ -8,15 +8,18 @@
     <MudItem xs="6" md="2">
         <MudDatePicker Date="ToDateTime(Value.To)" DateChanged="OnToChanged" Label="Do" Editable="true" DateFormat="dd.MM.yyyy" />
     </MudItem>
-    <MudItem xs="12" md="4">
-        <MudSelect T="int?" Value="Value.CategoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">
-            <MudSelectItem T="int?" Value="null">Wszystkie</MudSelectItem>
-            @foreach (var category in _categories)
-            {
-                <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
-            }
-        </MudSelect>
-    </MudItem>
+    @if (ShowCategory)
+    {
+        <MudItem xs="12" md="4">
+            <MudSelect T="int?" Value="Value.CategoryId" ValueChanged="OnCategoryChanged" Label="Kategoria">
+                <MudSelectItem T="int?" Value="null">Wszystkie</MudSelectItem>
+                @foreach (var category in _categories)
+                {
+                    <MudSelectItem T="int?" Value="category.Id">@category.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    }
     @if (ShowContractor)
     {
         <MudItem xs="12" md="4">
@@ -40,7 +43,11 @@
     [Parameter]
     public bool ShowContractor { get; set; } = true;
 
-    protected override async Task OnInitializedAsync() => _categories = await Categories.GetAllAsync();
+    /// <summary>Off on a card of one product or one contractor, where only the period matters.</summary>
+    [Parameter]
+    public bool ShowCategory { get; set; } = true;
+
+    protected override async Task OnInitializedAsync() => _categories = ShowCategory ? await Categories.GetAllAsync() : [];
 
     private static DateTime ToDateTime(DateOnly date) => date.ToDateTime(TimeOnly.MinValue);
 

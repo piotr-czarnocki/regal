@@ -1,0 +1,157 @@
+@page "/analytics/products/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject InsightService Insight
+@inject AnalyticsService Analytics
+
+<PageTitle>@(_card?.Product.Name ?? "Karta produktu") – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono produktu.</MudAlert>
+    }
+    else if (_card is { } card)
+    {
+        var p = card.Product;
+        var s = card.Sales;
+        <div class="d-flex flex-wrap align-center gap-2 mb-1">
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@p.Name</MudText>
+            @if (!p.IsActive)
+            {
+                <MudChip T="string" Size="Size.Small">Nieaktywny</MudChip>
+            }
+            @if (p.Kind == ProductKind.Goods)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@StockDocumentRoutes.ProductHistory(p.Id)">Historia ruchów</MudButton>
+            }
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@AnalyticsRoutes.Products">Wszystkie produkty</MudButton>
+        </div>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            @(p.Kind == ProductKind.Goods ? "Towar" : "Usługa") · SKU @p.Sku @(p.Ean is null ? null : $"· EAN {p.Ean}") · @p.CategoryName ·
+            cena @StockLabels.Money(p.NetPrice) netto za @p.Unit @(p.Kind == ProductKind.Goods ? $"· cena średnia zakupu {StockLabels.Money(p.AverageCost)}" : null)
+        </MudText>
+
+        <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" ShowCategory="false" />
+
+        <MudText Typo="Typo.h6" Class="mb-1">Sprzedaż w okresie</MudText>
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="6" md="3"><StatCard Title="Sprzedaż netto" Value="@StockLabels.Money(s.NetSales)" Note="@($"{AnalyticsRoutes.Change(s.ChangePercent)} wobec {StockLabels.Money(s.PreviousNetSales)} w poprzednim okresie")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Marża" Value="@StockLabels.Money(s.Margin)" Note="@($"{AnalyticsRoutes.Percent(s.MarginPercent)} sprzedaży, koszt {StockLabels.Money(s.Cost)}")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Sprzedano" Value="@($"{StockLabels.Quantity(s.Quantity)} {p.Unit}")" Note="@(s.AveragePrice is { } price ? $"średnio {StockLabels.Money(price)} za {p.Unit}" : null)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Faktury i klienci" Value="@($"{s.Invoices} / {s.Customers}")" Note="@($"średni rabat {AnalyticsRoutes.Percent(s.AverageDiscountPercent)}")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Zwroty (korekty)" Value="@($"{StockLabels.Quantity(s.ReturnedQuantity)} {p.Unit}")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Pierwsza i ostatnia sprzedaż" Value="@(s.LastSale is { } last ? StockLabels.Date(last) : "nigdy")" Note="@(s.FirstSale is { } first ? $"pierwsza {StockLabels.Date(first)}" : null)" /></MudItem>
+            @if (card.Stock is { } stock)
+            {
+                <MudItem xs="6" md="3"><StatCard Title="Dostępne teraz" Value="@($"{StockLabels.Quantity(stock.Available)} {p.Unit}")" Note="@($"na stanie {StockLabels.Quantity(stock.OnHand)}, w terminie {StockLabels.Quantity(stock.Unexpired)}, zarezerwowane {StockLabels.Quantity(stock.Reserved)}")" /></MudItem>
+                <MudItem xs="6" md="3"><StatCard Title="Wystarczy na" Value="@(stock.DaysOfCover is { } days ? $"{days:0.0} dni" : "—")" Note="@(stock.LastReceipt is { } receipt ? $"ostatnia dostawa {StockLabels.Date(receipt)}" : "brak dostaw")" /></MudItem>
+            }
+        </MudGrid>
+
+        <MudPaper Outlined="true" Class="pa-3 mb-3">
+            <MudText Typo="Typo.h6">Sprzedaż w czasie</MudText>
+            <SalesChart Points="_points" />
+        </MudPaper>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h6" Class="mb-1">Najlepsi klienci</MudText>
+                <MudTable T="BuyerRow" Items="card.TopCustomers" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Klient</MudTh>
+                        <MudTh>Ilość</MudTh>
+                        <MudTh>Netto</MudTh>
+                        <MudTh>Faktury</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Klient"><MudLink Href="@AnalyticsRoutes.Contractor(context.ContractorId)">@context.Name</MudLink></MudTd>
+                        <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @p.Unit</MudTd>
+                        <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+                        <MudTd DataLabel="Faktury">@context.Invoices</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+            @if (card.Stock is not null)
+            {
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" Class="mb-1">Ruchy magazynowe w okresie</MudText>
+                    <MudTable T="MovementRow" Items="card.Movements" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                        <HeaderContent>
+                            <MudTh>Rodzaj</MudTh>
+                            <MudTh>Ilość</MudTh>
+                            <MudTh>Wartość w cenie zakupu</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Rodzaj">@context.Kind</MudTd>
+                            <MudTd DataLabel="Ilość">@(context.Quantity > 0 ? "+" : null)@StockLabels.Quantity(context.Quantity) @p.Unit</MudTd>
+                            <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent><MudText>Brak ruchów w tym okresie.</MudText></NoRecordsContent>
+                    </MudTable>
+                    <MudText Typo="Typo.caption">Cofnięte dokumenty i zwroty z korekt są już odjęte.</MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6" Class="mb-1">Ostatnie przyjęcia i ceny zakupu</MudText>
+                    <MudTable T="ReceiptRow" Items="card.Receipts" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                        <HeaderContent>
+                            <MudTh>Dokument</MudTh>
+                            <MudTh>Data</MudTh>
+                            <MudTh>Dostawca</MudTh>
+                            <MudTh>Ilość</MudTh>
+                            <MudTh>Cena zakupu</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Dokument">
+                                <MudLink Href="@StockDocumentRoutes.Details(context.DocumentId)">@context.Number</MudLink>
+                                @if (context.Reversed)
+                                {
+                                    <MudChip T="string" Size="Size.Small">cofnięty</MudChip>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Data">@StockLabels.Date(context.Date)</MudTd>
+                            <MudTd DataLabel="Dostawca">@(context.Supplier ?? "produkcja własna")</MudTd>
+                            <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @p.Unit</MudTd>
+                            <MudTd DataLabel="Cena zakupu">@(context.UnitCost is { } cost ? $"{cost:N4} zł" : "—")</MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent><MudText>Brak przyjęć.</MudText></NoRecordsContent>
+                    </MudTable>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+</MudContainer>
+
+@code {
+    private AnalyticsFilter _filter = null!;
+    private ProductCard? _card;
+    private IReadOnlyList<SalesPoint> _points = [];
+    private bool _notFound;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var today = Insight.Today;
+        _filter = new AnalyticsFilter(today.AddMonths(-11).AddDays(1 - today.Day), today);
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChanged(AnalyticsFilter filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _card = await Insight.GetProductCardAsync(Id, _filter);
+        _notFound = _card is null;
+        _points = _card is null ? [] : await Analytics.GetSalesOverTimeAsync(_filter with { ProductId = Id });
+    }
+}

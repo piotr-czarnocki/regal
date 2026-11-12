@@ -27,6 +27,10 @@ public sealed class LabelService(IDbContextFactory<RegalDbContext> dbContextFact
 
     static LabelService() => QuestPDF.Settings.License = LicenseType.Community;
 
+    /// <summary>The file name for one product's labels: an SKU may hold any character, a file name may not.</summary>
+    public static string FileNameFor(string sku) =>
+        "etykieta-" + new string(sku.Trim().Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-').ToArray());
+
     public async Task<LabelResult> BuildAsync(IReadOnlyList<LabelRequest> requests, CancellationToken cancellationToken = default)
     {
         await currentUser.RequireUserIdAsync(Roles.Administrator);

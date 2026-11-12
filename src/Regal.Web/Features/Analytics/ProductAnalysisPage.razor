@@ -1,0 +1,87 @@
+@page "/analytics/products"
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject InsightService Insight
+
+<PageTitle>Analiza produktów – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Analiza produktów</MudText>
+        <ExportButton FileName="@AnalyticsExports.Period("produkty", _filter)" Build="() => AnalyticsExports.Products(_rows)" />
+    </div>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Produkty sprzedane w okresie albo w okresie tuż przed nim, od największej sprzedaży. Zmiana porównuje z poprzednim okresem tej samej długości.
+        Zapas to dni, na które wystarczy towar dostępny teraz (bez zarezerwowanego) przy tempie sprzedaży z okresu. Kliknij produkt, żeby zobaczyć jego kartę.
+    </MudText>
+
+    <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" />
+
+    <MudTable T="ProductRankingRow" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Loading="_loading" RowsPerPage="50">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.Name">Produkt</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.Class">ABC</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.Quantity">Ilość</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.NetSales" InitialDirection="SortDirection.Descending">Netto</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.Margin">Marża</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.MarginPercent ?? decimal.MinValue">Marża %</MudTableSortLabel></MudTh>
+            <MudTh>Śr. cena</MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.Customers">Klienci</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.ChangePercent ?? decimal.MinValue">Zmiana</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel T="ProductRankingRow" SortBy="r => r.DaysOfCover ?? decimal.MaxValue">Zapas (dni)</MudTableSortLabel></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Produkt"><MudLink Href="@AnalyticsRoutes.Product(context.ProductId)">@context.Name</MudLink><br /><MudText Typo="Typo.caption">@context.CategoryName</MudText></MudTd>
+            <MudTd DataLabel="ABC"><MudChip T="string" Size="Size.Small" Color="@ClassColor(context.Class)">@context.Class (@context.SharePercent.ToString("0.0")%)</MudChip></MudTd>
+            <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+            <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+            <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+            <MudTd DataLabel="Marża %">@AnalyticsRoutes.Percent(context.MarginPercent)</MudTd>
+            <MudTd DataLabel="Śr. cena">@(context.AveragePrice is { } price ? StockLabels.Money(price) : "—")</MudTd>
+            <MudTd DataLabel="Klienci">@context.Customers</MudTd>
+            <MudTd DataLabel="Zmiana"><MudText Typo="Typo.body2" Color="@ChangeColor(context.ChangePercent)">@AnalyticsRoutes.Change(context.ChangePercent)</MudText></MudTd>
+            <MudTd DataLabel="Zapas (dni)">@(context.Available is null ? "usługa" : context.DaysOfCover is { } days ? days.ToString("0.0") : "—")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
+    </MudTable>
+</MudContainer>
+
+@code {
+    private AnalyticsFilter _filter = null!;
+    private IReadOnlyList<ProductRankingRow> _rows = [];
+    private bool _loading = true;
+
+    internal static Color ClassColor(AbcClass value) => value switch
+    {
+        AbcClass.A => Color.Success,
+        AbcClass.B => Color.Info,
+        _ => Color.Default,
+    };
+
+    internal static Color ChangeColor(decimal? change) => change switch
+    {
+        > 0 => Color.Success,
+        < 0 => Color.Error,
+        _ => Color.Default,
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = Insight.Today;
+        _filter = new AnalyticsFilter(today.AddDays(-89), today);
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChanged(AnalyticsFilter filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _rows = await Insight.GetProductRankingAsync(_filter);
+        _loading = false;
+    }
+}

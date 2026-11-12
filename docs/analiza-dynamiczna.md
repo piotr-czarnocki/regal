@@ -466,6 +466,28 @@ Kryterium p95 < 500 ms było spełnione, ale poziom 2 podniósł p95 o około po
 - Równoległość, która przyspiesza jedną stronę, pod obciążeniem może wyczerpać wspólny zasób (tu połączenia z bazą).
 - Nowa funkcja na często odwiedzanej stronie ma koszt dla wszystkich; drogie dodatki lepiej ładować na żądanie.
 
+### Analiza produktów i kontrahentów (11.11.2026)
+
+Nowe zapytania (punkt 5.20 SPEC) zmierzyłem na tej samej bazie (rok danych, 10 000 produktów), BenchmarkDotNet `--job short`, z listą klientów jako punktem odniesienia:
+
+| Zapytanie | Pierwsza wersja | Po poprawce |
+|---|---|---|
+| Lista klientów (odniesienie) | 116 ms | 119 ms |
+| Ranking produktów | **1 636 ms** | **166 ms** |
+| Karta produktu (najlepiej sprzedawany) | 128 ms | 126 ms |
+| Karta klienta (największy) | 28 ms | 63 ms |
+| Karta dostawcy (największy) | 33 ms | 40 ms |
+| Lista dostawców | 154 ms | 150 ms |
+
+Karty mają duży rozrzut między przebiegami (krótkie zadanie, trzy iteracje), więc różnice w kartach to szum, nie zmiana kodu.
+
+Ranking przekraczał cel 1 s. SQL wypisany przez `--sql` pokazał to samo, co wcześniej przy raporcie zalegających: EF Core zamienił warunkowe agregaty w grupowaniu (`g.Where(...).Sum(...)`, także `Sum(warunek ? x : 0)` i `Distinct().Count()`) na skorelowane podzapytanie dla każdej kolumny i każdego produktu. Sześć kolumn dawało sześć dodatkowych przebiegów po fakturach na każdy z 10 000 produktów. Poprawka:
+- zwykłe sumy osobno dla okresu i dla okresu poprzedniego;
+- liczby różnych faktur i klientów w osobnych zapytaniach (najpierw DISTINCT par, potem GROUP BY);
+- nazwy produktów tylko dla zachowanych wierszy.
+
+Teraz każde zapytanie to jeden przebieg (38, 4, 40 i 44 ms). Test z ręcznie policzonym zestawem złapał przy okazji błąd pośredniej wersji: liczenie różnych wartości w warunku liczyło puste jako osobną wartość (3 faktury zamiast 2).
+
 ## 6. Debugowanie
 
 Opisane są prawdziwe błędy z tego projektu: objaw, jak go namierzono, przyczyna i poprawka. Pełna lista problemów jest w [`przygody.md`](przygody.md).

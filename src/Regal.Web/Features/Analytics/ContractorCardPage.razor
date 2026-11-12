@@ -1,0 +1,158 @@
+@page "/analytics/contractors/{Id:int}"
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject InsightService Insight
+@inject AnalyticsService Analytics
+
+<PageTitle>@(_card?.Contractor.Name ?? "Karta kontrahenta") – Regał</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning">Nie znaleziono kontrahenta.</MudAlert>
+    }
+    else if (_card is { } card)
+    {
+        var k = card.Contractor;
+        var c = card.Customer;
+        var pay = card.Payments;
+        <div class="d-flex flex-wrap align-center gap-2 mb-1">
+            <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">@k.Name</MudText>
+            @if (!k.IsActive)
+            {
+                <MudChip T="string" Size="Size.Small">Nieaktywny</MudChip>
+            }
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@AnalyticsRoutes.Contractors">Wszyscy kontrahenci</MudButton>
+        </div>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            @string.Join(" · ", new[] { k.Nip is null ? null : $"NIP {k.Nip}", k.Address, k.Email, k.Phone }.Where(v => !string.IsNullOrWhiteSpace(v)))
+        </MudText>
+
+        <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" ShowCategory="false" />
+
+        <MudText Typo="Typo.h6" Class="mb-1">Jako klient</MudText>
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="6" md="3"><StatCard Title="Sprzedaż netto" Value="@StockLabels.Money(c.NetSales)" Note="@($"{AnalyticsRoutes.Change(c.ChangePercent)} wobec {StockLabels.Money(c.PreviousNetSales)} w poprzednim okresie")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Marża" Value="@StockLabels.Money(c.Margin)" Note="@($"{AnalyticsRoutes.Percent(c.MarginPercent)} sprzedaży")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Faktury" Value="@c.Invoices.ToString()" Note="@($"średnio {StockLabels.Money(c.AverageInvoice)} netto")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Korekty" Value="@c.Corrections.ToString()" Note="@(c.Corrections == 0 ? null : $"razem {StockLabels.Money(c.CorrectionsNet)} netto")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Ostatni zakup" Value="@(c.LastPurchase is { } last ? StockLabels.Date(last) : "nigdy")" Note="@(c.DaysSinceLastPurchase is { } days ? $"{days} dni temu, pierwszy {StockLabels.Date(c.FirstPurchase!.Value)}" : null)" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Kupuje co" Value="@(c.AverageDaysBetweenPurchases is { } gap ? $"{gap:0.0} dni" : "—")" Note="średnio w okresie" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Do zapłaty" Value="@StockLabels.Money(pay.Receivables.UnpaidGross)" Note="@($"{pay.Receivables.UnpaidCount} faktur, po terminie {pay.Receivables.OverdueCount} na {StockLabels.Money(pay.Receivables.OverdueGross)}")" /></MudItem>
+            <MudItem xs="6" md="3"><StatCard Title="Płaci średnio po" Value="@(pay.AverageDaysToPay is { } daysToPay ? $"{daysToPay:0.0} dni" : "—")" Note="@(pay.PaidInvoices == 0 ? "brak opłaconych faktur" : $"w terminie {AnalyticsRoutes.Percent(pay.PaidOnTimePercent)} z {pay.PaidInvoices} faktur")" /></MudItem>
+            <MudItem xs="12" md="6"><StatCard Title="Zamówienia" Value="@($"{card.Orders.Open} otwartych")" Note="@($"zrealizowane {card.Orders.Completed}, anulowane {card.Orders.Cancelled}")" /></MudItem>
+        </MudGrid>
+
+        <MudPaper Outlined="true" Class="pa-3 mb-3">
+            <MudText Typo="Typo.h6">Sprzedaż w czasie</MudText>
+            <SalesChart Points="_points" />
+        </MudPaper>
+
+        <MudGrid Spacing="2" Class="mb-3">
+            <MudItem xs="12" md="7">
+                <MudText Typo="Typo.h6" Class="mb-1">Co kupuje</MudText>
+                <MudTable T="ProductSales" Items="_products" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Produkt</MudTh>
+                        <MudTh>Ilość</MudTh>
+                        <MudTh>Netto</MudTh>
+                        <MudTh>Marża</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Produkt"><MudLink Href="@AnalyticsRoutes.Product(context.ProductId)">@context.Name</MudLink></MudTd>
+                        <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                        <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+                        <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak zakupów w tym okresie.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+            <MudItem xs="12" md="5">
+                <MudText Typo="Typo.h6" Class="mb-1">Według kategorii</MudText>
+                <MudTable T="CategorySales" Items="_categories" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                    <HeaderContent>
+                        <MudTh>Kategoria</MudTh>
+                        <MudTh>Netto</MudTh>
+                        <MudTh>Udział</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
+                        <MudTd DataLabel="Netto">@StockLabels.Money(context.NetSales)</MudTd>
+                        <MudTd DataLabel="Udział">@(c.NetSales == 0 ? "—" : $"{context.NetSales * 100 / c.NetSales:0.0}%")</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent><MudText>Brak zakupów w tym okresie.</MudText></NoRecordsContent>
+                </MudTable>
+            </MudItem>
+        </MudGrid>
+
+        @if (card.Supplier is { Deliveries: > 0 } or { LastDelivery: not null })
+        {
+            var sup = card.Supplier;
+            <MudText Typo="Typo.h6" Class="mb-1">Jako dostawca</MudText>
+            <MudGrid Spacing="2" Class="mb-2">
+                <MudItem xs="6" md="3"><StatCard Title="Dostawy (PZ)" Value="@sup.Deliveries.ToString()" Note="cofnięte nie liczą się" /></MudItem>
+                <MudItem xs="6" md="3"><StatCard Title="Wartość zakupu" Value="@StockLabels.Money(sup.Value)" /></MudItem>
+                <MudItem xs="6" md="3"><StatCard Title="Różnych produktów" Value="@sup.Products.ToString()" /></MudItem>
+                <MudItem xs="6" md="3"><StatCard Title="Ostatnia dostawa" Value="@(sup.LastDelivery is { } delivery ? StockLabels.Date(delivery) : "—")" /></MudItem>
+            </MudGrid>
+            <MudTable T="SuppliedProductRow" Items="sup.TopProducts" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+                <HeaderContent>
+                    <MudTh>Dostarczany produkt</MudTh>
+                    <MudTh>Ilość</MudTh>
+                    <MudTh>Wartość</MudTh>
+                    <MudTh>Średnia cena</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Produkt"><MudLink Href="@AnalyticsRoutes.Product(context.ProductId)">@context.Name</MudLink></MudTd>
+                    <MudTd DataLabel="Ilość">@StockLabels.Quantity(context.Quantity) @context.Unit</MudTd>
+                    <MudTd DataLabel="Wartość">@StockLabels.Money(context.Value)</MudTd>
+                    <MudTd DataLabel="Średnia cena">@(context.Quantity == 0 ? "—" : $"{context.Value / context.Quantity:N4} zł")</MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText>Brak dostaw w tym okresie.</MudText></NoRecordsContent>
+            </MudTable>
+        }
+    }
+    else
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+</MudContainer>
+
+@code {
+    private AnalyticsFilter _filter = null!;
+    private ContractorCard? _card;
+    private IReadOnlyList<SalesPoint> _points = [];
+    private IReadOnlyList<ProductSales> _products = [];
+    private IReadOnlyList<CategorySales> _categories = [];
+    private bool _notFound;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var today = Insight.Today;
+        _filter = new AnalyticsFilter(today.AddMonths(-11).AddDays(1 - today.Day), today);
+        await LoadAsync();
+    }
+
+    private async Task OnFilterChanged(AnalyticsFilter filter)
+    {
+        _filter = filter;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _card = await Insight.GetContractorCardAsync(Id, _filter);
+        _notFound = _card is null;
+        if (_card is null)
+        {
+            return;
+        }
+
+        var mine = _filter with { ContractorId = Id };
+        _points = await Analytics.GetSalesOverTimeAsync(mine);
+        _products = await Analytics.GetSalesByProductAsync(mine, take: 10);
+        _categories = await Analytics.GetSalesByCategoryAsync(mine);
+    }
+}

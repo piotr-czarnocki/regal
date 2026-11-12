@@ -13,10 +13,10 @@
     <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Produkty i usługi</MudText>
 
     <div class="d-flex flex-wrap align-center gap-2 mb-2">
-        <MudText Typo="Typo.body2">Etykiety z kodem (A4, 3 × 8): zaznacz produkty</MudText>
+        <MudText Typo="Typo.body2">Etykiety z kodem (A4, 3 × 8): kliknij „Etykieta” przy towarze albo zaznacz kilka</MudText>
         <MudNumericField T="int" Culture="CultureInfo.CurrentCulture" @bind-Value="_copies" Label="Kopii każdego" Min="1" Max="LabelService.MaxCopies"
                          HideSpinButtons="true" Style="max-width: 9rem" Margin="Margin.Dense" />
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.QrCode" OnClick="LabelsAsync"
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.QrCode" OnClick="@(() => LabelsAsync(_selected.ToList(), "etykiety"))"
                    Disabled="@(_selected.Count == 0 || _printing)">Etykiety PDF (@_selected.Count)</MudButton>
     </div>
 
@@ -45,7 +45,7 @@
         <RowTemplate>
             <MudTd DataLabel="SKU">@context.Sku</MudTd>
             <MudTd DataLabel="EAN">@context.Ean</MudTd>
-            <MudTd DataLabel="Nazwa">@context.Name</MudTd>
+            <MudTd DataLabel="Nazwa"><MudLink Href="@AnalyticsRoutes.Product(context.Id)">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
             <MudTd DataLabel="Typ">@(context.Kind == ProductKind.Goods ? "Towar" : "Usługa")</MudTd>
             <MudTd DataLabel="Jedn.">@context.Unit</MudTd>
@@ -53,6 +53,11 @@
             <MudTd DataLabel="VAT">@VatLabel(context.VatRate)</MudTd>
             <MudTd DataLabel="Status">@(context.IsActive ? "Aktywny" : "Nieaktywny")</MudTd>
             <MudTd DataLabel="">
+                @if (context.Ean is not null)
+                {
+                    <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.QrCode" Disabled="_printing"
+                               OnClick="@(() => LabelsAsync([context], LabelService.FileNameFor(context.Sku)))">Etykieta</MudButton>
+                }
                 <MudButton Size="Size.Small" OnClick="() => EditAsync(context.Id)">Edytuj</MudButton>
                 <MudButton Size="Size.Small" OnClick="() => SetActiveAsync(context)">@(context.IsActive ? "Dezaktywuj" : "Aktywuj")</MudButton>
             </MudTd>
@@ -70,7 +75,8 @@
     private int _copies = 1;
     private bool _printing;
 
-    private async Task LabelsAsync()
+    /// <summary>One click on a row prints that product; the selection prints several. Copies from the field above.</summary>
+    private async Task LabelsAsync(IReadOnlyList<ProductListItem> products, string fileName)
     {
         if (_printing)
         {
@@ -80,10 +86,10 @@
         _printing = true;
         try
         {
-            var result = await Labels.BuildAsync(_selected.Select(p => new LabelRequest(p.Id, _copies)).ToList());
+            var result = await Labels.BuildAsync(products.Select(p => new LabelRequest(p.Id, _copies)).ToList());
             if (result.Pdf is { } pdf)
             {
-                await Downloader.SaveAsync(string.Create(CultureInfo.InvariantCulture, $"etykiety-{WarehouseTime.LocalNow(Clock.GetUtcNow()):yyyy-MM-dd-HHmm}.pdf"), pdf);
+                await Downloader.SaveAsync(string.Create(CultureInfo.InvariantCulture, $"{fileName}-{WarehouseTime.LocalNow(Clock.GetUtcNow()):yyyy-MM-dd-HHmm}.pdf"), pdf);
             }
             else
             {
