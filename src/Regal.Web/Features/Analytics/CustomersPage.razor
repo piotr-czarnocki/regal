@@ -1,42 +1,82 @@
 @page "/analytics/customers"
 @attribute [Authorize(Roles = Roles.Administrator)]
 @inject AnalyticsService Analytics
+@inject InsightService Insight
 
-<PageTitle>Klienci – Regał</PageTitle>
+<PageTitle>Analiza kontrahentów – Regał</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 mb-4">
     <div class="d-flex flex-wrap align-center gap-2 mb-2">
-        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Klienci</MudText>
-        <ExportButton FileName="@AnalyticsExports.Period("klienci", _filter)" Build="() => AnalyticsExports.Customers(_rows)" />
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="flex-grow-1">Analiza kontrahentów</MudText>
+        @if (_tab == 0)
+        {
+            <ExportButton FileName="@AnalyticsExports.Period("klienci", _filter)" Build="() => AnalyticsExports.Customers(_rows)" />
+        }
+        else
+        {
+            <ExportButton FileName="@AnalyticsExports.Period("dostawcy", _filter)" Build="() => AnalyticsExports.Suppliers(_suppliers)" />
+        }
     </div>
-    <MudText Typo="Typo.body2" Class="mb-3">Nabywcy w wybranym okresie, od największej sprzedaży netto. Korekty pomniejszają sprzedaż, proformy się nie liczą.</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Klienci: korekty pomniejszają sprzedaż, proformy się nie liczą. Dostawcy: dostawy PZ w okresie, cofnięta dostawa się nie liczy.
+        Kliknij nazwę, żeby zobaczyć kartę kontrahenta z płatnościami, zamówieniami i tym, co kupuje.
+    </MudText>
 
-    <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" />
+    <AnalyticsFilterBar Value="_filter" ValueChanged="OnFilterChanged" ShowContractor="false" ShowCategory="@(_tab == 0)" />
 
-    <MudTable T="CustomerSales" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
-        <HeaderContent>
-            <MudTh>Klient</MudTh>
-            <MudTh>Faktury</MudTh>
-            <MudTh>Sprzedaż netto</MudTh>
-            <MudTh>Marża</MudTh>
-            <MudTh>Średnia faktura</MudTh>
-            <MudTh>Ostatni zakup</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Klient">@context.Name @(context.Nip is null ? null : $"(NIP {context.Nip})")</MudTd>
-            <MudTd DataLabel="Faktury">@context.InvoiceCount</MudTd>
-            <MudTd DataLabel="Sprzedaż netto">@StockLabels.Money(context.NetSales)</MudTd>
-            <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
-            <MudTd DataLabel="Średnia faktura">@StockLabels.Money(context.AverageInvoice)</MudTd>
-            <MudTd DataLabel="Ostatni zakup">@StockLabels.Date(context.LastPurchase)</MudTd>
-        </RowTemplate>
-        <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
-    </MudTable>
+    <MudTabs @bind-ActivePanelIndex="_tab" Elevation="0" Class="mb-2">
+        <MudTabPanel Text="Klienci">
+            <MudTable T="CustomerSales" Items="_rows" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="50">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel T="CustomerSales" SortBy="r => r.Name">Klient</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="CustomerSales" SortBy="r => r.InvoiceCount">Faktury</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="CustomerSales" SortBy="r => r.NetSales" InitialDirection="SortDirection.Descending">Sprzedaż netto</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="CustomerSales" SortBy="r => r.Margin">Marża</MudTableSortLabel></MudTh>
+                    <MudTh>Marża %</MudTh>
+                    <MudTh><MudTableSortLabel T="CustomerSales" SortBy="r => r.AverageInvoice">Średnia faktura</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="CustomerSales" SortBy="r => r.LastPurchase">Ostatni zakup</MudTableSortLabel></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Klient"><MudLink Href="@AnalyticsRoutes.Contractor(context.ContractorId)">@context.Name</MudLink> @(context.Nip is null ? null : $"(NIP {context.Nip})")</MudTd>
+                    <MudTd DataLabel="Faktury">@context.InvoiceCount</MudTd>
+                    <MudTd DataLabel="Sprzedaż netto">@StockLabels.Money(context.NetSales)</MudTd>
+                    <MudTd DataLabel="Marża">@StockLabels.Money(context.Margin)</MudTd>
+                    <MudTd DataLabel="Marża %">@AnalyticsRoutes.Percent(context.NetSales == 0 ? null : context.Margin * 100 / context.NetSales)</MudTd>
+                    <MudTd DataLabel="Średnia faktura">@StockLabels.Money(context.AverageInvoice)</MudTd>
+                    <MudTd DataLabel="Ostatni zakup">@StockLabels.Date(context.LastPurchase)</MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText>Brak sprzedaży w tym okresie.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+        <MudTabPanel Text="Dostawcy">
+            <MudTable T="SupplierRow" Items="_suppliers" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" RowsPerPage="50">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel T="SupplierRow" SortBy="r => r.Name">Dostawca</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SupplierRow" SortBy="r => r.Deliveries">Dostawy</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SupplierRow" SortBy="r => r.Value" InitialDirection="SortDirection.Descending">Wartość zakupu</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SupplierRow" SortBy="r => r.Products">Produkty</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel T="SupplierRow" SortBy="r => r.LastDelivery">Ostatnia dostawa</MudTableSortLabel></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Dostawca"><MudLink Href="@AnalyticsRoutes.Contractor(context.ContractorId)">@context.Name</MudLink> @(context.Nip is null ? null : $"(NIP {context.Nip})")</MudTd>
+                    <MudTd DataLabel="Dostawy">@context.Deliveries</MudTd>
+                    <MudTd DataLabel="Wartość zakupu">@StockLabels.Money(context.Value)</MudTd>
+                    <MudTd DataLabel="Produkty">@context.Products</MudTd>
+                    <MudTd DataLabel="Ostatnia dostawa">@(context.LastDelivery is { } date ? StockLabels.Date(date) : "—")</MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText>Brak dostaw w tym okresie.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager RowsPerPageString="Wierszy:" InfoFormat="{first_item}–{last_item} z {all_items}" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
 </MudContainer>
 
 @code {
     private AnalyticsFilter _filter = null!;
     private IReadOnlyList<CustomerSales> _rows = [];
+    private IReadOnlyList<SupplierRow> _suppliers = [];
+    private int _tab;
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,5 +91,9 @@
         await LoadAsync();
     }
 
-    private async Task LoadAsync() => _rows = await Analytics.GetCustomersAsync(_filter);
+    private async Task LoadAsync()
+    {
+        _rows = await Analytics.GetCustomersAsync(_filter);
+        _suppliers = await Insight.GetSuppliersAsync(_filter with { CategoryId = null });
+    }
 }

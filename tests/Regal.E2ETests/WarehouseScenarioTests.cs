@@ -152,6 +152,8 @@ public sealed class WarehouseScenarioTests(AppFixture app)
     [Theory]
     [InlineData("/stock", "Stany magazynowe")]
     [InlineData("/products", "Produkty i usługi")]
+    [InlineData("/analytics/products", "Analiza produktów")]
+    [InlineData("/analytics/customers", "Analiza kontrahentów")]
     public async Task Pages_fit_a_phone_screen(string path, string heading)
     {
         await NewGoodsAsync();

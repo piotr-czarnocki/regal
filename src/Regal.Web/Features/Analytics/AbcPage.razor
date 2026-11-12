@@ -34,7 +34,7 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Klasa"><MudChip T="string" Size="Size.Small" Color="ColorOf(context.Class)">@context.Class</MudChip></MudTd>
-            <MudTd DataLabel="Produkt">@context.Name</MudTd>
+            <MudTd DataLabel="Produkt"><MudLink Href="@AnalyticsRoutes.Product(context.ProductId)">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="Sprzedaż netto">@StockLabels.Money(context.NetSales)</MudTd>
             <MudTd DataLabel="Udział">@($"{context.Share:0.00}%")</MudTd>
             <MudTd DataLabel="Udział narastająco">@($"{context.CumulativeShare:0.00}%")</MudTd>

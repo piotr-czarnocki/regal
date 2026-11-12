@@ -42,6 +42,17 @@ public static class AnalyticsExports
         ExcelWorkbook.Build(new ExcelSheet("Klienci", ["Klient", "NIP", "Faktury", "Netto", "Koszt", "Marża", "Średnia faktura", "Ostatni zakup"],
             rows.Select(r => Row(r.Name, r.Nip, r.InvoiceCount, r.NetSales, r.Cost, r.Margin, r.AverageInvoice, r.LastPurchase))));
 
+    public static byte[] Products(IEnumerable<ProductRankingRow> rows) =>
+        ExcelWorkbook.Build(new ExcelSheet("Produkty",
+            ["Produkt", "Kategoria", "Klasa ABC", "Udział %", "Ilość", "Jednostka", "Netto", "Koszt", "Marża", "Marża %", "Średnia cena", "Faktury", "Klienci",
+             "Netto poprzednio", "Zmiana %", "Dostępne", "Zapas (dni)"],
+            rows.Select(r => Row(r.Name, r.CategoryName, r.Class.ToString(), r.SharePercent, r.Quantity, r.Unit, r.NetSales, r.Cost, r.Margin, r.MarginPercent,
+                r.AveragePrice, r.Invoices, r.Customers, r.PreviousNetSales, r.ChangePercent, r.Available, r.DaysOfCover))));
+
+    public static byte[] Suppliers(IEnumerable<SupplierRow> rows) =>
+        ExcelWorkbook.Build(new ExcelSheet("Dostawcy", ["Dostawca", "NIP", "Dostawy", "Wartość zakupu", "Produkty", "Ostatnia dostawa"],
+            rows.Select(r => Row(r.Name, r.Nip, r.Deliveries, r.Value, r.Products, r.LastDelivery))));
+
     public static byte[] Forecast(IEnumerable<ForecastRow> rows) =>
         ExcelWorkbook.Build(new ExcelSheet("Prognoza", ["Towar", "Jednostka", "Sprzedano w historii", "Średnio dziennie", "Dostępne", "Zapas na (dni)", "Zamówić"],
             rows.Select(r => Row(r.Name, r.Unit, r.SoldInHistory, r.DailyAverage, r.Available, r.DaysOfCover, r.SuggestedOrder))));

@@ -87,6 +87,10 @@ public sealed class RoleTests(PostgresFixture postgres) : WarehouseTestBase(post
             () => new CategoryService(Postgres.DbContextFactory, worker, Clock).SaveAsync(null, Unique("K")),
             () => new ContractorService(Postgres.DbContextFactory, worker, Clock).SaveAsync(null, new ContractorInput { Name = Unique("K") }),
             () => new LabelService(Postgres.DbContextFactory, worker).BuildAsync([]),
+            () => new InsightService(Postgres.DbContextFactory, worker, Clock).GetProductRankingAsync(filter),
+            () => new InsightService(Postgres.DbContextFactory, worker, Clock).GetProductCardAsync(1, filter),
+            () => new InsightService(Postgres.DbContextFactory, worker, Clock).GetContractorCardAsync(1, filter),
+            () => new InsightService(Postgres.DbContextFactory, worker, Clock).GetSuppliersAsync(filter),
             () => new UserService(Postgres.DbContextFactory, worker, Clock).GetAllAsync(),
             () => new UserService(Postgres.DbContextFactory, worker, Clock).AddAsync("ktos@example.com", Roles.Administrator),
         ];

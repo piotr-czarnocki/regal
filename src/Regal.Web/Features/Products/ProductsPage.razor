@@ -45,7 +45,7 @@
         <RowTemplate>
             <MudTd DataLabel="SKU">@context.Sku</MudTd>
             <MudTd DataLabel="EAN">@context.Ean</MudTd>
-            <MudTd DataLabel="Nazwa">@context.Name</MudTd>
+            <MudTd DataLabel="Nazwa"><MudLink Href="@AnalyticsRoutes.Product(context.Id)">@context.Name</MudLink></MudTd>
             <MudTd DataLabel="Kategoria">@context.CategoryName</MudTd>
             <MudTd DataLabel="Typ">@(context.Kind == ProductKind.Goods ? "Towar" : "Usługa")</MudTd>
             <MudTd DataLabel="Jedn.">@context.Unit</MudTd>

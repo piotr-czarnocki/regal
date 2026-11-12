@@ -139,11 +139,18 @@ public sealed class InvoicePaymentService(
     {
         await currentUser.RequireUserIdAsync(Roles.Administrator);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var today = WarehouseTime.DateOf(timeProvider.GetUtcNow());
+        return await SummarizeReceivablesAsync(db.Invoices, WarehouseTime.DateOf(timeProvider.GetUtcNow()), cancellationToken);
+    }
 
+    /// <summary>
+    /// The one definition of receivables, for the dashboard and for one buyer's card: pass the
+    /// invoices already narrowed to that buyer.
+    /// </summary>
+    public static async Task<ReceivablesSummary> SummarizeReceivablesAsync(IQueryable<Invoice> invoices, DateOnly today, CancellationToken cancellationToken)
+    {
         // Counted and summed in the database: the dashboard reads this on every visit, and loading
         // every open invoice into memory grew with the number of unpaid invoices.
-        var totals = await db.Invoices.AsNoTracking()
+        var totals = await invoices.AsNoTracking()
             .Where(i => i.Kind == InvoiceKind.Vat && i.Status == InvoiceStatus.Sent
                 && (i.PaymentStatus == InvoicePaymentStatus.Unpaid || i.PaymentStatus == InvoicePaymentStatus.Partial))
             .GroupBy(_ => 1)

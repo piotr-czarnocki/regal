@@ -390,3 +390,27 @@ Reguły opisuje `SPEC.md`, punkt 5.16; sprawdzają je testy `PlanningTests` i `P
 | 5 | Jako administrator zmień jego rolę na „Administrator” | Przy następnym kliknięciu magazyniera sesja wymaga ponownego logowania, po nim widzi całe menu |
 | 6 | Jako administrator spróbuj zmienić własną rolę | Na swoim wierszu nie ma wyboru roli ani przycisku „Wyłącz” |
 | 7 | „Wyłącz” przy drugiej osobie | Nie może się zalogować; jej otwarta sesja kończy się |
+
+## A8. Analiza produktów i karta produktu
+
+**Dane:** baza po generatorze (README, „Przykładowe dane”).
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Analizy → Produkty” | Ranking od największej sprzedaży z klasą ABC, marżą %, średnią ceną, klientami, zmianą i zapasem w dniach |
+| 2 | Kliknij nagłówek „Marża %” | Lista ułożona według marży procentowej |
+| 3 | Kliknij pierwszy produkt | Karta produktu: kafelki sprzedaży, wykres, najlepsi klienci, ruchy magazynowe, ostatnie przyjęcia |
+| 4 | Porównaj sprzedaż netto z kartą i z wierszem w „Sprzedaż i marża” za ten sam okres | Ta sama kwota |
+| 5 | Na karcie towaru, który miał korektę zwrotu | „Zwroty (korekty)” pokazuje zwróconą ilość |
+| 6 | Karta usługi (np. z listy produktów) | Brak części magazynowej |
+| 7 | „Excel” na rankingu | Plik z tymi samymi wierszami i liczbami |
+
+## A9. Kontrahenci i karta kontrahenta
+
+| Krok | Działanie | Oczekiwany wynik |
+|---|---|---|
+| 1 | „Analizy → Kontrahenci”, zakładka „Klienci” | Lista klientów z marżą % i linkami |
+| 2 | Kliknij klienta | Karta: sprzedaż ze zmianą, ostatni zakup, co ile dni kupuje, należności, średni czas zapłaty, zamówienia, kupowane produkty i kategorie |
+| 3 | Zakładka „Dostawcy”, kliknij dostawcę | Karta z częścią „Jako dostawca”: dostawy, wartość zakupu, dostarczane produkty |
+| 4 | Cofnij jedną dostawę PZ tego dostawcy i odśwież kartę | Liczba dostaw i wartość zakupu maleją o tę dostawę |
+| 5 | „Kartoteki → Kontrahenci”, kliknij nazwę | Otwiera się ta sama karta |

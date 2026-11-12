@@ -69,3 +69,13 @@ Każda reguła, której złamanie psuje dane, jest pilnowana dwa razy: w serwisi
 | Dane przechodzą przez prawdziwe serwisy i nigdy nie trafiają do Fakturowni | `Web/Data/Generator/DemoDataGenerator.cs` (klient `NoFakturownia`, faktury bez identyfikatora Fakturowni) | `IT/DemoDataGeneratorTests.cs`: `Generated_trade_follows_the_rules_and_is_never_sent` |
 | Zamówienia, proformy i płatności poziomu 2 | `DemoDataGenerator.CompleteDueOrdersAsync`, `SetPaymentsAsync` | `IT/DemoDataGeneratorTests.cs`: `Generated_data_covers_orders_proformas_and_payments` |
 | To samo ziarno daje te same dane | jeden `Random(seed)` dla całej symulacji | `IT/DemoDataGeneratorTests.cs`: `Same_seed_gives_the_same_trade` |
+
+## Analiza produktów i kontrahentów (5.20)
+
+| Reguła | Gdzie pilnowana | Dowód |
+|---|---|---|
+| Jedna definicja sprzedaży: karta i ranking dają te same liczby co analiza sprzedaży i klientów | `AnalyticsService.Lines`, używane przez `Web/Features/Analytics/InsightService.cs` | `IT/InsightTests.cs`: `The_product_card_counts_corrections_and_leaves_out_proformas_and_cancelled_invoices`, `The_contractor_card_shows_the_buyer_its_payments_and_orders` |
+| Cofnięta dostawa znosi oryginał u dostawcy | `InsightService.Deliveries` (ruchy PZ ze znakiem) | `IT/InsightTests.cs`: `A_reversed_delivery_cancels_its_original_for_the_supplier` |
+| Należności klienta liczone tak samo jak na pulpicie | `InvoicePaymentService.SummarizeReceivablesAsync` | `IT/InsightTests.cs`: `The_contractor_card_shows_the_buyer_its_payments_and_orders` |
+| Średni czas zapłaty i odstęp między zakupami | `Web/Features/Analytics/InsightRules.cs` | `UT/InsightRulesTests.cs` |
+| Każda strona analiz jest tylko dla administratora | `[Authorize(Roles = Roles.Administrator)]` | `UT/PageAccessTests.cs`: `Every_page_is_for_the_administrator_or_listed_as_open_to_the_warehouse` |

@@ -120,6 +120,7 @@ public class PlanningTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
         var save = module.SetupVoid("saveFile", _ => true);
         context.Services.AddMudServices();
         context.Services.AddScoped(_ => Analytics);
+        context.Services.AddScoped(_ => new InsightService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped<Regal.Web.Components.Shared.FileDownloader>();
         context.Services.AddScoped(_ => new CategoryService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped(_ => Contractors);
@@ -129,7 +130,8 @@ public class PlanningTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("td[data-label=\"Klient\"]")));
         page.FindAll("button").Single(b => b.TextContent.Contains("Excel")).Click();
 
-        var call = save.VerifyInvoke("saveFile");
+        JSRuntimeInvocation call = default!;
+        page.WaitForAssertion(() => call = save.VerifyInvoke("saveFile"));
         Assert.Matches(@"^klienci-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\.xlsx$", call.Arguments[0] as string);
     }
 
@@ -140,6 +142,7 @@ public class PlanningTests(PostgresFixture postgres) : InvoiceTestBase(postgres)
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddMudServices();
         context.Services.AddScoped(_ => Analytics);
+        context.Services.AddScoped(_ => new InsightService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped<Regal.Web.Components.Shared.FileDownloader>();
         context.Services.AddScoped(_ => new CategoryService(Postgres.DbContextFactory, new FixedUser(UserId), Clock));
         context.Services.AddScoped(_ => Contractors);

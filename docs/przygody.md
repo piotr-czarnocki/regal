@@ -306,3 +306,17 @@ Po ukończeniu poziomu 2 poprosiłem o przegląd mocniejszy model (doradcę w Cl
 - **Ślepy zaułek:** publiczne adnotacje ostrzegały, że `ubuntu-latest` przechodzi na Ubuntu 26, więc przypiąłem runner do `ubuntu-24.04`. Krok padł tak samo, czyli to nie była przyczyna. Przypięcie cofnąłem.
 - **Diagnoza:** log zadania wymaga zalogowania, więc krok instalacji zaczął wypisywać koniec swojego wyjścia jako adnotację (widoczną bez logowania) i próbować trzy razy. Adnotacje pokazały prawdziwą przyczynę: `--with-deps` instaluje przez apt pakiety systemowe (np. czcionki xfonts), a runner nie mógł rozwiązać nazwy mirrora `azure.archive.ubuntu.com`. Wszystkie trzy próby padły tak samo.
 - **Rozwiązanie:** CI instaluje samą przeglądarkę, bez pakietów systemowych, bo obraz runnera ma już biblioteki potrzebne Chrome'owi. Wniosek: najpierw zobaczyć komunikat błędu, potem naprawiać; hipoteza z ostrzeżenia obok kosztowała jeden przebieg.
+
+## Analiza produktów i kontrahentów (11.11.2026)
+
+### Ta sama pułapka EF Core drugi raz
+
+- **Objaw:** ranking produktów trwał 1,6 s na roku danych, ponad cel 1 s, choć to jedno zapytanie z grupowaniem.
+- **Przyczyna:** warunkowe agregaty w jednej grupie (suma tylko z bieżącego okresu, liczba różnych faktur tylko ze sprzedaży) EF Core tłumaczy na skorelowane podzapytanie dla każdej kolumny i każdego produktu. Ten sam mechanizm spowolnił wcześniej raport zalegających. Pierwsza próba poprawki (warunek wewnątrz `Sum`) dała 1,2 s, bo data faktury w agregacie wymagała dodatkowego złączenia, którego EF nie umiał włączyć do grupowania.
+- **Rozwiązanie:** zwykłe sumy osobno dla każdego okresu i liczenie różnych wartości osobno: 166 ms. Wniosek: przy każdym nowym zapytaniu z grupowaniem najpierw patrzeć na SQL (`--sql`), a dopiero potem na czas.
+
+### Moje oczekiwane wartości kosztu były złe
+
+- **Objaw:** test karty produktu oczekiwał kosztu 20,00 zł, a dostał 20,37 zł.
+- **Przyczyna:** w zestawie testowym druga dostawa po 6 zł podniosła cenę średnią do (98 × 5 + 10 × 6) / 108 = 5,0926 zł, a ja liczyłem ręcznie po 5 zł. Kod liczył dobrze.
+- **Wniosek:** wartości oczekiwane w teście z rozpisanym obliczeniem w komentarzu dają się sprawdzić, więc przy błędzie łatwo wskazać, czy pomylił się kod, czy autor testu.
